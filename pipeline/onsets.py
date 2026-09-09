@@ -47,8 +47,24 @@ def load_mono(path: Path, sr: int | None = None) -> tuple[np.ndarray, int]:
     return y.astype(np.float32), int(rate)
 
 
+def magnitudes(y: np.ndarray, *, hop: int = HOP_LENGTH) -> np.ndarray:
+    """STFT magnitudes for a signal.
+
+    Split out because every measurement in this module -- flux, band level --
+    starts from the same transform, and a stem gets asked for several bands.
+    Recomputing it per band was most of the detector's runtime.
+    """
+    return np.abs(librosa.stft(y, n_fft=N_FFT, hop_length=hop))
+
+
 def superflux(
-    y: np.ndarray, sr: int, fmin: float, fmax: float, *, hop: int = HOP_LENGTH
+    y: np.ndarray,
+    sr: int,
+    fmin: float,
+    fmax: float,
+    *,
+    hop: int = HOP_LENGTH,
+    spectrum: np.ndarray | None = None,
 ) -> np.ndarray:
     """SuperFlux onset strength restricted to one frequency band.
 
@@ -62,7 +78,8 @@ def superflux(
     # mostly empty ones -- librosa warns, and the empty channels dilute the flux.
     bins_in_band = int((fmax - fmin) / (sr / N_FFT))
     n_mels = int(np.clip(bins_in_band, 4, 64))
-    spectrum = np.abs(librosa.stft(y, n_fft=N_FFT, hop_length=hop))
+    if spectrum is None:
+        spectrum = magnitudes(y, hop=hop)
     mel = librosa.feature.melspectrogram(
         S=spectrum**2, sr=sr, n_mels=n_mels, fmin=fmin, fmax=fmax
     )
@@ -82,6 +99,86 @@ def _level_gate(mel: np.ndarray) -> np.ndarray:
     level = librosa.power_to_db(mel.sum(axis=0), ref=np.max)
     loud = float(np.percentile(level, 95.0))
     return np.clip((level - (loud - GATE_RANGE_DB)) / GATE_RANGE_DB, 0.0, 1.0)
+
+
+def band_rms(
+    y: np.ndarray,
+    sr: int,
+    fmin: float,
+    fmax: float,
+    *,
+    hop: int = HOP_LENGTH,
+    spectrum: np.ndarray | None = None,
+) -> np.ndarray:
+    """Per-frame RMS level of one frequency band.
+
+    This is the *level* answer, where :func:`superflux` is the *change* answer.
+    Flux peak height is what a detector picks peaks on, but it makes a poor
+    velocity: it measures how abruptly the spectrum moved, which a neighbouring
+    drum's transient bleeding into this stem does just as sharply as a real hit.
+    How loud the drum actually is over the few tens of milliseconds *after* the
+    transient is a much better proxy for how hard it was struck -- and it's the
+    number a listener would call the volume.
+
+    Computed off the linear magnitude spectrum, not the dB mel one the flux uses,
+    because a level has to stay proportional to amplitude to be worth comparing
+    between two stems.
+    """
+    fmax = min(fmax, sr / 2 - 1)
+    if spectrum is None:
+        spectrum = magnitudes(y, hop=hop)
+    freqs = librosa.fft_frequencies(sr=sr, n_fft=N_FFT)
+    band = (freqs >= fmin) & (freqs <= fmax)
+    if not band.any():  # a band narrower than one FFT bin: take the nearest
+        band = np.zeros(freqs.shape, dtype=bool)
+        band[int(np.argmin(np.abs(freqs - fmin)))] = True
+    return np.sqrt((spectrum[band] ** 2).mean(axis=0)).astype(np.float32)
+
+
+def post_onset_level(
+    env: np.ndarray,
+    times: np.ndarray,
+    query: np.ndarray,
+    *,
+    lookback: float = 0.006,
+    lookahead: float = 0.040,
+) -> np.ndarray:
+    """Peak of a level envelope just after each onset, clipped at the next one.
+
+    The window opens slightly *before* the detected time because a peak-picked
+    onset can sit a frame late, and closes 40 ms after -- long enough to catch a
+    kick's body, short enough to stay inside the hit. Clipping at the following
+    onset matters on fast passages: without it a ghost note 50 ms before a
+    backbeat reads as loud as the backbeat, which is the one thing velocity must
+    never say.
+    """
+    if env.size == 0 or query.size == 0:
+        return np.zeros(query.shape, dtype=float)
+    step = float(times[1] - times[0]) if times.size > 1 else 1.0
+    following = np.append(query[1:], np.inf)
+    out = np.empty(query.shape, dtype=float)
+    for i, (centre, nxt) in enumerate(zip(query, following)):
+        lo = max(0, int(round((centre - lookback) / step)))
+        hi = int(round((min(centre + lookahead, nxt)) / step)) + 1
+        hi = min(env.size, max(hi, lo + 1))
+        out[i] = float(env[lo:hi].max()) if hi > lo else 0.0
+    return out
+
+
+def relative_to_loud(values: np.ndarray, *, percentile: float = 95.0) -> np.ndarray:
+    """Scale levels against a high percentile of themselves, clipped to [0, 1].
+
+    "How hard is this hit, for this drum, in this song" -- a quiet song is not a
+    song of ghost notes, and an absolute scale would say it was. The percentile
+    rather than the max because one crash-accompanied hit shouldn't define the
+    ceiling for the other four hundred.
+    """
+    if values.size == 0:
+        return values
+    reference = float(np.percentile(values, percentile))
+    if reference <= 1e-12:
+        return np.zeros_like(values)
+    return np.clip(values / reference, 0.0, 1.0)
 
 
 def envelope_times(n_frames: int, sr: int, *, hop: int = HOP_LENGTH) -> np.ndarray:

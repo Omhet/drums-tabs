@@ -467,6 +467,120 @@ pipeline run in the loop.
   ride 0, high tom 2, snare 3, mid tom 4, low tom 5, pedal hi-hat 9.
 - ~~Precise alphaTex percussion syntax~~ — resolved in Phase 0, see the percussion section above.
 
+## Phase 3 status: detection slice complete (arbitration, velocity, per-slot thresholds)
+
+Taken **before Phase 2**, on purpose. Every remaining Phase 2 item — subdivision Viterbi, swing
+detection, ghost classification, flam collapse — consumes the note list, so tuning notation against a
+note list full of phantoms would have meant tuning it twice.
+
+**`drums score-stats` is the scoreboard**, and it exists because the Phase 1b sign-off was done on
+snap error, which cannot see this class of defect: a phantom hit snaps to a slot just as neatly as a
+real one. The new measure is *local self-consistency* — for every note, how often the same
+(slot, instrument) occurs in the ±4 neighbouring non-empty bars. Under 0.2 makes it a **one-off**;
+a slot over 0.8 that a bar lacks is a **dropout**. The two pull against each other, which is what
+makes them a scoreboard rather than a target: detect nothing and one-offs vanish, detect everything
+and dropouts do. `--save` and `--compare` make a before/after a diff instead of a retyped table.
+
+**Results on all nine songs.** One-offs down by a fifth to a half, dropouts flat:
+
+| | notes | one-off % | dropout % |
+|---|---|---|---|
+| kick | 2605 → 2513 | 7.6 → **5.7** | 2.9 → 3.0 |
+| snare | 1997 → 1707 | 14.1 → **11.0** | 3.0 → 3.0 |
+| hi-hat | 4474 → 3991 | 4.6 → **2.5** | 5.8 → 5.8 |
+
+Snap error did not regress anywhere, which was the constraint: it improved on eight songs and was
+unchanged on the ninth. The worst median went 12.5 → 11.7 ms and the worst p90 36.2 → 31.4 ms.
+
+Quiet snares sharing a slot with a kick — the Phase 1b headline defect — went from 13.9% of snare
+notes to **5.5%**, and to zero on Engel, Karma Police and Starburster. Across Stayin' Alive's 104
+bars the beat-1 and beat-3 snares fell from 48 and 42 to 4 and 17, with the backbeat untouched at
+104 and 104. Engel's fell from 29 and 24 to 2 and 0, its backbeat untouched at 79 and 83. Distinct bar
+patterns fell where the repetition was real (Engel 74 → 62, Karma Police 40 → 24, Starburster
+37 → 16) and stayed put on the Vulfpeck tune (70 → 69), which is the song that genuinely does not
+repeat.
+
+**What the three changes are:**
+
+- **Share, the measurement everything else rests on.** For each candidate: what fraction of the whole
+  kit's energy in this band, at this moment, is in this stem? A real snare owns its band; a kick's
+  shadow in the snare stem is a slice of a band the kick stem owns. It is comparable *between* stems
+  because every share is a fraction of the same `drums.wav`, which is what the winner-take-all rule
+  needs and what nothing in Phase 1b had. It also identifies an unplayed stem for free: in a song
+  with no ride, the ride stem still yields 800 peaks and they sit at a share of 0.01.
+- **Cross-stem winner-take-all**, clustering within 25 ms, keeping a stem only above 0.35 of the best
+  share among drums it could be confused with, with tighter asymmetric ratios along the leaky pairs
+  (kick into snare and toms, crash into hi-hat and ride, snare into toms). Ratios are fitted per song
+  from *isolated* hits of the victim drum — the ones that occur with no suppressor anywhere near
+  them, where it is unarguably itself — and clamped to [0.25, 0.60]. **Be aware the fit binds at the
+  ceiling on seven of the nine songs**, so most of the time the clamp is what decides and the
+  calibration is doing nothing. Where it does fire it fires in the useful direction: it *relaxes*
+  kick-into-snare to 0.40 on Stayin' Alive and 0.43 on kill me, whose lone snares are themselves
+  murky, rather than holding them to a bar their real snares could not clear. Fitting a ratio per
+  song is worth keeping for that, but the honest summary is that a well-chosen constant does most of
+  this job.
+- **Velocity from post-onset band RMS**, normalised to the instrument's own 95th percentile, replacing
+  flux peak height.
+- **Per-slot adaptive thresholds** replacing the single 0.15/0.12 velocity floor. The floor slides
+  from 0.32 at a slot no neighbouring bar plays to 0.02 at one they all do, squared so that support
+  buys leniency quickly. Nothing here can *add* a note, and anything above 0.45 velocity is exempt
+  from context entirely, so fills and section changes pass untouched.
+
+**Four things the measurements said that the design did not:**
+
+- **Velocity cannot do the anti-artefact job that flux peak height was doing.** A kick's pitch
+  envelope drops as it decays and makes a second flux peak 60-90 ms behind the hit. That artefact is
+  *loud* — the drum is still ringing through it — so no measure of level will ever reject it. Judging
+  kicks on RMS alone added 64% more kicks to one song and took its p90 snap error from 24 ms to 40,
+  the extra notes landing between the slots. Attack (relative flux height) and velocity (relative
+  level) are now separate numbers answering separate questions, and both are kept per candidate.
+- **Winner-take-all across the whole kit is wrong, because share is a fraction of a band.** A kick
+  owning its 30-120 Hz says nothing about whether a hi-hat sounded at 8 kHz. Applied kit-wide the
+  rule deleted 32 real hi-hats from Stayin' Alive's beats 2 and 4, where the snare's crack band is
+  loud and dilutes the hat's share of the top end. It now applies only within a confusion group —
+  heads together, cymbals together.
+- **A confidence test on who may *vote* for a slot backfires, whatever the test.** By loudness, in
+  sixteenth funk almost every hi-hat sits below any fixed line, so nothing voted, no slot looked
+  supported, and the whole part fell through the strict floor: 716 notes to 315 on the Vulfpeck tune.
+  By share, where a drum is systematically masked — dead horse plays its hi-hat on the backbeat under
+  the snare, every bar — masking pushes the share below the line, the slot is never established, and
+  every masked hit is cut: 32 of its 48 backbeat hi-hats. Both tests removed exactly the notes that
+  most needed protecting. Every arbitration survivor votes now, which is safe *because* arbitration
+  ran first: systematic bleed is the only phantom that could vote itself into existence, and
+  systematic bleed is what arbitration removes.
+- **Velocity is a linear amplitude ratio, so a dynamic part spans an enormous range of it.** Half the
+  Vulfpeck hi-hats sit below a quarter of the loudest — that is what sixteenth funk sounds like, not
+  a detector failing — where Stayin' Alive's sit at two thirds. A floor that is mild for one is
+  brutal for the other, which is why the supported end of the band is as low as 0.02.
+
+**Tried and rejected: PLAN's rolling median + k·MAD adaptive threshold.** Measured at k = 1 and k = 2
+over a 1.5 s window on three songs, it changed *nothing* — not one note on any of them. librosa's
+peak-picker already requires each peak to stand above a rolling local mean, and every peak that
+survives that also clears a median plus two MADs. The threshold it was meant to replace is no longer
+absolute either: every floor in the detector is now relative to a per-song percentile, which is the
+problem the MAD threshold existed to solve. Left out.
+
+**Known residuals:**
+
+- **The Vulfpeck tune is the one song that got worse** on the metric: its hi-hat one-offs went 2.5% →
+  5.0% and the part thinned from 716 notes to 618. Its hats are genuinely ghosted sixteenths at 20 dB
+  below the accents, and the velocity floor takes the bottom off them. Every other song improved. If
+  it needs fixing, the direction is a local rather than global velocity reference, not a lower floor.
+- **The one-off rate is now partly self-referential.** The per-slot threshold uses the same
+  neighbouring-bar idea the scoreboard grades with, so improving it is not entirely independent
+  evidence. Mitigated three ways and worth remembering rather than trusting blindly: the detector
+  looks ±3 bars where the metric looks ±4; arbitration and the velocity change improved the number
+  before any per-slot logic existed; and the dropout rate, the snap error and the quiet-snare-on-kick
+  rate are all uncoupled from it and all moved the right way. This is why the notation was checked by
+  looking.
+- **Toms, ride and crash are detected but still not notated.** They now earn their keep as evidence,
+  which is a change of role rather than of scope: emitting them still needs the classification work
+  (which tom, open or closed hat) that Phase 3 has not done.
+- **19% of notes were in ghost territory and all notated full-weight; it is 16% now.** Still Phase 2's
+  job — velocity is trustworthy enough to classify on, which was the point of changing it.
+
+---
+
 ## Phase 1b status: complete
 
 `drums all <url>` now goes from a YouTube URL to a playable score. The new stages are `kit`
@@ -523,11 +637,12 @@ hasn't failed.
 - **Three classes means loud sections look sparse.** No toms, ride or crash, so Song 2's chorus --
   played almost entirely on cymbals -- reads as 3.56 hits per bar. The stems for all six drums are
   already split and on disk; only the detection and classification are missing.
-- **Snare bleed is the biggest quality defect.** Between 2% and 24% of snare notes are quiet ones
-  landing on a slot that also has a kick (Stayin' Alive 24%, Beggin' and Engel 16-19%, Starburster
-  2%). Some of those are real kick-snare unisons, but the pattern -- half-velocity snares on beats
-  1 and 3 of a song whose backbeat is on 2 and 4 -- says most are the kick leaking into the snare
-  stem's body band. This is what cross-stem arbitration is for.
+- ~~**Snare bleed is the biggest quality defect.**~~ **Fixed** by the Phase 3 detection slice below.
+  Between 2% and 24% of snare notes were quiet ones landing on a slot that also had a kick (Stayin'
+  Alive 24%, Beggin' and Engel 16-19%, Starburster 2%). Some were real kick-snare unisons, but the
+  pattern -- half-velocity snares on beats 1 and 3 of a song whose backbeat is on 2 and 4 -- said
+  most were the kick leaking into the snare stem's body band. Cross-stem arbitration took it to
+  5.5% overall, and to zero on Engel and Karma Police.
 - **Straight sixteenths flatten shuffles.** Quantizing hits per beat, dead horse puts 23% of its
   notes on the last sixteenth of a beat against 7% on the first -- the signature of a swung eighth
   landing near 0.67 and rounding to 0.75. It notates as sixteenth hash, which is exactly the case

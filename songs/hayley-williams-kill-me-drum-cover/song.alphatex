@@ -11,65 +11,65 @@
 \voicemode barwise
 \ts(4 4)
 
-/* 1 */ r.4 ("hi-hat (closed)" "snare (hit)").4 "snare (hit)".4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
-/* 2 */ r.4 "snare (hit)".4 "snare (hit)".4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
-/* 3 */ "snare (hit)".4 "snare (hit)".4 "snare (hit)".4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
+/* 1 */ r.4 "snare (hit)".4 "snare (hit)".4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
+/* 2 */ r.4 "snare (hit)".4 r.4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
+/* 3 */ r.4 "snare (hit)".4 r.4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
 /* 4 */ r.4 "snare (hit)".4 "snare (hit)".4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
 /* 5 */ r.4 ("hi-hat (closed)" "snare (hit)").4 "snare (hit)".4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
-/* 6 */ "snare (hit)".4 ("hi-hat (closed)" "snare (hit)").4 "snare (hit)".4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
-/* 7 */ "snare (hit)".4 ("hi-hat (closed)" "snare (hit)").4 "snare (hit)".4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
-/* 8 */ r.4 "snare (hit)".4 "snare (hit)".4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
-/* 9 */ r.4 ("hi-hat (closed)" "snare (hit)").4 "snare (hit)".4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".16 "kick (hit)".16 r.8 r.4 |
-/* 10 */ r.4 "snare (hit)".4 "snare (hit)".4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
-/* 11 */ "snare (hit)".4 "snare (hit)".4 r.4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".16 "kick (hit)".16 r.8 r.4 |
+/* 6 */ r.4 "snare (hit)".4 r.4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
+/* 7 */ r.4 "snare (hit)".4 r.4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
+/* 8 */ r.4 "snare (hit)".4 r.4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
+/* 9 */ r.4 "snare (hit)".4 r.4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
+/* 10 */ r.4 "snare (hit)".4 r.4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
+/* 11 */ r.4 "snare (hit)".4 r.4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
 /* 12 */ r.4 "snare (hit)".4 r.4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
 /* 13 */ r.1 \voice r.1 |
-/* 14 */ "hi-hat (closed)".4 "snare (hit)".4 "snare (hit)".4 "snare (hit)".4 \voice "kick (hit)".4 "kick (hit)".4 "kick (hit)".2 |
+/* 14 */ r.2 r.4 "snare (hit)".4 \voice "kick (hit)".4 "kick (hit)".4 "kick (hit)".2 |
 /* 15 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
-/* 16 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 "snare (hit)".8 "hi-hat (closed)".16 "hi-hat (closed)".16 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
+/* 16 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 "snare (hit)".8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
 /* 17 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice r.4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
 /* 18 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 "snare (hit)".8 "hi-hat (closed)".8 \voice r.4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
 /* 19 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 "kick (hit)".8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
 /* 20 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice r.4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
 /* 21 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice r.4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
-/* 22 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 ("hi-hat (closed)" "snare (hit)").8 ("hi-hat (closed)" "snare (hit)").8 ("hi-hat (closed)" "snare (hit)").8 "snare (hit)".8 "hi-hat (closed)".8 \voice r.4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
-/* 23 */ r.4 "hi-hat (closed)".4 "hi-hat (closed)".8 "snare (hit)".8 r.8 "snare (hit)".8 \voice r.1 |
-/* 24 */ "snare (hit)".4 "snare (hit)".4 r.4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
-/* 25 */ "snare (hit)".4 "snare (hit)".4 r.4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
-/* 26 */ "snare (hit)".4 ("hi-hat (closed)" "snare (hit)").4 "hi-hat (closed)".4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
-/* 27 */ r.4 ("hi-hat (closed)" "snare (hit)").4 r.4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
-/* 28 */ r.4 ("hi-hat (closed)" "snare (hit)").4 r.4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
-/* 29 */ "snare (hit)".4 ("hi-hat (closed)" "snare (hit)").4 "snare (hit)".4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
-/* 30 */ "snare (hit)".4 ("hi-hat (closed)" "snare (hit)").4 r.4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
-/* 31 */ r.4 ("hi-hat (closed)" "snare (hit)").4 r.4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
+/* 22 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 "snare (hit)".8 "hi-hat (closed)".8 \voice r.4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
+/* 23 */ r.2 "hi-hat (closed)".4 r.8 "snare (hit)".8 \voice r.1 |
+/* 24 */ r.4 "snare (hit)".4 r.4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
+/* 25 */ r.4 "snare (hit)".4 r.4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
+/* 26 */ "snare (hit)".4 ("hi-hat (closed)" "snare (hit)").4 r.4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
+/* 27 */ r.4 ("hi-hat (closed)" "snare (hit)").4 r.4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
+/* 28 */ r.4 "snare (hit)".4 r.4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
+/* 29 */ r.4 ("hi-hat (closed)" "snare (hit)").4 r.4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
+/* 30 */ r.4 "snare (hit)".4 r.4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
+/* 31 */ r.4 "snare (hit)".4 r.4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".2 "kick (hit)".2 |
 /* 32 */ r.1 \voice r.1 |
-/* 33 */ r.4 ("hi-hat (closed)" "snare (hit)").4 "snare (hit)".4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".4 "kick (hit)".4 "kick (hit)".2 |
-/* 34 */ r.16 "hi-hat (closed)".16 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
+/* 33 */ r.4 ("hi-hat (closed)" "snare (hit)").4 r.4 ("hi-hat (closed)" "snare (hit)").4 \voice "kick (hit)".4 "kick (hit)".4 "kick (hit)".2 |
+/* 34 */ r.8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
 /* 35 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 "snare (hit)".8 "hi-hat (closed)".8 \voice r.4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
 /* 36 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
-/* 37 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "snare (hit)".8 "hi-hat (closed)".8 \voice r.4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
-/* 38 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".16 "hi-hat (closed)".16 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice r.4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
-/* 39 */ "hi-hat (closed)".8 "hi-hat (closed)".16 "snare (hit)".16 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "snare (hit)".8 "hi-hat (closed)".16 "hi-hat (closed)".16 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
+/* 37 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 "snare (hit)".8 "hi-hat (closed)".8 \voice r.4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
+/* 38 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice r.4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
+/* 39 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 "snare (hit)".8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
 /* 40 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
-/* 41 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "snare (hit)".8 "hi-hat (closed)".8 \voice r.4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
-/* 42 */ "snare (hit)".4 "snare (hit)".4 r.4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
+/* 41 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 "snare (hit)".8 "hi-hat (closed)".8 \voice r.4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
+/* 42 */ r.4 "snare (hit)".4 r.4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
 /* 43 */ r.4 "snare (hit)".4 r.4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
 /* 44 */ r.4 "snare (hit)".8 "hi-hat (closed)".8 r.4 "snare (hit)".4 \voice "kick (hit)".2 "kick (hit)".2 |
-/* 45 */ r.4 "snare (hit)".4 r.8 "hi-hat (closed)".8 "snare (hit)".8 "hi-hat (closed)".8 \voice "kick (hit)".2 "kick (hit)".4 "kick (hit)".4 |
+/* 45 */ r.4 "snare (hit)".4 r.8 "hi-hat (closed)".8 "snare (hit)".8 "hi-hat (closed)".8 \voice "kick (hit)".2 "kick (hit)".2 |
 /* 46 */ r.8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
 /* 47 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 "kick (hit)".8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
 /* 48 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
-/* 49 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 ("hi-hat (closed)" "snare (hit)").8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".16 "hi-hat (closed)".16 \voice r.4 r.16 "kick (hit)".16 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
+/* 49 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".16 "hi-hat (closed)".16 \voice r.4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
 /* 50 */ r.1 \voice r.1 |
 /* 51 */ r.1 \voice r.1 |
-/* 52 */ r.2 r.4 r.8 r.16 "hi-hat (closed)".16 \voice r.2 r.4 r.8 r.16 "kick (hit)".16 |
-/* 53 */ "snare (hit)".8 r.16 "hi-hat (closed)".16 "snare (hit)".16 "snare (hit)".16 "snare (hit)".8 "snare (hit)".2 \voice r.8 r.16 "kick (hit)".16 r.8 r.16 "kick (hit)".16 r.2 |
-/* 54 */ "hi-hat (closed)".4 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
-/* 55 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 ("hi-hat (closed)" "snare (hit)").8 "snare (hit)".8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 "kick (hit)".8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
+/* 52 */ r.1 \voice r.2 r.4 r.8 r.16 "kick (hit)".16 |
+/* 53 */ r.4 "snare (hit)".4 r.2 \voice r.8 r.16 "kick (hit)".16 r.8 r.16 "kick (hit)".16 r.2 |
+/* 54 */ r.4 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
+/* 55 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "snare (hit)".8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 "kick (hit)".8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
 /* 56 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 "kick (hit)".8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
 /* 57 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "snare (hit)".8 "hi-hat (closed)".8 \voice r.4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
 /* 58 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
 /* 59 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 "snare (hit)".8 "hi-hat (closed)".8 \voice r.4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
 /* 60 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
-/* 61 */ "hi-hat (closed)".8 "hi-hat (closed)".16 "snare (hit)".16 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 "snare (hit)".8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
+/* 61 */ "hi-hat (closed)".8 "hi-hat (closed)".8 ("hi-hat (closed)" "snare (hit)").8 "hi-hat (closed)".8 "hi-hat (closed)".8 "hi-hat (closed)".8 "snare (hit)".8 "hi-hat (closed)".8 \voice "kick (hit)".4 r.8 r.16 "kick (hit)".16 r.8 "kick (hit)".8 r.8 r.16 "kick (hit)".16 |
 /* 62 */ r.1 \voice "kick (hit)".1

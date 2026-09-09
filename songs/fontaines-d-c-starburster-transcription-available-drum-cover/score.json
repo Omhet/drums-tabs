@@ -7,20 +7,20 @@
   },
   "subdivision": 4,
   "stats": {
-    "onsets_in": 652,
+    "onsets_in": 571,
     "before_bar_one": 0,
     "after_last_bar": 0,
-    "merged_duplicates": 8,
+    "merged_duplicates": 6,
     "by_instrument": {
-      "hihat_closed": 305,
-      "kick": 222,
-      "snare": 117
+      "hihat_closed": 251,
+      "kick": 207,
+      "snare": 107
     },
-    "notes_out": 644,
+    "notes_out": 565,
     "empty_bars": 29,
     "snap_error_ms": {
-      "median": 9.6,
-      "p90": 25.9,
+      "median": 9.0,
+      "p90": 23.0,
       "signed_mean": -5.4
     }
   },
@@ -37,82 +37,17 @@
         {
           "slot": 0,
           "instrument": "hihat_closed",
-          "velocity": 0.33
+          "velocity": 0.182
         },
         {
           "slot": 0,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.938
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.544
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 0.535
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.801
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.195
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 0.904
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 1.0
-        },
-        {
-          "slot": 11,
-          "instrument": "kick",
-          "velocity": 0.572
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 0.966
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.512
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.596
-        }
-      ]
-    },
-    {
-      "bar": 2,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.296
-        },
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.51
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 1.0
+          "velocity": 0.392
         },
         {
           "slot": 4,
@@ -122,52 +57,107 @@
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.704
-        },
-        {
-          "slot": 7,
-          "instrument": "kick",
-          "velocity": 0.985
+          "velocity": 0.811
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 0.327
-        },
-        {
-          "slot": 9,
-          "instrument": "hihat_closed",
-          "velocity": 0.646
+          "velocity": 0.941
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.511
-        },
-        {
-          "slot": 10,
-          "instrument": "snare",
-          "velocity": 0.239
+          "velocity": 0.821
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.569
+          "velocity": 0.936
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.954
+          "velocity": 0.713
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.584
+          "velocity": 0.201
         },
         {
           "slot": 14,
           "instrument": "kick",
-          "velocity": 0.707
+          "velocity": 0.911
+        }
+      ]
+    },
+    {
+      "bar": 2,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "hihat_closed",
+          "velocity": 0.096
+        },
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.861
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.954
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 1.0
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.786
+        },
+        {
+          "slot": 7,
+          "instrument": "kick",
+          "velocity": 0.948
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.836
+        },
+        {
+          "slot": 9,
+          "instrument": "hihat_closed",
+          "velocity": 0.389
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.797
+        },
+        {
+          "slot": 11,
+          "instrument": "kick",
+          "velocity": 1.0
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 1.0
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.655
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.919
         }
       ]
     },
@@ -177,72 +167,52 @@
         {
           "slot": 0,
           "instrument": "kick",
-          "velocity": 0.454
+          "velocity": 0.852
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 1.0
-        },
-        {
-          "slot": 2,
-          "instrument": "snare",
-          "velocity": 0.392
+          "velocity": 0.622
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 0.977
+          "velocity": 1.0
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.756
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.158
+          "velocity": 0.718
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 0.788
-        },
-        {
-          "slot": 9,
-          "instrument": "snare",
-          "velocity": 0.171
+          "velocity": 0.964
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.941
-        },
-        {
-          "slot": 10,
-          "instrument": "snare",
-          "velocity": 0.311
+          "velocity": 0.565
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.617
+          "velocity": 0.958
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.935
+          "velocity": 0.856
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.357
+          "velocity": 0.12
         },
         {
           "slot": 14,
           "instrument": "kick",
-          "velocity": 0.57
+          "velocity": 0.917
         }
       ]
     },
@@ -252,67 +222,67 @@
         {
           "slot": 0,
           "instrument": "hihat_closed",
-          "velocity": 0.228
+          "velocity": 0.099
         },
         {
           "slot": 0,
           "instrument": "kick",
-          "velocity": 0.509
+          "velocity": 0.937
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.98
+          "velocity": 0.745
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 0.951
+          "velocity": 1.0
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.783
+          "velocity": 0.684
         },
         {
           "slot": 7,
           "instrument": "kick",
-          "velocity": 0.998
+          "velocity": 0.971
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 0.317
+          "velocity": 0.815
         },
         {
           "slot": 9,
           "instrument": "hihat_closed",
-          "velocity": 0.541
+          "velocity": 0.339
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.741
+          "velocity": 0.992
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.669
+          "velocity": 0.976
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.961
+          "velocity": 0.809
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.779
+          "velocity": 0.634
         },
         {
           "slot": 14,
           "instrument": "kick",
-          "velocity": 0.72
+          "velocity": 0.957
         }
       ]
     },
@@ -322,62 +292,52 @@
         {
           "slot": 0,
           "instrument": "kick",
-          "velocity": 0.421
+          "velocity": 0.91
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.949
+          "velocity": 0.803
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 0.945
+          "velocity": 0.858
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.787
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.313
+          "velocity": 0.702
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 0.985
+          "velocity": 0.959
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 1.0
+          "velocity": 0.943
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.683
-        },
-        {
-          "slot": 12,
-          "instrument": "hihat_closed",
-          "velocity": 0.192
+          "velocity": 0.973
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.96
+          "velocity": 1.0
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.211
+          "velocity": 0.133
         },
         {
           "slot": 14,
           "instrument": "kick",
-          "velocity": 0.638
+          "velocity": 1.0
         }
       ]
     },
@@ -386,68 +346,63 @@
       "hits": [
         {
           "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.216
-        },
-        {
-          "slot": 0,
           "instrument": "kick",
-          "velocity": 0.41
+          "velocity": 0.958
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.981
+          "velocity": 0.861
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 1.0
+          "velocity": 0.875
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.749
+          "velocity": 0.602
         },
         {
           "slot": 7,
           "instrument": "kick",
-          "velocity": 0.859
+          "velocity": 0.954
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 0.361
+          "velocity": 0.874
         },
         {
           "slot": 9,
           "instrument": "hihat_closed",
-          "velocity": 0.689
+          "velocity": 0.327
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.579
+          "velocity": 0.866
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.832
+          "velocity": 0.969
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.925
+          "velocity": 0.857
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.692
+          "velocity": 0.612
         },
         {
           "slot": 14,
           "instrument": "kick",
-          "velocity": 0.601
+          "velocity": 0.929
         }
       ]
     },
@@ -457,67 +412,52 @@
         {
           "slot": 0,
           "instrument": "kick",
-          "velocity": 0.352
+          "velocity": 0.837
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 1.0
+          "velocity": 0.665
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 0.993
+          "velocity": 0.857
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.867
-        },
-        {
-          "slot": 7,
-          "instrument": "kick",
-          "velocity": 0.162
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.152
+          "velocity": 0.644
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 0.998
+          "velocity": 0.948
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.982
-        },
-        {
-          "slot": 10,
-          "instrument": "snare",
-          "velocity": 0.364
+          "velocity": 0.556
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.613
+          "velocity": 0.953
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.917
+          "velocity": 0.865
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.451
+          "velocity": 0.092
         },
         {
           "slot": 14,
           "instrument": "kick",
-          "velocity": 0.749
+          "velocity": 0.946
         }
       ]
     },
@@ -526,68 +466,63 @@
       "hits": [
         {
           "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.429
-        },
-        {
-          "slot": 0,
           "instrument": "kick",
-          "velocity": 0.506
+          "velocity": 0.986
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 1.0
+          "velocity": 0.95
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 1.0
+          "velocity": 0.832
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.705
+          "velocity": 0.642
         },
         {
           "slot": 7,
           "instrument": "kick",
-          "velocity": 0.978
+          "velocity": 0.946
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 0.435
+          "velocity": 0.9
         },
         {
           "slot": 9,
           "instrument": "hihat_closed",
-          "velocity": 0.47
+          "velocity": 0.449
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.435
+          "velocity": 0.84
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.789
+          "velocity": 0.969
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.959
+          "velocity": 0.876
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.467
+          "velocity": 0.61
         },
         {
           "slot": 14,
           "instrument": "kick",
-          "velocity": 0.632
+          "velocity": 0.963
         }
       ]
     },
@@ -597,52 +532,52 @@
         {
           "slot": 0,
           "instrument": "kick",
-          "velocity": 0.451
+          "velocity": 0.884
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.543
+          "velocity": 0.306
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 0.815
+          "velocity": 0.874
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.625
+          "velocity": 0.513
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.964
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.898
+          "velocity": 0.774
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.647
+          "velocity": 0.906
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.954
+          "velocity": 0.833
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.407
+          "velocity": 0.169
         },
         {
           "slot": 14,
           "instrument": "kick",
-          "velocity": 0.676
+          "velocity": 0.95
         }
       ]
     },
@@ -651,1318 +586,48 @@
       "hits": [
         {
           "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.149
-        },
-        {
-          "slot": 0,
           "instrument": "kick",
-          "velocity": 0.441
+          "velocity": 0.924
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.837
+          "velocity": 1.0
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 1.0
+          "velocity": 0.923
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.663
+          "velocity": 0.396
         },
         {
           "slot": 7,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.936
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 0.277
+          "velocity": 0.805
         },
         {
           "slot": 9,
-          "instrument": "hihat_closed",
-          "velocity": 0.457
-        },
-        {
-          "slot": 10,
           "instrument": "hihat_closed",
           "velocity": 0.388
         },
         {
           "slot": 10,
-          "instrument": "snare",
-          "velocity": 0.544
-        },
-        {
-          "slot": 11,
-          "instrument": "kick",
-          "velocity": 0.807
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 0.926
-        },
-        {
-          "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.49
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.864
-        }
-      ]
-    },
-    {
-      "bar": 11,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.373
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 0.811
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 0.971
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.698
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.227
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.655
-        },
-        {
-          "slot": 11,
-          "instrument": "kick",
           "velocity": 0.703
         },
         {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 1.0
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.309
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.619
-        }
-      ]
-    },
-    {
-      "bar": 12,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.276
-        },
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.572
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 1.0
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 1.0
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.686
-        },
-        {
-          "slot": 7,
-          "instrument": "kick",
-          "velocity": 0.96
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 0.362
-        },
-        {
-          "slot": 9,
-          "instrument": "hihat_closed",
-          "velocity": 0.422
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.356
-        },
-        {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.787
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 1.0
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.696
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.67
-        }
-      ]
-    },
-    {
-      "bar": 13,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.499
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 1.0
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 0.986
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.635
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.209
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 0.995
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.87
-        },
-        {
-          "slot": 11,
-          "instrument": "kick",
-          "velocity": 0.684
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 0.934
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.323
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.682
-        }
-      ]
-    },
-    {
-      "bar": 14,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.233
-        },
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.406
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 0.672
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 0.981
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.729
-        },
-        {
-          "slot": 7,
-          "instrument": "kick",
-          "velocity": 0.878
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 0.38
-        },
-        {
-          "slot": 9,
-          "instrument": "hihat_closed",
-          "velocity": 0.499
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.557
-        },
-        {
-          "slot": 11,
-          "instrument": "kick",
-          "velocity": 0.758
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 0.961
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.707
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.712
-        }
-      ]
-    },
-    {
-      "bar": 15,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.467
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 0.892
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 1.0
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.748
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.213
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.867
-        },
-        {
-          "slot": 11,
-          "instrument": "kick",
-          "velocity": 0.648
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 1.0
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.254
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.871
-        }
-      ]
-    },
-    {
-      "bar": 16,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.211
-        },
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.488
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 0.879
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 1.0
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.808
-        },
-        {
-          "slot": 7,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 0.432
-        },
-        {
-          "slot": 9,
-          "instrument": "snare",
-          "velocity": 0.807
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.709
-        },
-        {
-          "slot": 11,
-          "instrument": "kick",
-          "velocity": 0.886
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 0.56
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.681
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.996
-        }
-      ]
-    },
-    {
-      "bar": 17,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.459
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 0.492
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 0.888
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.624
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.241
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.82
-        },
-        {
-          "slot": 11,
-          "instrument": "kick",
-          "velocity": 0.643
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 1.0
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.387
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.741
-        }
-      ]
-    },
-    {
-      "bar": 18,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.215
-        },
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.455
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 1.0
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 0.842
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.752
-        },
-        {
-          "slot": 7,
-          "instrument": "kick",
-          "velocity": 0.954
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 0.342
-        },
-        {
-          "slot": 9,
-          "instrument": "hihat_closed",
-          "velocity": 0.806
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.563
-        },
-        {
-          "slot": 11,
-          "instrument": "kick",
-          "velocity": 0.61
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 0.995
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.49
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.765
-        }
-      ]
-    },
-    {
-      "bar": 19,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.493
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 0.961
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 0.794
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.899
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.172
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.596
-        },
-        {
-          "slot": 10,
-          "instrument": "snare",
-          "velocity": 0.192
-        },
-        {
-          "slot": 11,
-          "instrument": "kick",
-          "velocity": 0.688
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 0.975
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.381
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.763
-        }
-      ]
-    },
-    {
-      "bar": 20,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.417
-        },
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.432
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 1.0
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 0.975
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.806
-        },
-        {
-          "slot": 7,
-          "instrument": "kick",
-          "velocity": 0.919
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 0.407
-        },
-        {
-          "slot": 9,
-          "instrument": "hihat_closed",
-          "velocity": 0.491
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.532
-        },
-        {
-          "slot": 11,
-          "instrument": "kick",
-          "velocity": 0.601
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 0.925
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.59
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.904
-        }
-      ]
-    },
-    {
-      "bar": 21,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.494
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 0.986
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 0.932
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.503
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.267
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.847
-        },
-        {
-          "slot": 11,
-          "instrument": "kick",
-          "velocity": 0.671
-        },
-        {
-          "slot": 12,
-          "instrument": "hihat_closed",
-          "velocity": 0.251
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 1.0
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.367
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.851
-        }
-      ]
-    },
-    {
-      "bar": 22,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.375
-        },
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.491
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 0.746
-        },
-        {
-          "slot": 4,
-          "instrument": "hihat_closed",
-          "velocity": 0.462
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 1.0
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.752
-        },
-        {
-          "slot": 7,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 0.386
-        },
-        {
-          "slot": 9,
-          "instrument": "hihat_closed",
-          "velocity": 0.404
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.499
-        },
-        {
-          "slot": 11,
-          "instrument": "kick",
-          "velocity": 0.8
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 0.768
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.572
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.827
-        }
-      ]
-    },
-    {
-      "bar": 23,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.513
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 1.0
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 0.904
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.725
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.246
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.751
-        },
-        {
-          "slot": 11,
-          "instrument": "kick",
-          "velocity": 0.683
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 0.957
-        },
-        {
-          "slot": 13,
-          "instrument": "hihat_closed",
-          "velocity": 0.253
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.818
-        }
-      ]
-    },
-    {
-      "bar": 24,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.258
-        },
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.443
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 0.648
-        },
-        {
-          "slot": 4,
-          "instrument": "hihat_closed",
-          "velocity": 0.147
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 1.0
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.672
-        },
-        {
-          "slot": 7,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 0.263
-        },
-        {
-          "slot": 9,
-          "instrument": "snare",
-          "velocity": 0.802
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.696
-        },
-        {
-          "slot": 11,
-          "instrument": "kick",
-          "velocity": 0.921
-        },
-        {
-          "slot": 12,
-          "instrument": "kick",
-          "velocity": 0.156
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 0.529
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.594
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.804
-        }
-      ]
-    },
-    {
-      "bar": 25,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.431
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 0.489
-        },
-        {
-          "slot": 4,
-          "instrument": "hihat_closed",
-          "velocity": 0.257
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 0.74
-        },
-        {
-          "slot": 5,
-          "instrument": "hihat_closed",
-          "velocity": 0.244
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.676
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.26
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.635
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 0.989
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.702
-        }
-      ]
-    },
-    {
-      "bar": 26,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 0.89
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 1.0
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.773
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.587
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 0.978
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.653
-        }
-      ]
-    },
-    {
-      "bar": 27,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.218
-        },
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.889
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 0.82
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 1.0
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.529
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.281
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.603
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 0.906
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.645
-        }
-      ]
-    },
-    {
-      "bar": 28,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.862
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 0.878
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 1.0
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.661
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.199
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.669
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 1.0
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.716
-        }
-      ]
-    },
-    {
-      "bar": 29,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 0.897
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 1.0
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.679
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.324
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.659
-        },
-        {
-          "slot": 12,
-          "instrument": "hihat_closed",
-          "velocity": 0.187
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 0.945
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.598
-        }
-      ]
-    },
-    {
-      "bar": 30,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.122
-        },
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 0.908
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 0.973
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.721
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.209
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.638
+          "velocity": 0.974
         },
         {
           "slot": 12,
@@ -1972,7 +637,1142 @@
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.658
+          "velocity": 0.635
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.948
+        }
+      ]
+    },
+    {
+      "bar": 11,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.95
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.786
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.888
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.742
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.944
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.913
+        },
+        {
+          "slot": 11,
+          "instrument": "kick",
+          "velocity": 0.971
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.826
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.132
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.958
+        }
+      ]
+    },
+    {
+      "bar": 12,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.916
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.861
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.889
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.531
+        },
+        {
+          "slot": 7,
+          "instrument": "kick",
+          "velocity": 1.0
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.935
+        },
+        {
+          "slot": 9,
+          "instrument": "hihat_closed",
+          "velocity": 0.322
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 1.0
+        },
+        {
+          "slot": 11,
+          "instrument": "kick",
+          "velocity": 0.947
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.914
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.6
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.922
+        }
+      ]
+    },
+    {
+      "bar": 13,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.961
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 1.0
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.906
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.663
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.963
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.841
+        },
+        {
+          "slot": 11,
+          "instrument": "kick",
+          "velocity": 0.942
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.907
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.062
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.95
+        }
+      ]
+    },
+    {
+      "bar": 14,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.921
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.524
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.886
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.596
+        },
+        {
+          "slot": 7,
+          "instrument": "kick",
+          "velocity": 0.934
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.918
+        },
+        {
+          "slot": 9,
+          "instrument": "hihat_closed",
+          "velocity": 0.464
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.888
+        },
+        {
+          "slot": 11,
+          "instrument": "kick",
+          "velocity": 0.948
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.791
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.698
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.958
+        }
+      ]
+    },
+    {
+      "bar": 15,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.897
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.838
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.905
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.591
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.983
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.952
+        },
+        {
+          "slot": 11,
+          "instrument": "kick",
+          "velocity": 1.0
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.812
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.055
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.973
+        }
+      ]
+    },
+    {
+      "bar": 16,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.887
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.872
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.908
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.688
+        },
+        {
+          "slot": 7,
+          "instrument": "kick",
+          "velocity": 0.943
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.924
+        },
+        {
+          "slot": 9,
+          "instrument": "snare",
+          "velocity": 0.84
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.498
+        },
+        {
+          "slot": 11,
+          "instrument": "kick",
+          "velocity": 0.966
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.909
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.639
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.941
+        }
+      ]
+    },
+    {
+      "bar": 17,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.897
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.528
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.884
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.706
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.957
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.755
+        },
+        {
+          "slot": 11,
+          "instrument": "kick",
+          "velocity": 0.963
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.805
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.096
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.964
+        }
+      ]
+    },
+    {
+      "bar": 18,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.937
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.998
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.83
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.886
+        },
+        {
+          "slot": 7,
+          "instrument": "kick",
+          "velocity": 0.923
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.953
+        },
+        {
+          "slot": 9,
+          "instrument": "hihat_closed",
+          "velocity": 0.442
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 1.0
+        },
+        {
+          "slot": 11,
+          "instrument": "kick",
+          "velocity": 0.973
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.956
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.648
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.972
+        }
+      ]
+    },
+    {
+      "bar": 19,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.929
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.869
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.946
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.822
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.96
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.582
+        },
+        {
+          "slot": 11,
+          "instrument": "kick",
+          "velocity": 0.948
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.881
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.112
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.938
+        }
+      ]
+    },
+    {
+      "bar": 20,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.925
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.714
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.91
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.664
+        },
+        {
+          "slot": 7,
+          "instrument": "kick",
+          "velocity": 0.948
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.889
+        },
+        {
+          "slot": 9,
+          "instrument": "hihat_closed",
+          "velocity": 0.32
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.944
+        },
+        {
+          "slot": 11,
+          "instrument": "kick",
+          "velocity": 0.956
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.833
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.662
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.973
+        }
+      ]
+    },
+    {
+      "bar": 21,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.89
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.826
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.886
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.438
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.975
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.785
+        },
+        {
+          "slot": 11,
+          "instrument": "kick",
+          "velocity": 0.97
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.824
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.082
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.975
+        }
+      ]
+    },
+    {
+      "bar": 22,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.912
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.654
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.895
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.595
+        },
+        {
+          "slot": 7,
+          "instrument": "kick",
+          "velocity": 0.954
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.921
+        },
+        {
+          "slot": 9,
+          "instrument": "hihat_closed",
+          "velocity": 0.396
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.853
+        },
+        {
+          "slot": 11,
+          "instrument": "kick",
+          "velocity": 0.96
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.767
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.654
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.928
+        }
+      ]
+    },
+    {
+      "bar": 23,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.89
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.858
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.869
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.465
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.94
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.785
+        },
+        {
+          "slot": 11,
+          "instrument": "kick",
+          "velocity": 0.946
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.872
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.956
+        }
+      ]
+    },
+    {
+      "bar": 24,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.882
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.611
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.893
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.539
+        },
+        {
+          "slot": 7,
+          "instrument": "kick",
+          "velocity": 0.937
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.916
+        },
+        {
+          "slot": 9,
+          "instrument": "snare",
+          "velocity": 0.826
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.58
+        },
+        {
+          "slot": 11,
+          "instrument": "kick",
+          "velocity": 0.907
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.921
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.528
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.903
+        }
+      ]
+    },
+    {
+      "bar": 25,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.967
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.42
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.856
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.54
+        },
+        {
+          "slot": 8,
+          "instrument": "hihat_closed",
+          "velocity": 0.103
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.933
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.549
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.913
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.654
+        }
+      ]
+    },
+    {
+      "bar": 26,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.948
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.508
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.804
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.553
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.992
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.44
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.847
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.468
+        }
+      ]
+    },
+    {
+      "bar": 27,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.937
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.54
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.81
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.337
+        },
+        {
+          "slot": 8,
+          "instrument": "hihat_closed",
+          "velocity": 0.114
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.96
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.458
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.809
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.554
+        }
+      ]
+    },
+    {
+      "bar": 28,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 1.0
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.571
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.849
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.562
+        },
+        {
+          "slot": 8,
+          "instrument": "hihat_closed",
+          "velocity": 0.104
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.96
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.506
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.857
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.556
+        }
+      ]
+    },
+    {
+      "bar": 29,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.947
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.565
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.876
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.401
+        },
+        {
+          "slot": 8,
+          "instrument": "hihat_closed",
+          "velocity": 0.071
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.976
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.402
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.855
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.493
+        }
+      ]
+    },
+    {
+      "bar": 30,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.939
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.53
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.855
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.512
+        },
+        {
+          "slot": 8,
+          "instrument": "hihat_closed",
+          "velocity": 0.05
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.967
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 0.478
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.853
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 1.0
         }
       ]
     },
@@ -1990,32 +1790,32 @@
         {
           "slot": 0,
           "instrument": "hihat_closed",
-          "velocity": 0.611
+          "velocity": 0.191
         },
         {
           "slot": 0,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.924
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.579
+          "velocity": 0.66
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 0.736
+          "velocity": 0.836
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.821
+          "velocity": 0.745
         },
         {
           "slot": 8,
           "instrument": "hihat_closed",
-          "velocity": 0.406
+          "velocity": 0.109
         },
         {
           "slot": 8,
@@ -2025,27 +1825,27 @@
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.69
+          "velocity": 0.985
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.716
+          "velocity": 0.949
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.993
+          "velocity": 0.832
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.417
+          "velocity": 0.248
         },
         {
           "slot": 14,
           "instrument": "kick",
-          "velocity": 0.627
+          "velocity": 0.946
         }
       ]
     },
@@ -2055,12 +1855,12 @@
         {
           "slot": 0,
           "instrument": "hihat_closed",
-          "velocity": 0.314
+          "velocity": 0.254
         },
         {
           "slot": 0,
           "instrument": "kick",
-          "velocity": 0.416
+          "velocity": 0.968
         },
         {
           "slot": 2,
@@ -2070,57 +1870,52 @@
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 0.978
+          "velocity": 0.954
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.71
+          "velocity": 0.563
         },
         {
           "slot": 7,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.995
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 0.408
+          "velocity": 0.942
         },
         {
           "slot": 9,
           "instrument": "hihat_closed",
-          "velocity": 0.788
+          "velocity": 0.414
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.613
+          "velocity": 1.0
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.792
+          "velocity": 1.0
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.865
+          "velocity": 0.918
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.654
+          "velocity": 0.757
         },
         {
           "slot": 14,
           "instrument": "kick",
-          "velocity": 0.886
-        },
-        {
-          "slot": 15,
-          "instrument": "kick",
-          "velocity": 0.158
+          "velocity": 0.953
         }
       ]
     },
@@ -2130,192 +1925,37 @@
         {
           "slot": 0,
           "instrument": "kick",
-          "velocity": 0.442
+          "velocity": 0.972
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 1.0
+          "velocity": 0.89
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 0.819
+          "velocity": 0.951
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 1.0
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.318
+          "velocity": 0.812
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 9,
-          "instrument": "kick",
-          "velocity": 0.161
+          "velocity": 0.946
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 1.0
+          "velocity": 0.984
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.681
-        },
-        {
-          "slot": 12,
-          "instrument": "hihat_closed",
-          "velocity": 0.443
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
-          "velocity": 0.778
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.457
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.868
-        }
-      ]
-    },
-    {
-      "bar": 36,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.327
-        },
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.579
-        },
-        {
-          "slot": 1,
-          "instrument": "kick",
-          "velocity": 0.164
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 0.99
-        },
-        {
-          "slot": 4,
-          "instrument": "hihat_closed",
-          "velocity": 0.172
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 0.982
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.911
-        },
-        {
-          "slot": 7,
-          "instrument": "kick",
-          "velocity": 0.536
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 0.321
-        },
-        {
-          "slot": 9,
-          "instrument": "hihat_closed",
-          "velocity": 0.639
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.72
-        },
-        {
-          "slot": 11,
-          "instrument": "kick",
-          "velocity": 0.57
-        },
-        {
-          "slot": 12,
-          "instrument": "snare",
           "velocity": 1.0
-        },
-        {
-          "slot": 14,
-          "instrument": "hihat_closed",
-          "velocity": 0.7
-        },
-        {
-          "slot": 14,
-          "instrument": "kick",
-          "velocity": 0.776
-        }
-      ]
-    },
-    {
-      "bar": 37,
-      "hits": [
-        {
-          "slot": 0,
-          "instrument": "kick",
-          "velocity": 0.557
-        },
-        {
-          "slot": 2,
-          "instrument": "hihat_closed",
-          "velocity": 1.0
-        },
-        {
-          "slot": 4,
-          "instrument": "snare",
-          "velocity": 0.922
-        },
-        {
-          "slot": 6,
-          "instrument": "hihat_closed",
-          "velocity": 0.797
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.34
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 10,
-          "instrument": "hihat_closed",
-          "velocity": 0.914
-        },
-        {
-          "slot": 11,
-          "instrument": "kick",
-          "velocity": 0.661
         },
         {
           "slot": 12,
@@ -2325,27 +1965,92 @@
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.226
+          "velocity": 0.137
         },
         {
           "slot": 14,
           "instrument": "kick",
-          "velocity": 0.695
+          "velocity": 0.957
         }
       ]
     },
     {
-      "bar": 38,
+      "bar": 36,
       "hits": [
         {
           "slot": 0,
           "instrument": "hihat_closed",
-          "velocity": 0.343
+          "velocity": 0.098
         },
         {
           "slot": 0,
           "instrument": "kick",
-          "velocity": 0.401
+          "velocity": 0.987
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.897
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.726
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.943
+        },
+        {
+          "slot": 7,
+          "instrument": "kick",
+          "velocity": 1.0
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.863
+        },
+        {
+          "slot": 9,
+          "instrument": "hihat_closed",
+          "velocity": 0.347
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 1.0
+        },
+        {
+          "slot": 11,
+          "instrument": "kick",
+          "velocity": 0.98
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.817
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.717
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.995
+        }
+      ]
+    },
+    {
+      "bar": 37,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.897
         },
         {
           "slot": 2,
@@ -2355,42 +2060,97 @@
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 1.0
+          "velocity": 0.622
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.723
-        },
-        {
-          "slot": 7,
-          "instrument": "kick",
-          "velocity": 0.72
+          "velocity": 0.728
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 0.24
-        },
-        {
-          "slot": 9,
-          "instrument": "hihat_closed",
-          "velocity": 0.241
-        },
-        {
-          "slot": 9,
-          "instrument": "kick",
-          "velocity": 0.226
+          "velocity": 0.924
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.666
+          "velocity": 0.835
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.64
+          "velocity": 0.956
+        },
+        {
+          "slot": 12,
+          "instrument": "snare",
+          "velocity": 0.765
+        },
+        {
+          "slot": 14,
+          "instrument": "hihat_closed",
+          "velocity": 0.04
+        },
+        {
+          "slot": 14,
+          "instrument": "kick",
+          "velocity": 0.907
+        }
+      ]
+    },
+    {
+      "bar": 38,
+      "hits": [
+        {
+          "slot": 0,
+          "instrument": "hihat_closed",
+          "velocity": 0.118
+        },
+        {
+          "slot": 0,
+          "instrument": "kick",
+          "velocity": 0.957
+        },
+        {
+          "slot": 2,
+          "instrument": "hihat_closed",
+          "velocity": 0.873
+        },
+        {
+          "slot": 4,
+          "instrument": "snare",
+          "velocity": 0.78
+        },
+        {
+          "slot": 6,
+          "instrument": "hihat_closed",
+          "velocity": 0.766
+        },
+        {
+          "slot": 7,
+          "instrument": "kick",
+          "velocity": 1.0
+        },
+        {
+          "slot": 8,
+          "instrument": "kick",
+          "velocity": 0.905
+        },
+        {
+          "slot": 9,
+          "instrument": "hihat_closed",
+          "velocity": 0.278
+        },
+        {
+          "slot": 10,
+          "instrument": "hihat_closed",
+          "velocity": 1.0
+        },
+        {
+          "slot": 11,
+          "instrument": "kick",
+          "velocity": 0.921
         },
         {
           "slot": 12,
@@ -2400,7 +2160,7 @@
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.683
+          "velocity": 1.0
         }
       ]
     },
@@ -2418,72 +2178,57 @@
         {
           "slot": 0,
           "instrument": "hihat_closed",
-          "velocity": 0.402
+          "velocity": 0.144
         },
         {
           "slot": 0,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.899
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.417
+          "velocity": 0.276
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 0.88
+          "velocity": 0.913
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.674
+          "velocity": 0.823
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.993
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.828
-        },
-        {
-          "slot": 10,
-          "instrument": "snare",
-          "velocity": 0.16
+          "velocity": 0.657
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.706
-        },
-        {
-          "slot": 12,
-          "instrument": "hihat_closed",
-          "velocity": 0.25
-        },
-        {
-          "slot": 12,
-          "instrument": "kick",
-          "velocity": 0.188
+          "velocity": 0.995
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.935
+          "velocity": 0.831
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.289
+          "velocity": 0.115
         },
         {
           "slot": 14,
           "instrument": "kick",
-          "velocity": 0.585
+          "velocity": 0.901
         }
       ]
     },
@@ -2493,77 +2238,67 @@
         {
           "slot": 0,
           "instrument": "hihat_closed",
-          "velocity": 0.323
+          "velocity": 0.12
         },
         {
           "slot": 0,
           "instrument": "kick",
-          "velocity": 0.327
-        },
-        {
-          "slot": 1,
-          "instrument": "kick",
-          "velocity": 0.163
+          "velocity": 0.833
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 1.0
-        },
-        {
-          "slot": 4,
-          "instrument": "hihat_closed",
-          "velocity": 0.215
+          "velocity": 0.899
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 1.0
+          "velocity": 0.852
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.7
+          "velocity": 0.709
         },
         {
           "slot": 7,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.953
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 0.304
+          "velocity": 0.942
         },
         {
           "slot": 9,
           "instrument": "hihat_closed",
-          "velocity": 0.703
+          "velocity": 0.343
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.878
+          "velocity": 1.0
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.709
+          "velocity": 0.999
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.878
+          "velocity": 0.899
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.746
+          "velocity": 0.651
         },
         {
           "slot": 14,
           "instrument": "kick",
-          "velocity": 0.751
+          "velocity": 0.966
         }
       ]
     },
@@ -2573,52 +2308,52 @@
         {
           "slot": 0,
           "instrument": "kick",
-          "velocity": 0.376
+          "velocity": 0.934
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.814
+          "velocity": 0.854
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 0.992
+          "velocity": 1.0
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.81
+          "velocity": 0.791
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.926
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.905
+          "velocity": 0.746
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.614
+          "velocity": 0.949
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.959
+          "velocity": 0.816
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.324
+          "velocity": 0.099
         },
         {
           "slot": 14,
           "instrument": "kick",
-          "velocity": 0.71
+          "velocity": 0.917
         }
       ]
     },
@@ -2627,73 +2362,63 @@
       "hits": [
         {
           "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.319
-        },
-        {
-          "slot": 0,
           "instrument": "kick",
-          "velocity": 0.405
+          "velocity": 0.9
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 1.0
-        },
-        {
-          "slot": 4,
-          "instrument": "hihat_closed",
-          "velocity": 0.167
+          "velocity": 0.826
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 1.0
+          "velocity": 0.626
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.73
+          "velocity": 0.684
         },
         {
           "slot": 7,
           "instrument": "kick",
-          "velocity": 0.975
+          "velocity": 0.963
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 0.448
+          "velocity": 0.874
         },
         {
           "slot": 9,
           "instrument": "hihat_closed",
-          "velocity": 0.65
+          "velocity": 0.403
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.679
+          "velocity": 1.0
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.585
+          "velocity": 0.936
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.916
+          "velocity": 0.697
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.848
+          "velocity": 0.61
         },
         {
           "slot": 14,
           "instrument": "kick",
-          "velocity": 0.595
+          "velocity": 0.9
         }
       ]
     },
@@ -2703,67 +2428,52 @@
         {
           "slot": 0,
           "instrument": "kick",
-          "velocity": 0.564
-        },
-        {
-          "slot": 1,
-          "instrument": "kick",
-          "velocity": 0.169
+          "velocity": 0.93
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.84
+          "velocity": 0.852
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 0.923
+          "velocity": 0.857
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.833
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.187
+          "velocity": 0.774
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.959
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.836
+          "velocity": 0.909
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.644
+          "velocity": 0.929
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.977
-        },
-        {
-          "slot": 13,
-          "instrument": "kick",
-          "velocity": 0.151
+          "velocity": 0.829
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.313
+          "velocity": 0.113
         },
         {
           "slot": 14,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.947
         }
       ]
     },
@@ -2772,73 +2482,58 @@
       "hits": [
         {
           "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.303
-        },
-        {
-          "slot": 0,
           "instrument": "kick",
-          "velocity": 0.497
+          "velocity": 0.905
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 1.0
-        },
-        {
-          "slot": 4,
-          "instrument": "hihat_closed",
-          "velocity": 0.206
+          "velocity": 0.858
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 1.0
+          "velocity": 0.98
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.705
+          "velocity": 0.669
         },
         {
           "slot": 7,
           "instrument": "kick",
-          "velocity": 0.974
+          "velocity": 0.949
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 0.348
-        },
-        {
-          "slot": 9,
-          "instrument": "hihat_closed",
-          "velocity": 0.149
+          "velocity": 0.837
         },
         {
           "slot": 9,
           "instrument": "snare",
-          "velocity": 0.76
+          "velocity": 0.999
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.683
+          "velocity": 0.622
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.916
+          "velocity": 0.88
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.573
+          "velocity": 0.817
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.86
+          "velocity": 1.0
         }
       ]
     },
@@ -2848,62 +2543,52 @@
         {
           "slot": 0,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.945
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.831
-        },
-        {
-          "slot": 4,
-          "instrument": "kick",
-          "velocity": 0.163
+          "velocity": 0.885
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 1.0
+          "velocity": 0.896
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.777
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.284
+          "velocity": 0.743
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.967
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.758
+          "velocity": 0.821
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.7
+          "velocity": 0.95
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.928
+          "velocity": 0.978
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.572
+          "velocity": 0.359
         },
         {
           "slot": 14,
           "instrument": "kick",
-          "velocity": 0.914
+          "velocity": 0.932
         }
       ]
     },
@@ -2912,68 +2597,58 @@
       "hits": [
         {
           "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.324
-        },
-        {
-          "slot": 0,
           "instrument": "kick",
-          "velocity": 0.531
+          "velocity": 0.958
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.693
-        },
-        {
-          "slot": 4,
-          "instrument": "hihat_closed",
-          "velocity": 0.249
+          "velocity": 0.74
         },
         {
           "slot": 4,
           "instrument": "snare",
-          "velocity": 1.0
+          "velocity": 0.957
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.686
+          "velocity": 0.541
         },
         {
           "slot": 7,
           "instrument": "kick",
-          "velocity": 0.976
+          "velocity": 1.0
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 0.337
+          "velocity": 0.956
         },
         {
           "slot": 9,
           "instrument": "snare",
-          "velocity": 1.0
+          "velocity": 0.948
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.753
+          "velocity": 0.773
         },
         {
           "slot": 11,
           "instrument": "kick",
-          "velocity": 0.87
+          "velocity": 1.0
         },
         {
           "slot": 12,
           "instrument": "snare",
-          "velocity": 0.465
+          "velocity": 0.86
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.638
+          "velocity": 1.0
         }
       ]
     },
@@ -3014,63 +2689,48 @@
       "hits": [
         {
           "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.318
-        },
-        {
-          "slot": 0,
           "instrument": "kick",
-          "velocity": 0.915
-        },
-        {
-          "slot": 0,
-          "instrument": "snare",
-          "velocity": 0.408
+          "velocity": 0.86
         },
         {
           "slot": 4,
           "instrument": "hihat_closed",
-          "velocity": 0.582
+          "velocity": 0.287
         },
         {
           "slot": 4,
           "instrument": "kick",
-          "velocity": 0.649
+          "velocity": 0.882
         },
         {
           "slot": 5,
           "instrument": "kick",
-          "velocity": 0.174
+          "velocity": 0.16
         },
         {
           "slot": 7,
           "instrument": "kick",
-          "velocity": 0.397
+          "velocity": 0.696
         },
         {
           "slot": 8,
           "instrument": "hihat_closed",
-          "velocity": 0.474
+          "velocity": 0.385
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 0.332
-        },
-        {
-          "slot": 10,
-          "instrument": "kick",
-          "velocity": 0.178
+          "velocity": 0.859
         },
         {
           "slot": 12,
           "instrument": "hihat_closed",
-          "velocity": 0.815
+          "velocity": 0.196
         },
         {
           "slot": 12,
           "instrument": "kick",
-          "velocity": 0.638
+          "velocity": 0.829
         }
       ]
     },
@@ -3146,49 +2806,39 @@
       "bar": 75,
       "hits": [
         {
-          "slot": 3,
-          "instrument": "snare",
-          "velocity": 0.409
-        },
-        {
           "slot": 5,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.77
         },
         {
           "slot": 6,
           "instrument": "kick",
-          "velocity": 0.325
+          "velocity": 0.86
         },
         {
           "slot": 7,
           "instrument": "kick",
-          "velocity": 0.236
+          "velocity": 0.88
         },
         {
           "slot": 8,
           "instrument": "kick",
-          "velocity": 0.466
+          "velocity": 0.935
         },
         {
           "slot": 10,
           "instrument": "kick",
-          "velocity": 0.334
-        },
-        {
-          "slot": 12,
-          "instrument": "hihat_closed",
-          "velocity": 0.312
+          "velocity": 0.864
         },
         {
           "slot": 12,
           "instrument": "kick",
-          "velocity": 0.367
+          "velocity": 0.886
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.483
+          "velocity": 0.358
         }
       ]
     },
@@ -3198,67 +2848,52 @@
         {
           "slot": 0,
           "instrument": "snare",
-          "velocity": 0.893
+          "velocity": 0.909
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.777
+          "velocity": 0.738
         },
         {
           "slot": 4,
           "instrument": "hihat_closed",
-          "velocity": 0.293
+          "velocity": 0.151
         },
         {
           "slot": 4,
           "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 5,
-          "instrument": "kick",
-          "velocity": 0.19
+          "velocity": 0.926
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.661
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.373
-        },
-        {
-          "slot": 8,
-          "instrument": "kick",
-          "velocity": 0.178
+          "velocity": 0.5
         },
         {
           "slot": 8,
           "instrument": "snare",
-          "velocity": 0.891
+          "velocity": 0.873
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.7
+          "velocity": 0.556
         },
         {
           "slot": 12,
           "instrument": "hihat_closed",
-          "velocity": 0.154
+          "velocity": 0.082
         },
         {
           "slot": 12,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.966
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.928
+          "velocity": 0.893
         }
       ]
     },
@@ -3268,57 +2903,52 @@
         {
           "slot": 0,
           "instrument": "snare",
-          "velocity": 0.945
+          "velocity": 0.752
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.797
+          "velocity": 0.843
         },
         {
           "slot": 4,
           "instrument": "hihat_closed",
-          "velocity": 0.331
+          "velocity": 0.096
         },
         {
           "slot": 4,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.932
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.746
+          "velocity": 0.655
         },
         {
           "slot": 8,
           "instrument": "snare",
-          "velocity": 0.921
+          "velocity": 0.908
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.805
+          "velocity": 0.902
         },
         {
           "slot": 12,
           "instrument": "hihat_closed",
-          "velocity": 0.306
+          "velocity": 0.111
         },
         {
           "slot": 12,
           "instrument": "kick",
-          "velocity": 1.0
-        },
-        {
-          "slot": 13,
-          "instrument": "kick",
-          "velocity": 0.196
+          "velocity": 0.928
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.737
+          "velocity": 0.718
         }
       ]
     },
@@ -3328,57 +2958,52 @@
         {
           "slot": 0,
           "instrument": "snare",
-          "velocity": 1.0
+          "velocity": 0.854
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.745
+          "velocity": 0.631
         },
         {
           "slot": 4,
           "instrument": "hihat_closed",
-          "velocity": 0.454
+          "velocity": 0.12
         },
         {
           "slot": 4,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.934
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.77
-        },
-        {
-          "slot": 8,
-          "instrument": "hihat_closed",
-          "velocity": 0.123
+          "velocity": 0.796
         },
         {
           "slot": 8,
           "instrument": "snare",
-          "velocity": 0.88
+          "velocity": 0.81
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.772
+          "velocity": 0.843
         },
         {
           "slot": 12,
           "instrument": "hihat_closed",
-          "velocity": 0.226
+          "velocity": 0.09
         },
         {
           "slot": 12,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.905
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 1.0
+          "velocity": 0.772
         }
       ]
     },
@@ -3387,58 +3012,53 @@
       "hits": [
         {
           "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.135
-        },
-        {
-          "slot": 0,
           "instrument": "snare",
-          "velocity": 0.955
+          "velocity": 0.623
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.762
+          "velocity": 0.875
         },
         {
           "slot": 4,
           "instrument": "hihat_closed",
-          "velocity": 0.211
+          "velocity": 0.095
         },
         {
           "slot": 4,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.986
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.617
+          "velocity": 0.769
         },
         {
           "slot": 8,
           "instrument": "snare",
-          "velocity": 1.0
+          "velocity": 0.847
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.734
+          "velocity": 0.84
         },
         {
           "slot": 12,
           "instrument": "hihat_closed",
-          "velocity": 0.325
+          "velocity": 0.097
         },
         {
           "slot": 12,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.978
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.835
+          "velocity": 0.843
         }
       ]
     },
@@ -3447,53 +3067,48 @@
       "hits": [
         {
           "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.276
-        },
-        {
-          "slot": 0,
           "instrument": "snare",
-          "velocity": 0.949
+          "velocity": 0.718
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.73
+          "velocity": 0.669
         },
         {
           "slot": 4,
           "instrument": "hihat_closed",
-          "velocity": 0.227
+          "velocity": 0.106
         },
         {
           "slot": 4,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.981
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.709
+          "velocity": 0.686
         },
         {
           "slot": 8,
           "instrument": "snare",
-          "velocity": 0.938
+          "velocity": 0.867
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.656
+          "velocity": 0.651
         },
         {
           "slot": 12,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.985
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.879
+          "velocity": 0.735
         }
       ]
     },
@@ -3503,52 +3118,47 @@
         {
           "slot": 0,
           "instrument": "snare",
-          "velocity": 0.972
+          "velocity": 0.831
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.81
+          "velocity": 0.799
         },
         {
           "slot": 4,
           "instrument": "hihat_closed",
-          "velocity": 0.208
+          "velocity": 0.123
         },
         {
           "slot": 4,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.931
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.744
+          "velocity": 0.566
         },
         {
           "slot": 8,
           "instrument": "snare",
-          "velocity": 0.961
+          "velocity": 0.85
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.793
-        },
-        {
-          "slot": 12,
-          "instrument": "hihat_closed",
-          "velocity": 0.256
+          "velocity": 0.752
         },
         {
           "slot": 12,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.947
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.793
+          "velocity": 0.699
         }
       ]
     },
@@ -3558,47 +3168,47 @@
         {
           "slot": 0,
           "instrument": "snare",
-          "velocity": 1.0
+          "velocity": 0.778
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.696
+          "velocity": 0.465
         },
         {
           "slot": 4,
           "instrument": "hihat_closed",
-          "velocity": 0.137
+          "velocity": 0.079
         },
         {
           "slot": 4,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.945
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.755
+          "velocity": 0.668
         },
         {
           "slot": 8,
           "instrument": "snare",
-          "velocity": 1.0
+          "velocity": 0.945
         },
         {
           "slot": 10,
           "instrument": "hihat_closed",
-          "velocity": 0.602
+          "velocity": 0.583
         },
         {
           "slot": 12,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.998
         },
         {
           "slot": 14,
           "instrument": "hihat_closed",
-          "velocity": 0.82
+          "velocity": 0.706
         }
       ]
     },
@@ -3607,33 +3217,28 @@
       "hits": [
         {
           "slot": 0,
-          "instrument": "hihat_closed",
-          "velocity": 0.123
-        },
-        {
-          "slot": 0,
           "instrument": "snare",
-          "velocity": 0.939
+          "velocity": 0.825
         },
         {
           "slot": 2,
           "instrument": "hihat_closed",
-          "velocity": 0.583
+          "velocity": 0.531
         },
         {
           "slot": 4,
           "instrument": "hihat_closed",
-          "velocity": 0.223
+          "velocity": 0.097
         },
         {
           "slot": 4,
           "instrument": "kick",
-          "velocity": 1.0
+          "velocity": 0.92
         },
         {
           "slot": 6,
           "instrument": "hihat_closed",
-          "velocity": 0.62
+          "velocity": 0.496
         }
       ]
     }

@@ -12,6 +12,8 @@ still resolves.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import NoReturn
 
 import typer
@@ -27,6 +29,7 @@ from pipeline import fetch as fetch_mod
 from pipeline import grid as grid_mod
 from pipeline import paths, separation
 from pipeline import quantize as quantize_mod
+from pipeline import score_stats as stats_mod
 from pipeline.proc import StageError
 from pipeline.separation import drumsep
 
@@ -358,6 +361,136 @@ def run_all(
     console.print(
         f"\nnotation: {song.alphatex}\ninspect:  {song.grid_png}\n"
         f"listen:   {song.beat_click}, {song.debug_dir}/onset_*.wav"
+    )
+
+
+@app.command(name="score-stats")
+def score_stats(
+    song: str = typer.Argument(
+        None, help="Song slug or URL; omit for every song with a score"
+    ),
+    save: str = typer.Option(None, "--save", help="Write the report to a JSON file"),
+    compare: str = typer.Option(
+        None, "--compare", help="Diff against a report saved earlier with --save"
+    ),
+    radius: int = typer.Option(
+        stats_mod.RADIUS, "--radius", help="Bars either side to compare against"
+    ),
+) -> None:
+    """Repeatability statistics: one-offs, dropouts, ghosts, snap error.
+
+    The Phase 3 scoreboard. Snap error says whether the grid is right; these say
+    whether the *notes* are, by asking how much each bar agrees with the bars
+    around it. Run it before and after a detector change -- with --save then
+    --compare, so the comparison is a diff and not a retyped table.
+    """
+    targets = [_resolve(song)] if song else [s for s in paths.all_songs() if s.score_json.exists()]
+    if not targets:
+        console.print("[dim]no songs with a score -- run `drums transcribe` first[/dim]")
+        raise typer.Exit(code=1)
+
+    reports: dict[str, dict] = {}
+    for target in targets:
+        try:
+            reports[target.slug] = stats_mod.analyse(
+                quantize_mod.load(target), radius=radius
+            )
+        except StageError as exc:
+            console.print(f"[yellow]{target.slug}: {exc}[/yellow]")
+    if not reports:
+        raise typer.Exit(code=1)
+
+    baseline = None
+    if compare:
+        baseline = json.loads(Path(compare).read_text(encoding="utf-8"))
+
+    _print_stats(reports, baseline)
+
+    if save:
+        out = Path(save)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(
+            json.dumps({"songs": reports, "totals": stats_mod.totals(list(reports.values()))}, indent=2),
+            encoding="utf-8",
+        )
+        console.print(f"\n[green]{out}[/green]")
+
+
+def _delta(now: float, before: float | None, *, lower_is_better: bool = True) -> str:
+    """Render a change against a baseline, coloured by whether it's an improvement."""
+    if before is None:
+        return ""
+    change = now - before
+    if abs(change) < 0.05:
+        return " [dim]=[/dim]"
+    good = (change < 0) if lower_is_better else (change > 0)
+    return f" [{'green' if good else 'red'}]{change:+.1f}[/{'green' if good else 'red'}]"
+
+
+def _print_stats(reports: dict[str, dict], baseline: dict | None = None) -> None:
+    old_songs = (baseline or {}).get("songs", {})
+
+    table = Table(box=None, header_style="bold", pad_edge=False)
+    for column in ("song", "instrument", "notes", "one-off %", "dropout %", "vel one-off/stable"):
+        table.add_column(column, overflow="fold")
+    for slug, report in reports.items():
+        old = old_songs.get(slug, {}).get("instruments", {})
+        for name, entry in report["instruments"].items():
+            was = old.get(name, {})
+            table.add_row(
+                slug if name == next(iter(report["instruments"])) else "",
+                name,
+                str(entry["notes"]),
+                f"{entry['one_off_pct']}{_delta(entry['one_off_pct'], was.get('one_off_pct'))}",
+                f"{entry['dropout_pct']}{_delta(entry['dropout_pct'], was.get('dropout_pct'))}",
+                f"{entry['one_off_velocity']} / {entry['stable_velocity']}",
+            )
+    console.print(table)
+
+    shape = Table(box=None, header_style="bold", pad_edge=False)
+    for column in ("song", "bars", "distinct", "adj same %", "quiet snare on kick %", "< ghost %", "snap med/p90"):
+        shape.add_column(column, overflow="fold")
+    for slug, report in reports.items():
+        was = old_songs.get(slug, {})
+        error = report.get("snap_error_ms", {})
+        shape.add_row(
+            slug,
+            f"{report['bars']} ({report['empty_bars']} empty)",
+            f"{report['distinct_patterns']}",
+            f"{report['adjacent_identical_pct']}",
+            f"{report['quiet_snare_on_kick_pct']}"
+            f"{_delta(report['quiet_snare_on_kick_pct'], was.get('quiet_snare_on_kick_pct'))}",
+            f"{report['below_ghost_velocity_pct']}",
+            f"{error.get('median', '-')} / {error.get('p90', '-')}",
+        )
+    console.print()
+    console.print(shape)
+
+    pooled = stats_mod.totals(list(reports.values()))
+    old_pooled = (baseline or {}).get("totals", {})
+    summary = Table(box=None, header_style="bold", pad_edge=False, title="all songs pooled")
+    for column in ("instrument", "notes", "one-off %", "dropout %", "vel one-off/stable"):
+        summary.add_column(column)
+    for name, entry in pooled.items():
+        was = old_pooled.get(name, {})
+        summary.add_row(
+            name,
+            str(entry["notes"]),
+            f"{entry['one_off_pct']}{_delta(entry['one_off_pct'], was.get('one_off_pct'))}",
+            f"{entry['dropout_pct']}{_delta(entry['dropout_pct'], was.get('dropout_pct'))}",
+            f"{entry['one_off_velocity']} / {entry['stable_velocity']}",
+        )
+    console.print()
+    console.print(summary)
+
+    notes = sum(r["notes"] for r in reports.values())
+    ghosts = sum(r["below_ghost_velocity_pct"] * r["notes"] for r in reports.values()) / max(notes, 1)
+    snares = sum(r["instruments"].get("snare", {}).get("notes", 0) for r in reports.values())
+    bleed = sum(r["quiet_snare_on_kick"] for r in reports.values())
+    console.print(
+        f"\n{notes} notes, {ghosts:.1f}% below ghost velocity; "
+        f"{bleed} of {snares} snares ({100.0 * bleed / max(snares, 1):.1f}%) "
+        "are quiet ones sharing a slot with a kick"
     )
 
 

@@ -6,13 +6,17 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "smoke": "node scripts/smoke.mjs",
+    "zoom": "node scripts/zoom.mjs",
+    "articulations": "node scripts/dump-articulations.mjs"
   },
   "dependencies": {
     "@coderline/alphatab": "^1.8.4"
   },
   "devDependencies": {
     "@coderline/alphatab-vite": "^1.8.4",
+    "playwright": "^1.63.0",
     "typescript": "^5.9.0",
     "vite": "^8.2.2"
   }

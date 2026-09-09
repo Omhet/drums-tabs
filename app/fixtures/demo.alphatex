@@ -4,6 +4,7 @@
 \track "Drums"
 \instrument percussion
 \articulation defaults
+\clef neutral
 \ts(4 4)
 ("kick (hit) 2" "hi-hat (closed)").8 "hi-hat (closed)".8 ("snare (hit)" "hi-hat (closed)").8 "hi-hat (closed)".8 ("kick (hit) 2" "hi-hat (closed)").8 "hi-hat (closed)".8 ("snare (hit)" "hi-hat (closed)").8 "hi-hat (closed)".8 |
 ("kick (hit) 2" "hi-hat (closed)").8 "hi-hat (closed)".8 ("snare (hit)" "hi-hat (closed)").8 "hi-hat (closed)".8 ("kick (hit) 2" "hi-hat (closed)").8 "hi-hat (closed)".8 ("snare (hit)" "hi-hat (closed)").8 "hi-hat (closed)".8 |

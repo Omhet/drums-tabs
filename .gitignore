@@ -19,3 +19,7 @@ songs/*/debug/
 # Soundfonts are large binaries fetched separately
 soundfonts/*.sf2
 soundfonts/*.sf3
+
+# Fonts and soundfonts copied out of node_modules by the alphaTab vite plugin;
+# recreated by `npm run build` / `npm run dev`.
+app/public/

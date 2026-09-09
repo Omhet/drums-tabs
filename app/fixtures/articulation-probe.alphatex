@@ -1,0 +1,5 @@
+\title "B defaults + names"
+\track "Drums"
+\instrument percussion
+\articulation defaults
+("kick (hit)" "hi-hat (closed)").8 "hi-hat (closed)".8 ("snare (hit)" "hi-hat (closed)").8 "hi-hat (closed)".8

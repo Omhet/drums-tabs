@@ -1,0 +1,11 @@
+\title "Phase 0 Demo"
+\subtitle "alphaTab percussion smoke test"
+\tempo 120
+\track "Drums"
+\instrument percussion
+\articulation defaults
+\ts(4 4)
+("kick (hit) 2" "hi-hat (closed)").8 "hi-hat (closed)".8 ("snare (hit)" "hi-hat (closed)").8 "hi-hat (closed)".8 ("kick (hit) 2" "hi-hat (closed)").8 "hi-hat (closed)".8 ("snare (hit)" "hi-hat (closed)").8 "hi-hat (closed)".8 |
+("kick (hit) 2" "hi-hat (closed)").8 "hi-hat (closed)".8 ("snare (hit)" "hi-hat (closed)").8 "hi-hat (closed)".8 ("kick (hit) 2" "hi-hat (closed)").8 "hi-hat (closed)".8 ("snare (hit)" "hi-hat (closed)").8 "hi-hat (closed)".8 |
+("kick (hit) 2" "crash high (hit)").8 "hi-hat (closed)".8 ("snare (hit)" "hi-hat (closed)").8 "hi-hat (open)".8 ("kick (hit) 2" "hi-hat (closed)").8 "hi-hat (closed)".8 "snare (hit)".8 "snare (hit)".8 |
+("kick (hit) 2" "ride (middle)").8 "ride (middle)".8 ("snare (hit)" "ride (middle)").8 "ride (middle)".8 "high tom (hit)".8 "mid tom (hit)".8 "low tom (hit)".8 "low tom (hit)".8

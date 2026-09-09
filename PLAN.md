@@ -132,12 +132,26 @@ Two features settle the hard parts outright:
   `playbackRate`; app calls `updatePosition()` ~every 50 ms) drive the cursor from an HTML `<video>`.
 - **`@coderline/alphatab-monaco`** + an alphaTex language server, so the in-browser editor is wiring.
 
-**Articulation numbers.** alphaTab resolves percussion as *number -> articulation -> staff line +
-notehead* using Guitar Pro's table. For the common kit these coincide with GM (36 kick, 38 snare,
-42/46/44 hats, 48/47/45/43 toms, 49 crash, 51 ride), so MIDI and notation share one number space — but
-the table also holds non-GM entries (91 rimshot, 92 half-open hat), and **an unlisted number renders as
-nothing rather than falling back**. Generate the mapping from alphaTab's own defaults and validate
-every number at emit time.
+**Percussion in alphaTex (verified against alphaTab 1.8.4, Phase 0).** The syntax is not what the
+"articulation numbers" framing suggested:
+
+- A percussion track needs **both** `\instrument percussion` **and** `\articulation defaults`.
+  Without the second line the articulation table is empty and every note is rejected.
+- Notes are written as **quoted articulation names** — `"snare (hit)".8`. A bare `38.8` is parsed as
+  *fret 38, string 4* and rejected with "Wrong note kind 'Fretted' for staff with note kind
+  'Articulation'". So numbers are not usable in alphaTex percussion at all.
+- Chords group with parens: `("kick (hit) 2" "hi-hat (closed)").8`.
+- Metadata takes parenthesised args: `\ts(4 4)`, not `\ts 4 4`.
+- `Note.percussionArticulation` in the parsed model is an **index into `Track.percussionArticulations`**,
+  built in order of first use — not a MIDI number. Don't treat it as stable across scores.
+- alphaTab's names do **not** follow General MIDI. `kick (hit)` is MIDI 35 and `kick (hit) 2` is 36;
+  GM calls 50 "High Tom" while alphaTab calls it "high floor tom (hit)". Since alphaTab decides the
+  staff line, follow alphaTab's semantics rather than GM's.
+
+The 94-entry table is generated from the installed build by `app/scripts/dump-articulations.mjs` into
+`pipeline/data/alphatab_articulations.json`, and `pipeline/articulations.py` validates every voice
+against it at emit time — an unlisted name renders as nothing rather than failing loudly, so this
+check is what keeps a silent hole out of the score.
 
 **Two constraints to design around:**
 - alphaTab can't mix its synth with a backing track -> the player needs two explicit modes.
@@ -427,5 +441,21 @@ pipeline run in the loop.
 ## Open questions to resolve by looking, not guessing
 
 - Exact drumsep model identifier in `audio-separator --list_models`.
-- Precise alphaTex percussion syntax. The articulation *numbers* are confirmed from alphaTab's
-  `PercussionMapper.ts`; the surrounding syntax (instrument declaration, chords, voices) is not.
+- Which kick articulation sits on the conventional staff line — `kick (hit)` (35) and
+  `kick (hit) 2` (36) render on different lines. Settle it in Phase 1b by looking at the notation.
+- ~~Precise alphaTex percussion syntax~~ — resolved in Phase 0, see the percussion section above.
+
+## Phase 0 status: complete
+
+Verified on this machine, not assumed:
+
+- `drums doctor` passes all 10 checks. torch 2.11.0+cu128 in both tool envs, **sm_120 matmul actually
+  executing on the 5090** — the check runs a real CUDA kernel rather than trusting `is_available()`.
+- onnxruntime 1.29.0 exposes `CUDAExecutionProvider` (needed for `audio-separator`'s ONNX models).
+- Driver env is Python 3.11.14 in `.venv`; the system 3.12.10 was never touched.
+- `app` builds clean (`vite build` bundles the alphaTab worker + worklet) and typechecks clean.
+- A 4-bar drum groove parses to a percussion staff via the alphaTex importer.
+
+Known wrinkle for future sessions: writing `.mjs`/`.ts` files containing alphaTex through a shell
+heredoc silently collapses `\\` to `\`, turning `\title` into a TAB. Keep alphaTex in `.alphatex`
+files and load it with `?raw`; write JS/TS with an editor tool, not a heredoc.

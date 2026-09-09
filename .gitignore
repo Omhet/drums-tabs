@@ -1,0 +1,21 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node
+node_modules/
+app/dist/
+
+# Per-song working data: audio and models are large and regenerable
+songs/*/audio/
+songs/*/stems/
+songs/*/*.wav
+songs/*/*.mp4
+songs/*/*.webm
+songs/*/debug/
+
+# Soundfonts are large binaries fetched separately
+soundfonts/*.sf2
+soundfonts/*.sf3

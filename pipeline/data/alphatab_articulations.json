@@ -1,0 +1,693 @@
+{
+  "alphaTabVersion": "unknown",
+  "byMidi": {
+    "29": {
+      "name": "ride (choke) 2",
+      "aliases": [
+        "ride (choke) 2",
+        "ridechoke2"
+      ]
+    },
+    "30": {
+      "name": "cymbal (hit)",
+      "aliases": [
+        "cymbal (hit)",
+        "cymbalhit",
+        "reverse cymbal (hit)",
+        "reversecymbalhit"
+      ]
+    },
+    "31": {
+      "name": "snare (side stick) 2",
+      "aliases": [
+        "snare (side stick) 2",
+        "snaresidestick2"
+      ]
+    },
+    "33": {
+      "name": "metronome (hit)",
+      "aliases": [
+        "metronome (hit)",
+        "metronomehit"
+      ]
+    },
+    "34": {
+      "name": "metronome (bell)",
+      "aliases": [
+        "metronome (bell)",
+        "metronomebell"
+      ]
+    },
+    "35": {
+      "name": "kick (hit)",
+      "aliases": [
+        "kick (hit)",
+        "kickhit"
+      ]
+    },
+    "36": {
+      "name": "kick (hit) 2",
+      "aliases": [
+        "kick (hit) 2",
+        "kickhit2"
+      ]
+    },
+    "37": {
+      "name": "snare (side stick)",
+      "aliases": [
+        "snare (side stick)",
+        "snare (side stick) 3",
+        "snaresidestick",
+        "snaresidestick3"
+      ]
+    },
+    "38": {
+      "name": "snare (hit)",
+      "aliases": [
+        "snare (hit)",
+        "snare (hit) 2",
+        "snarehit",
+        "snarehit2"
+      ]
+    },
+    "39": {
+      "name": "hand clap (hit)",
+      "aliases": [
+        "hand clap (hit)",
+        "handclaphit"
+      ]
+    },
+    "40": {
+      "name": "snare (hit) 3",
+      "aliases": [
+        "electric snare (hit)",
+        "electricsnarehit",
+        "snare (hit) 3",
+        "snarehit3"
+      ]
+    },
+    "41": {
+      "name": "low floor tom (hit)",
+      "aliases": [
+        "low floor tom (hit)",
+        "lowfloortomhit"
+      ]
+    },
+    "42": {
+      "name": "hi-hat (closed)",
+      "aliases": [
+        "hi-hat (closed)",
+        "hihatclosed"
+      ]
+    },
+    "43": {
+      "name": "very low tom (hit)",
+      "aliases": [
+        "very low tom (hit)",
+        "verylowtomhit"
+      ]
+    },
+    "44": {
+      "name": "pedal hi-hat (hit)",
+      "aliases": [
+        "pedal hi-hat (hit)",
+        "pedalhihathit"
+      ]
+    },
+    "45": {
+      "name": "low tom (hit)",
+      "aliases": [
+        "low tom (hit)",
+        "lowtomhit"
+      ]
+    },
+    "46": {
+      "name": "hi-hat (open)",
+      "aliases": [
+        "hi-hat (open)",
+        "hihatopen"
+      ]
+    },
+    "47": {
+      "name": "mid tom (hit)",
+      "aliases": [
+        "mid tom (hit)",
+        "midtomhit"
+      ]
+    },
+    "48": {
+      "name": "high tom (hit)",
+      "aliases": [
+        "high tom (hit)",
+        "hightomhit"
+      ]
+    },
+    "49": {
+      "name": "crash high (hit)",
+      "aliases": [
+        "crash high (hit)",
+        "crashhighhit"
+      ]
+    },
+    "50": {
+      "name": "high floor tom (hit)",
+      "aliases": [
+        "high floor tom (hit)",
+        "highfloortomhit"
+      ]
+    },
+    "51": {
+      "name": "ride (middle)",
+      "aliases": [
+        "ride (middle)",
+        "ridemiddle"
+      ]
+    },
+    "52": {
+      "name": "china (hit)",
+      "aliases": [
+        "china (hit)",
+        "chinahit"
+      ]
+    },
+    "53": {
+      "name": "ride (bell)",
+      "aliases": [
+        "ride (bell)",
+        "ridebell"
+      ]
+    },
+    "54": {
+      "name": "tambourine (hit)",
+      "aliases": [
+        "tambourine (hit)",
+        "tambourinehit"
+      ]
+    },
+    "55": {
+      "name": "splash (hit)",
+      "aliases": [
+        "splash (hit)",
+        "splashhit"
+      ]
+    },
+    "56": {
+      "name": "cowbell medium (hit)",
+      "aliases": [
+        "cowbell medium (hit)",
+        "cowbellmediumhit"
+      ]
+    },
+    "57": {
+      "name": "crash medium (hit)",
+      "aliases": [
+        "crash medium (hit)",
+        "crashmediumhit"
+      ]
+    },
+    "58": {
+      "name": "vibraslap (hit)",
+      "aliases": [
+        "vibraslap (hit)",
+        "vibraslaphit"
+      ]
+    },
+    "59": {
+      "name": "ride (edge) 2",
+      "aliases": [
+        "ride (edge) 2",
+        "rideedge2"
+      ]
+    },
+    "60": {
+      "name": "bongo high (hit)",
+      "aliases": [
+        "bongo high (hit)",
+        "bongohighhit"
+      ]
+    },
+    "61": {
+      "name": "hand (hit)",
+      "aliases": [
+        "bongo low (hit)",
+        "bongolowhit",
+        "hand (hit)",
+        "handhit"
+      ]
+    },
+    "62": {
+      "name": "conga high (mute)",
+      "aliases": [
+        "conga high (mute)",
+        "congahighmute"
+      ]
+    },
+    "63": {
+      "name": "conga high (hit)",
+      "aliases": [
+        "conga high (hit)",
+        "congahighhit"
+      ]
+    },
+    "64": {
+      "name": "conga low (hit)",
+      "aliases": [
+        "conga low (hit)",
+        "congalowhit"
+      ]
+    },
+    "65": {
+      "name": "timbale high (hit)",
+      "aliases": [
+        "timbale high (hit)",
+        "timbalehighhit"
+      ]
+    },
+    "66": {
+      "name": "timbale low (hit)",
+      "aliases": [
+        "timbale low (hit)",
+        "timbalelowhit"
+      ]
+    },
+    "67": {
+      "name": "agogo high (hit)",
+      "aliases": [
+        "agogo high (hit)",
+        "agogohighhit"
+      ]
+    },
+    "68": {
+      "name": "agogo low (hit)",
+      "aliases": [
+        "agogo low (hit)",
+        "agogo tow (hit)",
+        "agogolowhit",
+        "agogotowhit"
+      ]
+    },
+    "69": {
+      "name": "cabasa (hit)",
+      "aliases": [
+        "cabasa (hit)",
+        "cabasahit"
+      ]
+    },
+    "70": {
+      "name": "left maraca (hit)",
+      "aliases": [
+        "left maraca (hit)",
+        "leftmaracahit"
+      ]
+    },
+    "71": {
+      "name": "whistle high (hit)",
+      "aliases": [
+        "whistle high (hit)",
+        "whistlehighhit"
+      ]
+    },
+    "72": {
+      "name": "whistle low (hit)",
+      "aliases": [
+        "whistle low (hit)",
+        "whistlelowhit"
+      ]
+    },
+    "73": {
+      "name": "guiro (hit)",
+      "aliases": [
+        "guiro (hit)",
+        "guirohit"
+      ]
+    },
+    "74": {
+      "name": "guiro (scrap-return)",
+      "aliases": [
+        "guiro (scrap-return)",
+        "guiroscrapreturn"
+      ]
+    },
+    "75": {
+      "name": "claves (hit)",
+      "aliases": [
+        "claves (hit)",
+        "claveshit"
+      ]
+    },
+    "76": {
+      "name": "woodblock high (hit)",
+      "aliases": [
+        "woodblock high (hit)",
+        "woodblockhighhit"
+      ]
+    },
+    "77": {
+      "name": "woodblock low (hit)",
+      "aliases": [
+        "woodblock low (hit)",
+        "woodblocklowhit"
+      ]
+    },
+    "78": {
+      "name": "cuica (mute)",
+      "aliases": [
+        "cuica (mute)",
+        "cuicamute"
+      ]
+    },
+    "79": {
+      "name": "cuica (open)",
+      "aliases": [
+        "cuica (open)",
+        "cuicaopen"
+      ]
+    },
+    "80": {
+      "name": "triangle (mute)",
+      "aliases": [
+        "triangle (mute)",
+        "triangle (rnute)",
+        "trianglemute",
+        "trianglernute"
+      ]
+    },
+    "81": {
+      "name": "triangle (hit)",
+      "aliases": [
+        "triangle (hit)",
+        "trianglehit"
+      ]
+    },
+    "82": {
+      "name": "shaker (hit)",
+      "aliases": [
+        "shaker (hit)",
+        "shakerhit"
+      ]
+    },
+    "83": {
+      "name": "jingle bell (hit)",
+      "aliases": [
+        "jingle bell (hit)",
+        "jinglebellhit",
+        "tinkle bell (hat)",
+        "tinkle bell (hit)",
+        "tinklebellhat",
+        "tinklebellhit"
+      ]
+    },
+    "84": {
+      "name": "bell tree (hit)",
+      "aliases": [
+        "bell tree (hit)",
+        "belltreehit"
+      ]
+    },
+    "85": {
+      "name": "castanets (hit)",
+      "aliases": [
+        "castanets (hit)",
+        "castanetshit"
+      ]
+    },
+    "86": {
+      "name": "surdo (hit)",
+      "aliases": [
+        "surdo (hit)",
+        "surdohit"
+      ]
+    },
+    "87": {
+      "name": "surdo (mute)",
+      "aliases": [
+        "surdo (mute)",
+        "surdomute"
+      ]
+    },
+    "91": {
+      "name": "snare (rim shot)",
+      "aliases": [
+        "snare (rim shot)",
+        "snarerimshot"
+      ]
+    },
+    "92": {
+      "name": "hi-hat (half)",
+      "aliases": [
+        "hi-hat (half)",
+        "hihathalf"
+      ]
+    },
+    "93": {
+      "name": "ride (edge)",
+      "aliases": [
+        "ride (edge)",
+        "rideedge"
+      ]
+    },
+    "94": {
+      "name": "ride (choke)",
+      "aliases": [
+        "ride (choke)",
+        "ridechoke"
+      ]
+    },
+    "95": {
+      "name": "splash (choke)",
+      "aliases": [
+        "splash (choke)",
+        "splashchoke"
+      ]
+    },
+    "96": {
+      "name": "china (choke)",
+      "aliases": [
+        "china (choke)",
+        "chinachoke"
+      ]
+    },
+    "97": {
+      "name": "crash high (choke)",
+      "aliases": [
+        "crash high (choke)",
+        "crashhighchoke"
+      ]
+    },
+    "98": {
+      "name": "crash medium (choke)",
+      "aliases": [
+        "crash medium (choke)",
+        "crashmediumchoke"
+      ]
+    },
+    "99": {
+      "name": "cowbell low (hit)",
+      "aliases": [
+        "cowbell low (hit)",
+        "cowbelllowhit"
+      ]
+    },
+    "100": {
+      "name": "cowbell low (tip)",
+      "aliases": [
+        "cowbell low (tip)",
+        "cowbelllowtip"
+      ]
+    },
+    "101": {
+      "name": "cowbell medium (tip)",
+      "aliases": [
+        "cowbell medium (tip)",
+        "cowbellmediumtip"
+      ]
+    },
+    "102": {
+      "name": "cowbell high (hit)",
+      "aliases": [
+        "cowbell high (hit)",
+        "cowbellhighhit"
+      ]
+    },
+    "103": {
+      "name": "cowbell high (tip)",
+      "aliases": [
+        "cowbell high (tip)",
+        "cowbellhightip"
+      ]
+    },
+    "104": {
+      "name": "hand (mute)",
+      "aliases": [
+        "bongo high (mute)",
+        "bongohighmute",
+        "hand (mute)",
+        "handmute"
+      ]
+    },
+    "105": {
+      "name": "hand (slap)",
+      "aliases": [
+        "bongo high (slap)",
+        "bongohighslap",
+        "hand (slap)",
+        "handslap"
+      ]
+    },
+    "106": {
+      "name": "hand (mute) 2",
+      "aliases": [
+        "bongo low (mute)",
+        "bongolowmute",
+        "hand (mute) 2",
+        "handmute2"
+      ]
+    },
+    "107": {
+      "name": "hand (slap) 2",
+      "aliases": [
+        "bongo low (slap)",
+        "bongolowslap",
+        "hand (slap) 2",
+        "handslap2"
+      ]
+    },
+    "108": {
+      "name": "conga low (slap)",
+      "aliases": [
+        "conga low (slap)",
+        "congalowslap"
+      ]
+    },
+    "109": {
+      "name": "conga low (mute)",
+      "aliases": [
+        "conga low (mute)",
+        "congalowmute"
+      ]
+    },
+    "110": {
+      "name": "conga high (slap)",
+      "aliases": [
+        "conga high (slap)",
+        "congahighslap"
+      ]
+    },
+    "111": {
+      "name": "tambourine (return)",
+      "aliases": [
+        "tambourine (return)",
+        "tambourinereturn"
+      ]
+    },
+    "112": {
+      "name": "tambourine (roll)",
+      "aliases": [
+        "tambourine (roll)",
+        "tambourineroll"
+      ]
+    },
+    "113": {
+      "name": "tambourine (hand)",
+      "aliases": [
+        "tambourine (hand)",
+        "tambourinehand"
+      ]
+    },
+    "114": {
+      "name": "grancassa (hit)",
+      "aliases": [
+        "grancassa (hit)",
+        "grancassahit"
+      ]
+    },
+    "115": {
+      "name": "piatti (hat)",
+      "aliases": [
+        "piatti (hat)",
+        "piatti (hit)",
+        "piattihat",
+        "piattihit"
+      ]
+    },
+    "116": {
+      "name": "piatti (hand)",
+      "aliases": [
+        "piatti (hand)",
+        "piattihand"
+      ]
+    },
+    "117": {
+      "name": "cabasa (return)",
+      "aliases": [
+        "cabasa (return)",
+        "cabasareturn"
+      ]
+    },
+    "118": {
+      "name": "left maraca (return)",
+      "aliases": [
+        "left maraca (return)",
+        "leftmaracareturn"
+      ]
+    },
+    "119": {
+      "name": "right maraca (hit)",
+      "aliases": [
+        "right maraca (hit)",
+        "rightmaracahit"
+      ]
+    },
+    "120": {
+      "name": "right maraca (return)",
+      "aliases": [
+        "right maraca (return)",
+        "rightmaracareturn"
+      ]
+    },
+    "122": {
+      "name": "shaker (return)",
+      "aliases": [
+        "shaker (return)",
+        "shakerreturn"
+      ]
+    },
+    "123": {
+      "name": "bell tee (return)",
+      "aliases": [
+        "bell tee (return)",
+        "bell tree (return)",
+        "bellteereturn",
+        "belltreereturn"
+      ]
+    },
+    "124": {
+      "name": "golpe (thumb)",
+      "aliases": [
+        "golpe (thumb)",
+        "golpethumb"
+      ]
+    },
+    "125": {
+      "name": "golpe (finger)",
+      "aliases": [
+        "golpe (finger)",
+        "golpefinger"
+      ]
+    },
+    "126": {
+      "name": "ride (middle) 2",
+      "aliases": [
+        "ride (middle) 2",
+        "ridemiddle2"
+      ]
+    },
+    "127": {
+      "name": "ride (bell) 2",
+      "aliases": [
+        "ride (bell) 2",
+        "ridebell2"
+      ]
+    }
+  }
+}

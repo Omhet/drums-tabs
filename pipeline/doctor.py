@@ -61,6 +61,18 @@ except Exception as exc:
 print(json.dumps(out))
 """
 
+_AUDIO_IO_PROBE = """
+import json
+out = {}
+try:
+    import soundfile
+    out["soundfile"] = soundfile.__version__
+    out["libsndfile"] = soundfile.__libsndfile_version__
+except Exception as exc:
+    out["error"] = f"{type(exc).__name__}: {exc}"
+print(json.dumps(out))
+"""
+
 
 @dataclass
 class Check:
@@ -203,6 +215,33 @@ def check_torch(tool: str) -> list[Check]:
     return checks
 
 
+def check_audio_io(tool: str) -> Check:
+    """Can this tool env actually decode a file?
+
+    ``beat_this`` reports CUDA fine and then dies on the first audio load if it
+    has no backend: it tries torchcodec, then soundfile, then madmom, and fails
+    with three import errors and a generic "Could not load audio". None of the
+    torch checks above catch it, which is exactly the kind of gap this command
+    exists to close.
+    """
+    python = tool_env_python(tool)
+    if python is None:
+        return Check(f"{tool}: audio i/o", False, "tool environment not found")
+    info = _probe_json(python, _AUDIO_IO_PROBE)
+    if "error" in info:
+        return Check(
+            f"{tool}: audio i/o",
+            False,
+            f"no decoder: {info['error']}",
+            f"uv tool install {tool} --python 3.11 --with soundfile --torch-backend=cu128",
+        )
+    return Check(
+        f"{tool}: audio i/o",
+        True,
+        f"soundfile {info.get('soundfile')} (libsndfile {info.get('libsndfile')})",
+    )
+
+
 def check_onnxruntime(tool: str) -> Check:
     """audio-separator runs some models through onnxruntime, not torch."""
     python = tool_env_python(tool)
@@ -232,5 +271,6 @@ def run_all() -> list[Check]:
     ]
     for tool in TOOL_ENVS:
         checks.extend(check_torch(tool))
+    checks.append(check_audio_io("beat-this"))
     checks.append(check_onnxruntime("audio-separator"))
     return checks

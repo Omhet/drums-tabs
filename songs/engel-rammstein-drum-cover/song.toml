@@ -1,0 +1,14 @@
+[source]
+url = "https://www.youtube.com/watch?v=BrhjyBHtkio"
+video_id = "BrhjyBHtkio"
+title = "ENGEL - Rammstein  DRUM COVER"
+uploader = "알려드럼"
+duration = 262.0
+
+[models]
+separation = ""
+
+[grid]
+meter = ""
+tempo_multiplier = 0
+downbeat_rotation = -1

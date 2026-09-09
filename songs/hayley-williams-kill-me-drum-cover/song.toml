@@ -1,0 +1,14 @@
+[source]
+url = "https://www.youtube.com/watch?v=6ma6WF_wtSM"
+video_id = "6ma6WF_wtSM"
+title = "hayley williams - kill me - drum cover"
+uploader = "rachel shearer"
+duration = 171.0
+
+[models]
+separation = ""
+
+[grid]
+meter = ""
+tempo_multiplier = 0
+downbeat_rotation = -1

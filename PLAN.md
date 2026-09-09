@@ -19,7 +19,8 @@ Later: overlay that notation on a video — 4 bars at a time, playhead sweeping,
 - Thin end-to-end slice first, then deepen.
 - Text-file note editing first; in-browser Monaco editor later.
 - Pluggable transcription **and** separation backends, so models can be swapped and compared.
-  RoFormer is the first separation model.
+  `htdemucs_ft` is the first separation model (see the Phase 1a correction — the drums RoFormer this
+  originally named isn't available).
 - Live in-browser video overlay first; MP4 export later.
 
 ### Build here, on the GPU box
@@ -48,7 +49,7 @@ YouTube URL
    │  yt-dlp (bestaudio + video) + ffmpeg
    ▼
 mix.wav (STEREO 44.1k) ── separation backend ──► drums.wav
-   │                       (RoFormer, pluggable)  nodrums.wav  (play along to this)
+   │                     (htdemucs_ft, pluggable)  nodrums.wav  (play along to this)
    │
    ├── beat_this ──► beats ──► GRID REPAIR ──► grid.lock.json  ◄── THE KEYSTONE
    │
@@ -87,9 +88,9 @@ per beat is non-negotiable.
 | Layer | Choice | Notes |
 |---|---|---|
 | OS / compute | Windows + **RTX 5090 (CUDA)** | Every model stage runs on GPU |
-| Fetch | `yt-dlp` + `ffmpeg` | **Stereo 44.1k, highest-bitrate `bestaudio`.** Grab the video too — needed for the overlay |
+| Fetch | `yt-dlp` + `ffmpeg` | **Stereo 44.1k, highest-bitrate `bestaudio`.** Grab the video too — needed for the overlay. Needs `--js-runtimes node`: YouTube now requires a JS runtime to solve player challenges, and without one formats resolve but downloads 403 |
 | Python | `uv`, Python 3.11, **one env per tool** | Avoids torch/numpy/numba pin fights between tools |
-| Separation | **Mel-Band RoFormer drums model** via `audio-separator`; pluggable | Beats BS-RoFormer specifically on drums; ~1.3 dB SDR over htdemucs |
+| Separation | **`htdemucs_ft`** via `audio-separator`; pluggable | See the note below — the drums RoFormer this plan assumed does not exist in `audio-separator`'s registry |
 | Per-drum stems | **drumsep** 6-stem (MDX23C) | kick/snare/toms/hihat/ride/crash |
 | Beat/downbeat | **`beat_this`** (`--gpu=0`) | pip `beat-this`, CLI `beat_this`, outputs `.beats` TSV |
 | Onsets | `librosa` + `scipy`, SuperFlux per stem | Deterministic and debuggable |
@@ -210,8 +211,15 @@ On a 5090 both are minutes, not hours, which is what makes "compare properly" re
 aspirational. Worth reading before investing in the ML backend: arXiv **2509.24853**, *Enhanced
 Automatic Drum Transcription via Drum Stem Source Separation* — it studies exactly this hybrid.
 
-Note we only need a **2-way split** (drums / everything-else-for-play-along), so a drum-specific
-RoFormer is both better *and* faster than a full 4-stem demucs pass.
+Note we only need a **2-way split** (drums / everything-else-for-play-along).
+
+**Correction from Phase 1a — there is no drums RoFormer to use.** `audio-separator` 0.47's registry,
+filtered by the `drums` stem, offers only Demucs v4 variants and two weak MDX-Net models. The
+Mel-Band RoFormer checkpoints it ships are all vocals/instrumental separators. So the default is
+`htdemucs_ft` (drums SDR 10.0, the best drums stem actually available), with `htdemucs`,
+`hdemucs_mmi` and `kuielab_b_drums` registered alongside it so `compare-separation` has an
+across-architecture comparison rather than only across-checkpoint. Adding a drums RoFormer when one
+appears upstream is a single `register()` call in `pipeline/separation/`.
 
 ### Artifacts and how hand edits survive re-runs
 
@@ -250,7 +258,7 @@ their own CUDA runtime.
 uv python install 3.11
 # in each tool env: CUDA torch FIRST, from the CUDA index, then the tool
 uv tool install audio-separator --python 3.11 --with torch --torch-backend=cu128
-uv tool install beat-this       --python 3.11 --with torch --torch-backend=cu128
+uv tool install beat-this       --python 3.11 --with torch --with soundfile --torch-backend=cu128
 uv init --python 3.11    # driver env: librosa scipy numpy soundfile mido typer rich matplotlib pyyaml
 npm create vite@latest app -- --template vanilla-ts
 npm i @coderline/alphatab@^1.8.4 @coderline/alphatab-vite
@@ -268,7 +276,13 @@ each tool env importing a CUDA-enabled torch.
 - **Octave/phase check.** `beat_this` can lock to half or double tempo on drum covers. Cross-check
   against the snare: in most rock/pop covers snares sit on 2 and 4. If they land on 1 and 3, rotate the
   downbeat phase by one beat; if snare autocorrelation implies twice the detected beat rate, double the
-  grid.
+  grid. Both overrides fire only on positive evidence — a "correction" made on a weak signal is worse
+  than none, because it fails plausibly.
+- **Local octave check** (added in 1a, after observing it): the detector can also switch metrical
+  level *mid-song* and switch back. A global multiplier can't express that, so stretches whose local
+  median interval sits well below the song's get halved in place.
+- **Trim isolated edge beats.** Beats the detector guessed over a silent intro, seconds apart with
+  nothing between them, are not beats. Edges only — the same gap mid-song is a breakdown.
 - **Force constant meter** — 4/4 with one global downbeat phase from the modal offset, rather than
   trusting per-bar downbeats. A single spurious 3-beat bar destroys everything after it. `--meter` and
   `--regrid` are the escape hatches.
@@ -276,7 +290,7 @@ each tool env importing a CUDA-enabled torch.
   at or before the first kick/snare.
 - Emit a **grid inspector PNG** (waveform + beat/downbeat grid) and a beat click track.
 
-Validate on ~5 real songs before moving on.
+Validate on ~5 real songs before moving on. (Done on nine — see the Phase 1a status section.)
 
 **1b. Thin end-to-end slice.** Deliberately crude: 3 classes only (kick 36 / snare 38 / closed hat 42),
 straight 16ths, no open-hat or tom detection. drumsep → SuperFlux onsets → beat-phase quantize →
@@ -440,10 +454,61 @@ pipeline run in the loop.
 
 ## Open questions to resolve by looking, not guessing
 
-- Exact drumsep model identifier in `audio-separator --list_models`.
+- ~~Exact drumsep model identifier~~ — `MDX23C-DrumSep-aufr33-jarredou.ckpt` (MDXC; kick, snare,
+  toms, hh, ride, crash).
 - Which kick articulation sits on the conventional staff line — `kick (hit)` (35) and
   `kick (hit) 2` (36) render on different lines. Settle it in Phase 1b by looking at the notation.
 - ~~Precise alphaTex percussion syntax~~ — resolved in Phase 0, see the percussion section above.
+
+## Phase 1a status: complete
+
+Validated on nine drum covers, chosen to span the failure modes: straight rock, metal with a silent
+intro, fast punk, a hi-hat count-in, half-time and shuffle feels, disco, and two groove tunes.
+Every grid was checked by looking at its inspector PNG.
+
+**Results.** All nine landed on the correct tempo — the four with independently known values check
+out exactly (Stayin' Alive 103.4, Karma Police 75.0, Song 2 130.4, Beggin' 136.4) — and all nine on
+the correct downbeat phase, confirmed against the per-beat-of-bar profile: kick on 1, snare on 2 and
+4. Tempo drift is under 6% everywhere and under 2% on seven of nine. `beat_this` needed no global
+octave override on any of them.
+
+**Four defects the validation exposed, all now fixed and covered by tests:**
+
+- **A local tempo octave error.** `beat_this` tracked one cover at 167 BPM for 43 seconds of an
+  88 BPM song — a third of the track, silently, with the rest correct. A global multiplier cannot
+  express that, so `repair_local_octave` finds stretches whose local median interval is well under
+  the song's, sustained long enough to be a section rather than a fill, and halves them in phase with
+  the surrounding grid. This took that song from 97% tempo drift to 5.6%, and its backbeat margin
+  from 0.60 to 0.86. Assume this is common on drum covers, not exotic.
+- **Spectral flux on a dB scale rewards quiet noise.** `power_to_db` puts silence at the floor, so a
+  barely-audible sound in an intro produces a *larger* flux than a real hit does in a chorus. A level
+  gate now weights flux by the band's absolute level. This raised the backbeat margin on every song.
+- **Counting envelope frames is not counting hits.** The "is the drummer actually playing here" test
+  counted frames above threshold, so one loud transient smeared across five frames looked like a
+  burst of playing, and put bar 1 on it. It peak-picks first now.
+- **The detector guesses beats over silent intros.** Two or three beats seconds apart, with nothing
+  between them, became bars 1 and 2. `trim_isolated_edges` drops beats separated from the body of the
+  song by a gap — at the edges only, since the same gap mid-song is a breakdown.
+
+**Known residual.** In the song with the double-time stretch, 8 intervals of 291 remain 1.4-1.5x wide,
+at the boundary where the detector itself was flip-flopping between metrical levels. Those bars have a
+stretched beat. It is logged in `grid.lock.json` and visible in the inspector's tempo panel rather
+than silent, and `--tempo-multiplier` / `--regrid` are the escape hatches.
+
+**What the inspector PNG shows,** in the order it answers questions: tempo per beat across the song
+(an octave error is a flat line in the wrong place, a dropped beat is a spike, a real tempo change is
+a slope); mean kick and snare strength per beat of the bar (the downbeat-phase evidence); every onset's
+position within the bar plotted against bar number (drift shows as a diagonal smear long before it is
+audible); the full repair log as text, so the image is self-contained; and four zoom strips of the drum
+stem with the grid drawn over it, taken from the start, two thirds through, and the very end.
+
+The click track is verified sample-accurate against the grid, not just eyeballed.
+
+**Also worth knowing:** `beat_this` installs without any audio decoder and dies on its first file with
+three import errors and a generic "Could not load audio" — CUDA checks all pass first. `drums doctor`
+now has an audio-i/o check per tool env, and is at 11 checks.
+
+---
 
 ## Phase 0 status: complete
 

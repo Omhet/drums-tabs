@@ -1,0 +1,14 @@
+[source]
+url = "https://www.youtube.com/watch?v=Uk8h1f6HL1E"
+video_id = "Uk8h1f6HL1E"
+title = "Radiohead - Karma Police - Drum Cover With SHEET MUSIC"
+uploader = "Max Couhig"
+duration = 262.0
+
+[models]
+separation = ""
+
+[grid]
+meter = ""
+tempo_multiplier = 0
+downbeat_rotation = -1

@@ -1,0 +1,14 @@
+[source]
+url = "https://www.youtube.com/watch?v=Bwj9n5oVaWg"
+video_id = "Bwj9n5oVaWg"
+title = "Stayin’ Alive - Bee Gees(비지스) DRUM COVER"
+uploader = "알려드럼"
+duration = 246.0
+
+[models]
+separation = ""
+
+[grid]
+meter = ""
+tempo_multiplier = 0
+downbeat_rotation = -1

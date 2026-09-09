@@ -2,7 +2,7 @@
 
 Every stage is its own subcommand and communicates through files, so any of them
 can be re-run alone, and the intermediate artifacts are all inspectable. ``prep``
-chains the Phase 1a stages for convenience; it isn't doing anything the
+chains the grid stages and ``all`` chains everything; neither does anything the
 individual commands don't.
 
 Two arguments are interchangeable everywhere a song is named: its slug, or the
@@ -19,12 +19,16 @@ from rich.console import Console
 from rich.table import Table
 
 from pipeline import audit as audit_mod
+from pipeline import backends
 from pipeline import beats as beats_mod
 from pipeline import doctor as doctor_mod
+from pipeline import emit_alphatex as emit_mod
 from pipeline import fetch as fetch_mod
 from pipeline import grid as grid_mod
 from pipeline import paths, separation
+from pipeline import quantize as quantize_mod
 from pipeline.proc import StageError
+from pipeline.separation import drumsep
 
 app = typer.Typer(
     name="drums",
@@ -213,43 +217,148 @@ def audit(song: str = typer.Argument(..., help="Song slug or URL")) -> None:
 
 
 @app.command()
+def kit(
+    song: str = typer.Argument(..., help="Song slug or URL"),
+    force: bool = typer.Option(False, "--force", help="Re-run even if the stems exist"),
+) -> None:
+    """Split drums.wav into six per-drum stems with drumsep.
+
+    A second separation pass, of the drum stem rather than the mix. It is what
+    makes onset detection a matter of peak-picking one envelope per drum instead
+    of guessing which drum a transient in a full kit belongs to.
+    """
+    target = _resolve(song)
+    try:
+        stems = drumsep.split(target, force=force)
+    except StageError as exc:
+        _fail(exc)
+    console.print(f"[green]{len(stems)}[/green] stems -> {target.kit_dir}")
+
+
+@app.command()
+def transcribe(
+    song: str = typer.Argument(..., help="Song slug or URL"),
+    backend: str = typer.Option(None, "--backend", "-b", help="Transcription backend"),
+    clicks: bool = typer.Option(
+        True, "--clicks/--no-clicks", help="Also render per-instrument click tracks"
+    ),
+) -> None:
+    """Detect onsets and snap them to the pinned grid, writing score.json."""
+    target = _resolve(song)
+    chosen = backend or target.meta().get("models", {}).get("backend") or None
+    try:
+        locked = grid_mod.load(target)
+        events = backends.detect(target, backend=chosen)
+        backends.save(
+            target.onsets_json,
+            events,
+            backend=backends.get(chosen).key,
+            extra={"song": target.slug},
+        )
+        score = quantize_mod.quantize(locked, events)
+        quantize_mod.save(target, score)
+        if clicks:
+            audit_mod.render_onset_clicks(target, events)
+    except (StageError, KeyError) as exc:
+        _fail(exc if isinstance(exc, StageError) else StageError(str(exc)))
+    _print_score(target, score)
+
+
+@app.command()
+def emit(song: str = typer.Argument(..., help="Song slug or URL")) -> None:
+    """Write song.alphatex from score.json."""
+    target = _resolve(song)
+    try:
+        score = quantize_mod.load(target)
+        path = emit_mod.emit(target, score)
+    except StageError as exc:
+        _fail(exc)
+    console.print(
+        f"[green]{path}[/green] -- {len(score.bars)} bars, {score.note_count} notes"
+    )
+
+
+def _prepare(
+    url: str, *, model: str | None, regrid: bool, video: bool
+) -> tuple[paths.Song, grid_mod.Grid]:
+    """Fetch, separate, detect beats, repair the grid, render the inspector."""
+    if fetch_mod.extract_video_id(url):
+        song = fetch_mod.fetch(url, with_video=video)
+    else:
+        song = _resolve(url)
+
+    if not (song.drums.exists() and song.nodrums.exists()):
+        separation.separate(song.mix, song.stems_dir, model=model)
+    beats_mod.detect(song.mix, song.raw_beats)
+
+    if song.grid_lock.exists() and not regrid:
+        built = grid_mod.load(song)
+        console.print("[dim]reusing pinned grid.lock.json (--regrid to replace)[/dim]")
+    else:
+        overrides = song.meta().get("grid", {})
+        rotation = overrides.get("downbeat_rotation", -1)
+        built = grid_mod.build(
+            song,
+            tempo_multiplier=overrides.get("tempo_multiplier") or None,
+            rotation=None if rotation < 0 else rotation,
+        )
+        grid_mod.save(song, built)
+
+    audit_mod.render_inspector(song, built)
+    audit_mod.render_click_track(song, built)
+    return song, built
+
+
+@app.command()
 def prep(
     url: str = typer.Argument(..., help="YouTube URL, or the slug of a fetched song"),
     model: str = typer.Option(None, "--model", "-m", help="Separation model key"),
     regrid: bool = typer.Option(False, "--regrid", help="Replace an existing grid"),
     video: bool = typer.Option(True, "--video/--no-video", help="Also fetch the mp4"),
 ) -> None:
-    """Phase 1a end to end: fetch, separate, detect beats, repair the grid, audit."""
+    """The grid only: fetch, separate, detect beats, repair the grid, audit.
+
+    Stops before transcription deliberately -- the grid is worth looking at
+    before anything gets built on top of it.
+    """
     try:
-        if fetch_mod.extract_video_id(url):
-            song = fetch_mod.fetch(url, with_video=video)
-        else:
-            song = _resolve(url)
-
-        if not (song.drums.exists() and song.nodrums.exists()):
-            separation.separate(song.mix, song.stems_dir, model=model)
-        beats_mod.detect(song.mix, song.raw_beats)
-
-        if song.grid_lock.exists() and not regrid:
-            built = grid_mod.load(song)
-            console.print("[dim]reusing pinned grid.lock.json (--regrid to replace)[/dim]")
-        else:
-            overrides = song.meta().get("grid", {})
-            rotation = overrides.get("downbeat_rotation", -1)
-            built = grid_mod.build(
-                song,
-                tempo_multiplier=overrides.get("tempo_multiplier") or None,
-                rotation=None if rotation < 0 else rotation,
-            )
-            grid_mod.save(song, built)
-
-        audit_mod.render_inspector(song, built)
-        audit_mod.render_click_track(song, built)
+        song, built = _prepare(url, model=model, regrid=regrid, video=video)
     except StageError as exc:
         _fail(exc)
 
     _print_grid(song, built)
     console.print(f"\ninspect: {song.grid_png}\nlisten:  {song.beat_click}")
+
+
+@app.command(name="all")
+def run_all(
+    url: str = typer.Argument(..., help="YouTube URL, or the slug of a fetched song"),
+    model: str = typer.Option(None, "--model", "-m", help="Separation model key"),
+    backend: str = typer.Option(None, "--backend", "-b", help="Transcription backend"),
+    regrid: bool = typer.Option(False, "--regrid", help="Replace an existing grid"),
+    video: bool = typer.Option(True, "--video/--no-video", help="Also fetch the mp4"),
+) -> None:
+    """Everything: a URL in, song.alphatex out."""
+    try:
+        song, built = _prepare(url, model=model, regrid=regrid, video=video)
+        drumsep.split(song)
+        events = backends.detect(song, backend=backend)
+        backends.save(
+            song.onsets_json, events, backend=backends.get(backend).key, extra={"song": song.slug}
+        )
+        score = quantize_mod.quantize(built, events)
+        quantize_mod.save(song, score)
+        audit_mod.render_onset_clicks(song, events)
+        emit_mod.emit(song, score)
+    except (StageError, KeyError) as exc:
+        _fail(exc if isinstance(exc, StageError) else StageError(str(exc)))
+
+    _print_grid(song, built)
+    _print_score(song, score)
+    console.print(
+        f"\nnotation: {song.alphatex}\ninspect:  {song.grid_png}\n"
+        f"listen:   {song.beat_click}, {song.debug_dir}/onset_*.wav"
+    )
 
 
 @app.command(name="songs")
@@ -260,7 +369,7 @@ def list_songs() -> None:
         console.print("[dim]no songs yet -- `drums fetch <url>`[/dim]")
         return
     table = Table(box=None, header_style="bold", pad_edge=False)
-    for column in ("slug", "mix", "stems", "beats", "grid", "bpm", "bars"):
+    for column in ("slug", "mix", "stems", "kit", "beats", "grid", "score", "tex", "bpm", "bars", "notes"):
         table.add_column(column)
     for song in found:
         locked = None
@@ -269,21 +378,31 @@ def list_songs() -> None:
                 locked = grid_mod.load(song)
             except StageError:
                 locked = None
+        notes = "-"
+        if song.score_json.exists():
+            try:
+                notes = str(quantize_mod.load(song).note_count)
+            except StageError:
+                notes = "old"
         table.add_row(
             song.slug,
             "OK" if song.mix.exists() else "-",
             "OK" if song.drums.exists() else "-",
+            "OK" if drumsep.is_split(song) else "-",
             "OK" if song.raw_beats.exists() else "-",
             "OK" if song.grid_lock.exists() else "-",
+            "OK" if song.score_json.exists() else "-",
+            "OK" if song.alphatex.exists() else "-",
             f"{locked.score.bpm:.1f}" if locked else "-",
             str(locked.bar_count) if locked else "-",
+            notes,
         )
     console.print(table)
 
 
 @app.command(name="models")
 def list_models() -> None:
-    """List the separation models the pipeline can use."""
+    """List the separation models and transcription backends the pipeline can use."""
     table = Table(box=None, header_style="bold", pad_edge=False)
     for column in ("key", "arch", "drums SDR", "notes"):
         table.add_column(column, overflow="fold")
@@ -291,6 +410,14 @@ def list_models() -> None:
         key = model.key + (" (default)" if model.key == separation.DEFAULT_MODEL else "")
         table.add_row(key, model.arch, f"{model.drums_sdr:.1f}" if model.drums_sdr else "-", model.notes)
     console.print(table)
+
+    backend_table = Table(box=None, header_style="bold", pad_edge=False)
+    for column in ("backend", "notes"):
+        backend_table.add_column(column, overflow="fold")
+    for backend in backends.available():
+        key = backend.key + (" (default)" if backend.key == backends.DEFAULT_BACKEND else "")
+        backend_table.add_row(key, backend.notes)
+    console.print(backend_table)
 
 
 def _print_grid(song: paths.Song, built: grid_mod.Grid) -> None:
@@ -310,6 +437,39 @@ def _print_grid(song: paths.Song, built: grid_mod.Grid) -> None:
         "confidence",
         f"backbeat margin {built.score.backbeat_margin:+.3f}, "
         f"coverage {built.score.coverage:.0%}",
+    )
+    console.print(table)
+
+
+def _print_score(song: paths.Song, score: quantize_mod.Score) -> None:
+    stats = score.stats
+    table = Table(box=None, show_header=False, pad_edge=False)
+    table.add_column(style="bold")
+    table.add_column(overflow="fold")
+    table.add_row("song", song.slug)
+    table.add_row(
+        "notes",
+        ", ".join(f"{name} {count}" for name, count in stats.get("by_instrument", {}).items())
+        or "none",
+    )
+    table.add_row(
+        "bars", f"{len(score.bars)} ({stats.get('empty_bars', 0)} with nothing in them)"
+    )
+    error = stats.get("snap_error_ms", {})
+    if error:
+        # How far the played hits sat from their slots. A large median means the
+        # subdivision is too coarse for what was played; a large *signed* mean
+        # means the grid itself is early or late.
+        table.add_row(
+            "snap error",
+            f"median {error.get('median')} ms, p90 {error.get('p90')} ms, "
+            f"signed mean {error.get('signed_mean'):+} ms",
+        )
+    table.add_row(
+        "dropped",
+        f"{stats.get('before_bar_one', 0)} before bar 1, "
+        f"{stats.get('after_last_bar', 0)} past the last bar, "
+        f"{stats.get('merged_duplicates', 0)} merged into an occupied slot",
     )
     console.print(table)
 

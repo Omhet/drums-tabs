@@ -51,6 +51,17 @@ const dom = await page.evaluate(() => {
   };
 });
 
+// Rendering is only half of it: the score has to *play*. Press play, let the
+// synth run, and read the transport position back -- a cursor that never moves
+// is the failure a screenshot cannot show.
+await page.locator('#play').click();
+await page.waitForTimeout(2500);
+const playback = await page.evaluate(() => {
+  const api = window.drums?.api;
+  return { state: api?.playerState ?? -1, position: Math.round(api?.timePosition ?? -1) };
+});
+await page.locator('#stop').click();
+
 const shot = process.env.SMOKE_SHOT;
 if (shot) {
   await page.locator('#score').screenshot({ path: shot });
@@ -64,6 +75,7 @@ console.log(`score paths  : ${dom.pathCount}   (glyphs/noteheads; 0 means nothin
 console.log(`#score html  : ${dom.innerLength} bytes`);
 console.log(`glyphs (text): ${dom.glyphCount}   (noteheads are Bravura glyphs)`);
 console.log(`play enabled : ${dom.playDisabled === false}`);
+console.log(`playback     : state ${playback.state} at ${playback.position} ms (state 1 = playing, position > 0 = the transport moved)`);
 
 const problems = [...pageErrors, ...consoleErrors, ...failedRequests];
 if (problems.length) {
@@ -74,4 +86,9 @@ if (problems.length) {
 }
 
 await browser.close();
-process.exit(pageErrors.length || failedRequests.length || dom.pathCount === 0 ? 1 : 0);
+const failed =
+  pageErrors.length > 0 ||
+  failedRequests.length > 0 ||
+  dom.pathCount === 0 ||
+  playback.position <= 0;
+process.exit(failed ? 1 : 0);

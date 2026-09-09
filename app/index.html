@@ -36,6 +36,11 @@
         padding: 12px 14px; margin-bottom: 16px;
         background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
       }
+      select {
+        font: inherit; padding: 5px 8px; border-radius: 6px;
+        border: 1px solid var(--border); background: var(--panel); color: var(--fg);
+        max-width: 22em;
+      }
       button {
         font: inherit; padding: 6px 14px; border-radius: 6px;
         border: 1px solid var(--border); background: var(--panel); color: var(--fg);
@@ -55,8 +60,12 @@
   <body>
     <main>
       <h1>drums-tabs</h1>
-      <p class="sub">Phase 0 smoke test &mdash; alphaTab percussion rendering and playback.</p>
+      <p class="sub">Phase 1b &mdash; transcriptions from <code>songs/&lt;slug&gt;/song.alphatex</code>, reloaded when the file changes.</p>
       <div class="controls">
+        <label>
+          Song
+          <select id="song"></select>
+        </label>
         <button id="play" disabled>Play</button>
         <button id="stop" disabled>Stop</button>
         <label>

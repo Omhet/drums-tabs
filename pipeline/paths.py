@@ -70,6 +70,14 @@ class Song:
         """Everything except drums -- the play-along backing track."""
         return self.stems_dir / "nodrums.wav"
 
+    @property
+    def kit_dir(self) -> Path:
+        """Per-drum stems from drumsep. A second split, of drums.wav, not of the mix."""
+        return self.stems_dir / "kit"
+
+    def kit_stem(self, name: str) -> Path:
+        return self.kit_dir / f"{name}.wav"
+
     # --- analysis -----------------------------------------------------------
     @property
     def raw_beats(self) -> Path:
@@ -79,6 +87,22 @@ class Song:
     @property
     def grid_lock(self) -> Path:
         return self.root / "grid.lock.json"
+
+    @property
+    def onsets_json(self) -> Path:
+        """Raw detected onsets, before quantization. Kept so the snap is auditable."""
+        return self.root / "analysis" / "onsets.json"
+
+    # --- score --------------------------------------------------------------
+    @property
+    def score_json(self) -> Path:
+        """Quantized notes on the grid: the emitter's only input."""
+        return self.root / "score.json"
+
+    @property
+    def alphatex(self) -> Path:
+        """The notation, and the file you hand-edit."""
+        return self.root / "song.alphatex"
 
     # --- debug artifacts ----------------------------------------------------
     @property
@@ -93,11 +117,16 @@ class Song:
     def beat_click(self) -> Path:
         return self.debug_dir / "beat_click.wav"
 
+    def onset_click(self, instrument: str) -> Path:
+        """Per-instrument click over the drum stem -- the way onsets get checked."""
+        return self.debug_dir / f"onset_{instrument}.wav"
+
     def ensure_dirs(self) -> None:
         for path in (
             self.root,
             self.root / "audio",
             self.stems_dir,
+            self.kit_dir,
             self.root / "analysis",
             self.debug_dir,
         ):

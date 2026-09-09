@@ -172,8 +172,9 @@ drums-tabs/
 │   ├── fetch.py          # yt-dlp + ffmpeg → mix.wav (stereo) + video.mp4
 │   ├── separation/
 │   │   ├── base.py       # audio → (drums.wav, nodrums.wav)
-│   │   ├── roformer.py   # default
-│   │   └── demucs.py     # fallback / comparison
+│   │   ├── demucs.py     # htdemucs_ft (default) + comparison checkpoints
+│   │   ├── mdx.py        # MDX-Net, a different architecture to compare against
+│   │   └── drumsep.py    # drums.wav → six kit stems (not a 2-way backend)
 │   ├── grid.py           # * beat-grid repair + grid.lock.json — highest-risk module
 │   ├── backends/
 │   │   ├── base.py       # audio → list[OnsetEvent{t, instrument, velocity, confidence}]
@@ -298,7 +299,8 @@ straight 16ths, no open-hat or tom detection. drumsep → SuperFlux onsets → b
 on save.
 
 The slice exists to prove the **emitter** — the rest/voice machinery is the real risk, not the DSP.
-Done when `drums all <url>` gives a recognisable, playable transcription.
+Done when `drums all <url>` gives a recognisable, playable transcription. (Done on all nine songs —
+see the Phase 1b status section.)
 
 ## Phase 2 — Notation correctness
 
@@ -456,9 +458,92 @@ pipeline run in the loop.
 
 - ~~Exact drumsep model identifier~~ — `MDX23C-DrumSep-aufr33-jarredou.ckpt` (MDXC; kick, snare,
   toms, hh, ride, crash).
-- Which kick articulation sits on the conventional staff line — `kick (hit)` (35) and
-  `kick (hit) 2` (36) render on different lines. Settle it in Phase 1b by looking at the notation.
+- ~~Which kick articulation sits on the conventional staff line~~ — **`kick (hit)`, MIDI 35.**
+  alphaTab reports a `staffLine` per articulation (1 is the top line, counting down through lines
+  *and* spaces), and 35 is on line 8 — the F4 space, where the bass drum has sat since the drum key
+  was standardised — while `kick (hit) 2` (36) is a step higher on the G4 line. General MIDI numbers
+  them the other way round, so following GM here would have put every kick in the wrong place.
+  Confirmed by rendering. Same dump settles the rest of the kit: hi-hat −1, crash −2, china −3,
+  ride 0, high tom 2, snare 3, mid tom 4, low tom 5, pedal hi-hat 9.
 - ~~Precise alphaTex percussion syntax~~ — resolved in Phase 0, see the percussion section above.
+
+## Phase 1b status: complete
+
+`drums all <url>` now goes from a YouTube URL to a playable score. The new stages are `kit`
+(drumsep splits `drums.wav` into six per-drum stems), `transcribe` (per-stem SuperFlux onsets ->
+beat-phase quantize -> `score.json`) and `emit` (`score.json` -> `song.alphatex`), plus per-instrument
+onset click tracks in `debug/`. The app has a song picker, loads `songs/*/song.alphatex` straight
+from disk, and re-renders when one is saved.
+
+**Ran on all nine songs.** Snap error — how far the played hits sat from the slots they were
+assigned — is the number that says whether the grid and the phase quantization actually work:
+
+| song | bars | kick/bar | snare/bar | hat/bar | snap median | p90 | empty bars |
+|---|---|---|---|---|---|---|---|
+| Stayin' Alive | 104 | 3.95 | 3.07 | 7.90 | 9.3 ms | 26.0 | 0 |
+| Song 2 | 66 | 3.82 | 2.33 | 3.56 | 10.8 ms | 27.6 | 0 |
+| Engel | 97 | 3.43 | 2.79 | 6.25 | 9.2 ms | 25.3 | 2 |
+| Beggin' | 105 | 3.07 | 3.37 | 5.01 | 12.5 ms | 30.0 | 6 |
+| 1612 | 72 | 5.93 | 4.00 | 9.94 | 11.2 ms | 32.7 | 1 |
+| dead horse | 68 | 4.09 | 2.88 | 8.37 | 10.7 ms | 31.9 | 0 |
+| kill me | 62 | 2.68 | 2.53 | 4.02 | 8.6 ms | 24.4 | 4 |
+| Karma Police | 77 | 2.52 | 1.83 | 5.79 | 11.8 ms | 36.2 | 10 |
+| Starburster | 83 | 2.67 | 1.41 | 3.67 | 9.6 ms | 25.9 | 29 |
+
+Median snap error is 9-13 ms everywhere and the p90 is 24-36 ms, against a sixteenth that is 94 ms
+at 160 BPM and 175 at 86. Nothing is landing near a slot boundary, which is what "the grid is right
+and phase quantization works" looks like as a number. Stayin' Alive's kick came out as 411 notes,
+102/101/101/101 across the four quarters: four on the floor, for 104 bars, with no drift.
+
+The empty bars are real. In Starburster the 29 empty bars are contiguous runs where the drum stem's
+median RMS is 0.00008 against 0.12 in the played bars — the drummer has stopped, the detector
+hasn't failed.
+
+**What the validation exposed:**
+
+- **Peak-picking a single-drum stem finds about three times what was played.** A kick's pitch
+  envelope drops as it decays, and that movement makes its own flux peak 60-90 ms after the hit.
+  On the first song this produced 13.4 kicks per bar, only 29% of them on a quarter. The fix is a
+  *relative* velocity floor -- a peak below 15% of how hard that drum is hit elsewhere in the same
+  song is not a hit -- which took it to 4.0 per bar, 99% on a quarter, and the song's snap error
+  from 13.7 ms to 9.3. Same-slot merges dropped from 204 to 2, which is the same fact seen from the
+  quantizer's side. An absolute threshold cannot do this job: the artefacts scale with the hit that
+  caused them.
+- **alphaTab draws secondary voices at 40% grey**, which is right for a guitar counter-melody and
+  wrong for drums -- it made every kick look like an editorial suggestion. `secondaryGlyphColor` is
+  now black; stems down already distinguishes the feet.
+- **Vite's watcher only covers its root**, so a newly transcribed song never appeared in the picker
+  and saving a score changed nothing on screen until the dev server was restarted. `songs/` is now
+  explicitly added to the watcher.
+- **Dynamics are noise until they carry information.** Every note is forte at this stage, so the
+  emitter writes `\hidedynamics`; Phase 2 removes that line when ghosts and accents arrive.
+
+**Known residuals, all Phase 2/3 work by design:**
+
+- **Three classes means loud sections look sparse.** No toms, ride or crash, so Song 2's chorus --
+  played almost entirely on cymbals -- reads as 3.56 hits per bar. The stems for all six drums are
+  already split and on disk; only the detection and classification are missing.
+- **Snare bleed is the biggest quality defect.** Between 2% and 24% of snare notes are quiet ones
+  landing on a slot that also has a kick (Stayin' Alive 24%, Beggin' and Engel 16-19%, Starburster
+  2%). Some of those are real kick-snare unisons, but the pattern -- half-velocity snares on beats
+  1 and 3 of a song whose backbeat is on 2 and 4 -- says most are the kick leaking into the snare
+  stem's body band. This is what cross-stem arbitration is for.
+- **Straight sixteenths flatten shuffles.** Quantizing hits per beat, dead horse puts 23% of its
+  notes on the last sixteenth of a beat against 7% on the first -- the signature of a swung eighth
+  landing near 0.67 and rounding to 0.75. It notates as sixteenth hash, which is exactly the case
+  Phase 2's swing detection is meant to catch. The straight songs are symmetric (Song 2: 61% / 0% /
+  39% / 0%), so the measurement separates the two cleanly.
+- **A count-in bar is bar 1.** Where a drummer counts off on the snare, bar 1 is four snare quarter
+  notes. That follows from Phase 1a's rule (bar 1 is the first downbeat at or before the first
+  kick/snare) and from the "offset, never a cut" invariant, so it is left alone.
+
+**Also worth knowing:** `drumsep` (MDX23C, the only per-drum splitter in `audio-separator`'s
+registry) takes about a minute per song on the 5090 and all six stems get written even though three
+of them are unused today -- re-running the split later to get the stems that were skipped would be
+minutes wasted for nothing. And the headless smoke test now presses play and reads the transport
+position back: a score that renders but does not play used to pass.
+
+---
 
 ## Phase 1a status: complete
 

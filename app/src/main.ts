@@ -1,10 +1,22 @@
 import * as alphaTab from '@coderline/alphatab';
-// Loaded as raw text so the .alphatex file stays the editable source of truth.
-// Vite hot-reloads this module when the file changes on disk.
-import tex from '../fixtures/demo.alphatex?raw';
+// Every emitted score, loaded as raw text so the .alphatex files stay the
+// editable source of truth. The glob reaches outside the Vite root into
+// songs/, which is why vite.config.ts opens server.fs.allow.
+//
+// Lazy, not eager: a hundred-bar score is a few hundred KB of text and there is
+// no reason to ship all of them to load one. Saving a .alphatex triggers a full
+// page reload rather than a hot swap -- the selected song lives in the URL hash,
+// so a reload lands back on the same score.
+import demoTex from '../fixtures/demo.alphatex?raw';
+
+const scoreModules = import.meta.glob('../../songs/*/song.alphatex', {
+  query: '?raw',
+  import: 'default',
+}) as Record<string, () => Promise<string>>;
 
 const scoreEl = document.getElementById('score') as HTMLElement;
 const statusEl = document.getElementById('status') as HTMLElement;
+const songEl = document.getElementById('song') as HTMLSelectElement;
 const playBtn = document.getElementById('play') as HTMLButtonElement;
 const stopBtn = document.getElementById('stop') as HTMLButtonElement;
 const speedEl = document.getElementById('speed') as HTMLInputElement;
@@ -24,6 +36,24 @@ window.addEventListener('unhandledrejection', (e) =>
   setStatus(`Unhandled rejection: ${e.reason}`, true)
 );
 
+// '../../songs/<slug>/song.alphatex' -> '<slug>'
+const slugOf = (path: string) => path.split('/').slice(-2)[0] ?? path;
+const songs = Object.keys(scoreModules).sort();
+
+for (const path of songs) {
+  songEl.add(new Option(slugOf(path), path));
+}
+if (songs.length === 0) {
+  songEl.add(new Option('Phase 0 demo (no transcriptions yet)', ''));
+  songEl.disabled = true;
+}
+
+// The hash is the song selector: it survives the full reload that saving a
+// .alphatex triggers, and it makes a particular song a link.
+const fromHash = songs.find((path) => slugOf(path) === decodeURIComponent(location.hash.slice(1)));
+songEl.value = fromHash ?? songs[0] ?? '';
+if (songEl.value) location.hash = encodeURIComponent(slugOf(songEl.value));
+
 const api = new alphaTab.AlphaTabApi(scoreEl, {
   core: {
     tex: true,
@@ -35,6 +65,15 @@ const api = new alphaTab.AlphaTabApi(scoreEl, {
     // The vite plugin copies the fonts to <root>/font/ but does not point
     // alphaTab at them, so we do it here.
     fontDirectory: '/font/',
+  },
+  display: {
+    resources: {
+      // alphaTab draws secondary voices at 40% black, which is right for a
+      // guitar counter-melody and wrong for drums: the feet are not a
+      // background part, they are half of what is being played. Stems down
+      // already distinguishes them.
+      secondaryGlyphColor: new alphaTab.model.Color(0, 0, 0),
+    },
   },
   player: {
     // `enablePlayer` is deprecated in favour of `playerMode`.
@@ -69,7 +108,8 @@ api.playerReady.on(() => {
   playBtn.disabled = false;
   stopBtn.disabled = false;
   const staff = api.score?.tracks[0]?.staves[0];
-  setStatus(`Ready — ${staff?.bars.length ?? 0} bars, player loaded.`);
+  const tempo = api.score?.tempo ?? 0;
+  setStatus(`Ready — ${staff?.bars.length ?? 0} bars at ${tempo} BPM, player loaded.`);
 });
 
 api.playerStateChanged.on((e) => {
@@ -91,10 +131,35 @@ metroEl.addEventListener('input', () => {
   metroOut.textContent = percent === 0 ? 'off' : `${percent}%`;
 });
 
-api.tex(tex);
-
-if (import.meta.hot) {
-  import.meta.hot.accept('../fixtures/demo.alphatex?raw', (mod) => {
-    if (mod) api.tex((mod as unknown as { default: string }).default);
-  });
+async function load(path: string) {
+  playBtn.disabled = true;
+  stopBtn.disabled = true;
+  api.stop();
+  const load_ = scoreModules[path];
+  if (!load_) {
+    api.tex(demoTex);
+    return;
+  }
+  setStatus(`Loading ${slugOf(path)}…`);
+  api.tex(await load_());
 }
+
+songEl.addEventListener('change', () => {
+  location.hash = encodeURIComponent(slugOf(songEl.value));
+  void load(songEl.value);
+});
+window.addEventListener('hashchange', () => {
+  const path = songs.find((p) => slugOf(p) === decodeURIComponent(location.hash.slice(1)));
+  if (path && path !== songEl.value) {
+    songEl.value = path;
+    void load(path);
+  }
+});
+
+// Handle for the headless checks in scripts/ -- they drive playback and read
+// the position back, which is the only way to verify the player from outside.
+if (import.meta.env.DEV) {
+  (window as unknown as { drums: unknown }).drums = { api, load, songs };
+}
+
+void load(songEl.value);

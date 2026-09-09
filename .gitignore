@@ -15,6 +15,9 @@ songs/*/*.wav
 songs/*/*.mp4
 songs/*/*.webm
 songs/*/debug/
+# Raw onsets are a large, regenerable intermediate; score.json is the
+# artifact worth diffing.
+songs/*/analysis/onsets.json
 
 # Soundfonts are large binaries fetched separately
 soundfonts/*.sf2

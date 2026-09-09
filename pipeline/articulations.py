@@ -19,10 +19,23 @@ from pathlib import Path
 
 _DATA_PATH = Path(__file__).parent / "data" / "alphatab_articulations.json"
 
-# Internal voice -> alphaTab articulation MIDI key. These are the only ones the
-# transcriber can emit; anything else is a bug, not a missing feature.
+# Internal instrument -> alphaTab articulation MIDI key. These are the only ones
+# the transcriber can emit; anything else is a bug, not a missing feature.
+#
+# "instrument", not "voice": *voice* means one of the two staff voices (hands and
+# feet) throughout the emitter, and the two would otherwise be indistinguishable
+# in every function signature that takes one.
+#
+# **On the kick.** alphaTab offers two, and they land on different staff lines:
+# 35 "kick (hit)" on staffLine 8 -- the F4 space, where a bass drum has been
+# written since the drum key was standardised -- and 36 "kick (hit) 2" on
+# staffLine 7, the G4 line above it. 36 is the General MIDI kick and 35 the
+# GM "acoustic bass drum", so following GM here would put the kick in the wrong
+# place on the staff; alphaTab decides the notehead, so alphaTab's numbering
+# wins. (Settled in Phase 1b by dumping every articulation's staffLine from the
+# installed build and rendering both.)
 KIT: dict[str, int] = {
-    "kick": 36,
+    "kick": 35,
     "snare": 38,
     "snare_rim": 91,
     "sidestick": 37,
@@ -40,8 +53,8 @@ KIT: dict[str, int] = {
     "splash": 55,
 }
 
-# Voices split across the two staff voices alphaTab renders. Voice 0 is hands
-# (stems up), voice 1 is feet (stems down) -- the Guitar Pro convention.
+# Which instruments go in staff voice 1. Voice 0 is hands (stems up), voice 1 is
+# feet (stems down) -- the Guitar Pro convention.
 FEET: frozenset[str] = frozenset({"kick", "hihat_pedal"})
 
 
@@ -63,27 +76,28 @@ def _validate() -> None:
         )
 
 
-def articulation_name(voice: str) -> str:
-    """alphaTex articulation name for an internal voice, e.g. 'hi-hat (closed)'.
+def articulation_name(instrument: str) -> str:
+    """alphaTex articulation name for an instrument, e.g. 'hi-hat (closed)'.
 
     Validated against the generated table, so an emitter bug surfaces here
     rather than as a note that silently renders as nothing.
     """
     _validate()
     try:
-        midi = KIT[voice]
+        midi = KIT[instrument]
     except KeyError:
         raise KeyError(
-            f"unknown drum voice {voice!r}; known: {sorted(KIT)}"
+            f"unknown drum instrument {instrument!r}; known: {sorted(KIT)}"
         ) from None
     return _table()[midi]["name"]
 
 
-def midi_number(voice: str) -> int:
-    """General MIDI note number, for the .mid export."""
+def midi_number(instrument: str) -> int:
+    """MIDI note number as alphaTab numbers it, for the .mid export."""
     _validate()
-    return KIT[voice]
+    return KIT[instrument]
 
 
-def is_feet(voice: str) -> bool:
-    return voice in FEET
+def is_feet(instrument: str) -> bool:
+    """True if the instrument belongs in staff voice 1 (stems down)."""
+    return instrument in FEET

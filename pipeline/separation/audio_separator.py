@@ -19,6 +19,8 @@ from __future__ import annotations
 import json
 import re
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import numpy as np
@@ -62,21 +64,26 @@ def _match_length(data: np.ndarray, target: int, what: str) -> np.ndarray:
     return data[:target]
 
 
-def run_audio_separator(
-    mix: Path, out_dir: Path, model: SeparationModel
-) -> SeparationResult:
-    exe = tool_bin("audio-separator", "audio-separator")
-    out_dir.mkdir(parents=True, exist_ok=True)
+@contextmanager
+def separated_stems(
+    source: Path, model_filename: str, *, label: str
+) -> Iterator[dict[str, Path]]:
+    """Run one ``audio-separator`` model and yield its stems by label.
 
+    Stems live in a temporary directory that is removed on exit, so callers copy
+    or resample what they want out of it. Two callers exist: the 2-way split of
+    the mix, and drumsep's 6-way split of the drum stem.
+    """
+    exe = tool_bin("audio-separator", "audio-separator")
     with tempfile.TemporaryDirectory(prefix="drums-sep-") as tmp:
         work = Path(tmp)
-        note(f"[separate] {model.key} ({model.arch}) on {mix.name}")
+        note(f"[{label}] {model_filename} on {source.name}")
         run(
             [
                 exe,
-                str(mix),
+                str(source),
                 "-m",
-                model.filename,
+                model_filename,
                 "--output_dir",
                 str(work),
                 "--output_format",
@@ -91,20 +98,27 @@ def run_audio_separator(
         produced = sorted(work.glob("*.wav"))
         if not produced:
             raise StageError(
-                f"audio-separator produced no stems for {mix.name} "
-                f"with model {model.filename}"
+                f"audio-separator produced no stems for {source.name} "
+                f"with model {model_filename}"
             )
-        return _assemble(mix, produced, out_dir, model)
+        yield {_stem_label(path): path for path in produced}
+
+
+def run_audio_separator(
+    mix: Path, out_dir: Path, model: SeparationModel
+) -> SeparationResult:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    with separated_stems(mix, model.filename, label="separate") as by_label:
+        return _assemble(mix, by_label, out_dir, model)
 
 
 def _assemble(
-    mix: Path, produced: list[Path], out_dir: Path, model: SeparationModel
+    mix: Path, by_label: dict[str, Path], out_dir: Path, model: SeparationModel
 ) -> SeparationResult:
     """Pick the drum stem out of the model's output and build its complement."""
     mix_data, rate = _read(mix)
     target_len = mix_data.shape[0]
 
-    by_label = {_stem_label(path): path for path in produced}
     drums_path = next(
         (path for label, path in by_label.items() if "drum" in label and "no" not in label),
         None,

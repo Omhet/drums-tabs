@@ -55,6 +55,9 @@ songs/<slug>/
 
 3. **Play** with `cd app && npm run dev`. Space plays and pauses, a click on
    the score seeks the video there, Stop rewinds to the start of the video.
+   The faders mix the no-drums stem, the drums stem and a click on the beat
+   map (the video's own sound is muted: it is the full mix). Tempo slows all
+   of it, pitch kept. Faders and theme are remembered per browser.
 
 ## Where things stand
 
@@ -67,7 +70,9 @@ the video element as its `IExternalMediaHandler` (`app/src/media.ts`,
 `VideoClock`), and the beat map goes in as one sync point per played beat
 (`app/src/syncpoints.ts`). The cursor follows the drummer, clicking the score
 seeks the video, the tempo slider slows the video, Stop rewinds to the top of
-the count-in. No soundfont, no synth; the sound is the video's own track.
+the count-in. No soundfont, no synth. And the mixer (step 4, 2026-09-12):
+faders for the no-drums stem, the drums stem and a click, on the video's
+clock at any tempo, remembered in localStorage.
 
 Three things learned on the way, all encoded in code comments: notation bar 1
 is the beat at `grid.bar_one_beat` and the count-in has no place in the score
@@ -79,48 +84,54 @@ song it runs 36.28 ms behind it (`drums align`), and `VideoClock` converts
 between video time and mix time so that alphaTab, the beat map and (next) the
 stems all share one timeline.
 
-Next, in order, each reviewable in the browser:
+The mixer (`app/src/mixer.ts`, `app/src/click.ts`) is one Web Audio graph:
+the video and two `<audio>` elements for the stems, each through a
+`GainNode`, plus a click synthesised on the beat map. The video's own
+soundtrack goes through a gain at 0 (it is the full mix), or 1 when no stem
+loads. The graph is built on the first key or pointer gesture (an
+`AudioContext` made earlier stays suspended). Transport is still alphaTab's:
+the stems follow the video element's `play`/`pause`/`seeked`/`ratechange`
+events and `VideoClock` is untouched. Two things learned:
 
-4. **Mixer and tempo.** Three faders in one Web Audio graph: no-drums stem,
-   drums stem, and a click synthesised on the beat map; the video's own
-   soundtrack goes through a gain at 0 (it is the full mix, so it would
-   double everything). What is already in place, and what to build on:
+- Chrome keeps media elements that share one `AudioContext` on one clock:
+  once a stem is placed at `clock.mixTimeMs`, it stays within 0.1 ms of the
+  video at 100% and at 50%, measured over 3.5 s in `check-mix.mjs`. The
+  drift correction (hard seek beyond 250 ms, a 1-3% rate nudge between 20
+  and 250 ms, exact rate again under 10 ms) is there for the cases it will
+  not be that clean: a stall, a background tab, a different browser. It
+  runs on the click's 25 ms timer rather than rAF so it goes on in a
+  background tab.
+- The click is a lookahead scheduler: every 25 ms it books sine blips for
+  the beats in the next 100 ms at `ctx.currentTime + (beat - mixNow) /
+  rate`, accented on `bar_one_beat + k * beats_per_bar` (the count-in gets
+  clicks too), and forgets booked blips on seek and pause.
 
-   - The stems are served at `/media/<slug>/stems/nodrums.wav` and
-     `drums.wav` (30 MB PCM each, range requests work, Chrome seeks them
-     fine). They are on mix time. The video is on mix time +
-     `grid.video_offset_ms`; `clock.mixTimeMs` gives the current mix time
-     and `clock.seekTo()` takes mix time, so a stem should always satisfy
-     `stem.currentTime == clock.mixTimeMs / 1000`.
-   - Two `<audio>` elements plus the video, each through
-     `ctx.createMediaElementSource()` into its own `GainNode`. Create the
-     `AudioContext` lazily on the first Play (it needs a user gesture);
-     verified in headless Chrome that tapping the video this way works and
-     carries signal. Set `preservesPitch = true` on all three elements.
-   - Transport stays alphaTab's: `api.playbackSpeed` -> `VideoClock.playbackRate`,
-     which must now also set the stems' `playbackRate`; play/pause/seek can be
-     mirrored from the video element's own `play`, `pause`, `seeked` events, so
-     the mixer needs no new hooks in `VideoClock`.
-   - Drift correction, once per frame per stem, with hysteresis because
-     `currentTime` reads are quantised: more than 250 ms off -> hard seek to
-     the video; 20-250 ms -> nudge the stem's rate by up to 3%; under 10 ms ->
-     rate back to exactly the master rate.
-   - Click: a 25 ms `setInterval` lookahead scheduler (not rAF, which stops in
-     a background tab) that books `OscillatorNode` blips at
-     `ctx.currentTime + (beat - mixNow) / rate` for beats within the next
-     100 ms; accent beats at `bar_one_beat + k * beats_per_bar`. Forget booked
-     beats on seek and pause.
-   - Faders in the controls row, remembered in localStorage like the theme.
-   - Suggested files: `app/src/mixer.ts` (graph, stems, drift),
-     `app/src/click.ts` (scheduler); `main.ts` wires the sliders.
-   - Verify with a new `app/scripts/check-mix.mjs`: play 5 s at 100% and at
-     50%, assert each stem stays within 20 ms of `clock.mixTimeMs`, and that
-     an `AnalyserNode` on the graph goes quiet when all faders are at 0.
+Next, reviewable in the browser:
+
 5. **Overlay layout.** Notation over the video: 4 bars per line, N lines
    visible (2 by default), auto-scroll to the next line when the current one
    ends. Keyboard shortcuts. Today the score is a scroll box under the video
    that alphaTab scrolls to keep the cursor in view (the box wraps alphaTab's
-   element; alphaTab's scroll maths needs that).
+   element; alphaTab's scroll maths needs that). What to build on:
+
+   - alphaTab renders into `#score` with `barsPerRow: 4`; each row is a
+     `.at-surface` block of fixed height, so "N lines" is N row heights and
+     the window can be a clipped box positioned over the video.
+   - The cursor's row is known from `api.playedBeatChanged` (beat -> bar ->
+     row = floor(barIndex / 4)); scroll the box to that row's top when the
+     row changes, with alphaTab's own follow-cursor off
+     (`player.scrollMode = ScrollMode.Off`) so the two do not fight.
+   - The video is the layer under it: a wrapper with `position: relative`,
+     the score box `position: absolute; bottom: 0` with a translucent panel,
+     and the notation palette (`palette()` in `main.ts`) already adapts to
+     the background.
+   - Keyboard: Space is taken (play/pause); suggested Home for Stop, arrows
+     for a bar back/forward via `api.tickPosition`, `[`/`]` for tempo, and
+     `1`-`3` or `m` for the faders (the `mixer.setLevel()` + `applyFader()`
+     path in `main.ts` is the one to call).
+   - Verify with `check-ui.mjs` (cursor visible inside the window while
+     playing, and the window scrolled to the second line by bar 5) and a
+     screenshot in both themes.
 
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections
@@ -130,6 +141,8 @@ Headless checks in `app/scripts/`, all needing `npm run dev`: `smoke.mjs`
 (render + playback), `shot.mjs <png>` (screenshot + sample alphaTex),
 `check-ui.mjs <png>` (drives Space, inspects cursor and chrome), and
 `check-sync.mjs` (seeks every bar both ways and asserts video and cursor agree
-within 15 ms, then plays through the count-in). They launch the installed
+within 15 ms, then plays through the count-in), and `check-mix.mjs` (plays at
+100% and 50% and asserts the stems stay within 20 ms of the video, the graph
+is silent with every fader at 0, and the click is audible). They launch the installed
 Chrome or Edge (`browser.mjs`): Playwright's own Chromium cannot decode the
 H.264 video. Pipeline tests: `.venv/Scripts/python -m pytest -q tests`.

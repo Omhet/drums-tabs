@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "smoke": "node scripts/smoke.mjs",
     "check-sync": "node scripts/check-sync.mjs",
+    "check-mix": "node scripts/check-mix.mjs",
     "zoom": "node scripts/zoom.mjs",
     "articulations": "node scripts/dump-articulations.mjs"
   },

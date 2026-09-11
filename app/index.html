@@ -73,6 +73,11 @@
       button:disabled { opacity: 0.5; cursor: default; }
       label { display: flex; align-items: center; gap: 8px; color: var(--muted); }
       output { color: var(--fg); font-variant-numeric: tabular-nums; min-width: 3.5em; }
+      .mixer {
+        display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+        padding-left: 16px; border-left: 1px solid var(--border);
+      }
+      .mixer input[type="range"] { width: 90px; }
       #video {
         display: block; width: 100%; max-height: 380px; margin-bottom: 16px;
         background: #000; border-radius: 8px; cursor: pointer;
@@ -120,6 +125,25 @@
           <input id="speed" type="range" min="25" max="125" value="100" step="5" />
           <output id="speed-out">100%</output>
         </label>
+        <!-- The mixer: what you hear is the two stems and the click, not the
+             video's own soundtrack (that is the full mix). -->
+        <div class="mixer">
+          <label>
+            No drums
+            <input id="fader-nodrums" type="range" min="0" max="100" value="100" />
+            <output id="fader-nodrums-out">100%</output>
+          </label>
+          <label>
+            Drums
+            <input id="fader-drums" type="range" min="0" max="100" value="100" />
+            <output id="fader-drums-out">100%</output>
+          </label>
+          <label>
+            Click
+            <input id="fader-click" type="range" min="0" max="100" value="0" />
+            <output id="fader-click-out">0%</output>
+          </label>
+        </div>
       </div>
       <video id="video" playsinline preload="auto"></video>
       <div id="score-box"><div id="score"></div></div>

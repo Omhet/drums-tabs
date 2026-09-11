@@ -2,6 +2,7 @@ import * as alphaTab from '@coderline/alphatab';
 import songs from 'virtual:songs';
 import { VideoClock } from './media';
 import { midiToAlphaTex, type TabResult } from './midi-tab';
+import { FADERS, Mixer, type Fader } from './mixer';
 import { barStartMs, gridSyncPoints, syncSafeTempo, type Grid } from './syncpoints';
 
 // Per-song inputs, imported straight from songs/ (outside the Vite root, which
@@ -171,13 +172,73 @@ const attachClock = () => {
 };
 attachClock();
 
+// --- mixer --------------------------------------------------------------------
+// The stems and the click follow the video on their own (see mixer.ts); the
+// page only owns the faders, remembered like the theme.
+
+let stemsMissing: string[] = [];
+const mixer = new Mixer(videoEl, clock, {
+  onStemError: (name) => {
+    stemsMissing.push(name);
+    showStatus();
+  },
+});
+
+const faderEl = (f: Fader) => document.getElementById(`fader-${f}`) as HTMLInputElement;
+const faderOut = (f: Fader) => document.getElementById(`fader-${f}-out`) as HTMLOutputElement;
+
+function savedLevels(): Partial<Record<Fader, number>> {
+  try {
+    const raw = localStorage.getItem('mix');
+    const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+    const out: Partial<Record<Fader, number>> = {};
+    for (const f of FADERS) {
+      const v = parsed[f];
+      if (typeof v === 'number' && v >= 0 && v <= 100) out[f] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+function applyFader(f: Fader, percent: number) {
+  faderEl(f).value = String(percent);
+  faderOut(f).textContent = `${percent}%`;
+  mixer.setLevel(f, percent / 100);
+}
+const saved = savedLevels();
+for (const f of FADERS) {
+  applyFader(f, saved[f] ?? Number(faderEl(f).value));
+  faderEl(f).addEventListener('input', () => {
+    applyFader(f, Number(faderEl(f).value));
+    try {
+      localStorage.setItem(
+        'mix',
+        JSON.stringify(Object.fromEntries(FADERS.map((g) => [g, Number(faderEl(g).value)])))
+      );
+    } catch {
+      /* private mode: the levels last for this page */
+    }
+  });
+}
+
 let summary = '';
 let rendered = '';
 let playerLoaded = false;
 // Render and player readiness arrive in either order (with external media the
 // player is ready before the first row is drawn), so the status is composed
 // rather than written by whichever event came last.
-const showStatus = () => setStatus([summary, rendered, playerLoaded ? 'Player loaded.' : ''].filter(Boolean).join(' '));
+const showStatus = () =>
+  setStatus(
+    [
+      summary,
+      rendered,
+      playerLoaded ? 'Player loaded.' : '',
+      stemsMissing.length ? `No ${stemsMissing.join(' or ')} stem: playing the video's own sound.` : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+  );
 
 // Handlers must be attached *before* api.tex(), which fires renderStarted
 // synchronously -- otherwise the first event is missed.
@@ -304,6 +365,12 @@ async function load(slug: string) {
   summary = `${tempo}${tab.notes} notes, ${syncPoints.length} sync points.` + (problems.length ? ` ${problems.join('; ')}.` : '');
 
   videoEl.src = `/media/${encodeURIComponent(slug)}/audio/video.mp4`;
+  // The click plays every beat the drummer played, count-in included, with
+  // the first beat of each bar accented. The stems sit next to the video.
+  stemsMissing = [];
+  const perBar = grid?.meter.beats_per_bar ?? 4;
+  const barOne = grid?.bar_one_beat ?? 0;
+  mixer.load(slug, grid?.beats ?? [], (beat) => (beat - barOne) % perBar === 0);
   api.renderScore(score);
 }
 
@@ -370,6 +437,8 @@ if (import.meta.env.DEV) {
     songs: playable,
     midiToAlphaTex,
     video: videoEl,
+    clock,
+    mixer,
     get current() {
       return current;
     },

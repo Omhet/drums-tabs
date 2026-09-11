@@ -48,7 +48,8 @@
         color: var(--fg);
         font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
       }
-      main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 64px; }
+      /* Bottom padding clears the pinned status line. */
+      main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 72px; }
       .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
       h1 { font-size: 18px; margin: 0 0 4px; }
       .sub { color: var(--muted); margin: 0 0 20px; }
@@ -84,7 +85,14 @@
         background: var(--panel); border: 1px solid var(--border);
         border-radius: 8px; padding: 8px; overflow: auto; height: 46vh; min-height: 280px;
       }
-      #status { color: var(--muted); margin-top: 12px; }
+      /* Pinned bottom right so it is readable without scrolling for it. */
+      #status {
+        position: fixed; right: 16px; bottom: 12px; z-index: 10;
+        max-width: min(60vw, 640px); margin: 0; padding: 6px 12px;
+        color: var(--muted); font-size: 13px; line-height: 1.4;
+        background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      }
       /* alphaTab creates the cursor elements but leaves them unstyled. */
       .at-cursor-bar { background: rgba(255, 200, 0, 0.18); }
       .at-cursor-beat { background: rgba(230, 60, 60, 0.85); width: 3px; }

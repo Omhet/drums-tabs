@@ -3,7 +3,7 @@
 // landed in the DOM.
 //
 // Usage: node scripts/smoke.mjs [url]
-import { launch } from './browser.mjs';
+import { launch, waitForPlayer } from './browser.mjs';
 
 const url = process.argv[2] ?? 'http://localhost:5173/';
 const consoleErrors = [];
@@ -36,10 +36,14 @@ page.on('response', (res) => {
   }
 });
 
-await page.goto(url, { waitUntil: 'networkidle' });
+// Not 'networkidle': the stems preload in full (tens of MB of PCM each) and
+// the network is busy for longer than any sensible timeout. The player says
+// when it is ready.
+await page.goto(url);
+await waitForPlayer(page);
 
 // Give alphaTab a moment to finish rendering and the video to load metadata.
-await page.waitForTimeout(4000);
+await page.waitForTimeout(3000);
 
 const status = await page.locator('#status').textContent();
 const dom = await page.evaluate(() => {

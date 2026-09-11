@@ -15,13 +15,16 @@
     </script>
     <style>
       /* Light is the base. Dark applies when chosen with the switch, or when
-         the system prefers it and nothing was chosen. */
+         the system prefers it and nothing was chosen. --glass is the notation
+         window's panel over the video: translucent, so the video shows
+         through, but opaque enough for the notes to read on it. */
       :root {
         color-scheme: light;
         --bg: #f7f7f8;
         --fg: #1a1a1c;
         --muted: #6b6b73;
         --panel: #ffffff;
+        --glass: rgba(255, 255, 255, 0.86);
         --border: #e2e2e6;
       }
       :root[data-theme="dark"] {
@@ -30,6 +33,7 @@
         --fg: #ececf0;
         --muted: #9a9aa4;
         --panel: #1f1f24;
+        --glass: rgba(23, 23, 26, 0.84);
         --border: #303038;
       }
       @media (prefers-color-scheme: dark) {
@@ -39,24 +43,34 @@
           --fg: #ececf0;
           --muted: #9a9aa4;
           --panel: #1f1f24;
+          --glass: rgba(23, 23, 26, 0.84);
           --border: #303038;
         }
       }
+      html, body { height: 100%; }
       body {
         margin: 0;
         background: var(--bg);
         color: var(--fg);
         font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
       }
-      /* Bottom padding clears the pinned status line. */
-      main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 72px; }
+      /* One screen, no page scroll: the header and controls take what they
+         need and the stage (video + notation) gets the rest. */
+      main {
+        box-sizing: border-box; height: 100%; max-width: 1400px; margin: 0 auto;
+        padding: 14px 20px 10px; display: flex; flex-direction: column;
+      }
       .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-      h1 { font-size: 18px; margin: 0 0 4px; }
-      .sub { color: var(--muted); margin: 0 0 20px; }
+      h1 { font-size: 18px; margin: 0 0 2px; }
+      .sub { color: var(--muted); margin: 0 0 12px; }
+      .sub kbd {
+        font: inherit; padding: 0 5px; border: 1px solid var(--border); border-radius: 4px;
+        background: var(--panel); color: var(--fg);
+      }
       #theme { padding: 4px 10px; font-size: 16px; line-height: 1; }
       .controls {
         display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-        padding: 12px 14px; margin-bottom: 16px;
+        padding: 10px 14px; margin-bottom: 12px;
         background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
       }
       select {
@@ -78,25 +92,28 @@
         padding-left: 16px; border-left: 1px solid var(--border);
       }
       .mixer input[type="range"] { width: 90px; }
+      /* The stage: the video fills it, the notation window sits over the
+         bottom of it. */
+      #stage {
+        position: relative; flex: 1; min-height: 240px;
+        background: #000; border-radius: 8px; overflow: hidden;
+      }
       #video {
-        display: block; width: 100%; max-height: 380px; margin-bottom: 16px;
-        background: #000; border-radius: 8px; cursor: pointer;
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        object-fit: contain; cursor: pointer;
       }
-      /* The score's own scroll box: the cursor is followed in here, the video
-         stays. It wraps alphaTab's element rather than being it, because
-         alphaTab measures the scroll target from its element's position
-         inside the box, which only works when the element itself moves. */
+      /* The notation window: N lines of the score (score-window.ts sets the
+         height), scrolled a whole line at a time so the line being played is
+         the top one. It wraps alphaTab's element rather than being it: the
+         element keeps its full height and the box clips it. */
       #score-box {
-        background: var(--panel); border: 1px solid var(--border);
-        border-radius: 8px; padding: 8px; overflow: auto; height: 46vh; min-height: 280px;
+        position: absolute; left: 0; right: 0; bottom: 0; height: 260px;
+        padding: 0 8px; overflow: hidden;
+        background: var(--glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
       }
-      /* Pinned bottom right so it is readable without scrolling for it. */
       #status {
-        position: fixed; right: 16px; bottom: 12px; z-index: 10;
-        max-width: min(60vw, 640px); margin: 0; padding: 6px 12px;
-        color: var(--muted); font-size: 13px; line-height: 1.4;
-        background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
       /* alphaTab creates the cursor elements but leaves them unstyled. */
       .at-cursor-bar { background: rgba(255, 200, 0, 0.18); }
@@ -109,7 +126,11 @@
       <div class="top">
         <div>
           <h1>drums-tabs</h1>
-          <p class="sub">Notation from <code>songs/&lt;slug&gt;/tab.mid</code> over the cover video, synced to the drummer. Space plays, click the score to seek.</p>
+          <p class="sub">
+            Notation from <code>songs/&lt;slug&gt;/tab.mid</code> over the cover video, synced to the drummer.
+            <kbd>Space</kbd> play/pause &middot; <kbd>&larr;</kbd><kbd>&rarr;</kbd> a bar &middot; <kbd>&uarr;</kbd><kbd>&darr;</kbd> a line
+            &middot; <kbd>Home</kbd> stop &middot; <kbd>[</kbd><kbd>]</kbd> tempo &middot; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> mute a fader &middot; click the score to seek.
+          </p>
         </div>
         <button id="theme" title="Switch theme" aria-label="Switch theme"></button>
       </div>
@@ -124,6 +145,15 @@
           Tempo
           <input id="speed" type="range" min="25" max="125" value="100" step="5" />
           <output id="speed-out">100%</output>
+        </label>
+        <label>
+          Lines
+          <select id="lines">
+            <option>1</option>
+            <option selected>2</option>
+            <option>3</option>
+            <option>4</option>
+          </select>
         </label>
         <!-- The mixer: what you hear is the two stems and the click, not the
              video's own soundtrack (that is the full mix). -->
@@ -145,8 +175,10 @@
           </label>
         </div>
       </div>
-      <video id="video" playsinline preload="auto"></video>
-      <div id="score-box"><div id="score"></div></div>
+      <div id="stage">
+        <video id="video" playsinline preload="auto"></video>
+        <div id="score-box"><div id="score"></div></div>
+      </div>
       <p id="status">Loading alphaTab&hellip;</p>
     </main>
     <script type="module" src="/src/main.ts"></script>

@@ -53,11 +53,17 @@ songs/<slug>/
    arrangement clips on that track and reloads the player. A `tab.mid` exported
    by hand from any DAW works the same, without the `[author]` section.
 
-3. **Play** with `cd app && npm run dev`. Space plays and pauses, a click on
-   the score seeks the video there, Stop rewinds to the start of the video.
-   The faders mix the no-drums stem, the drums stem and a click on the beat
-   map (the video's own sound is muted: it is the full mix). Tempo slows all
-   of it, pitch kept. Faders and theme are remembered per browser.
+3. **Play** with `cd app && npm run dev`. The notation sits over the bottom
+   of the video, two lines of four bars (the Lines control makes it one to
+   four); the line being played is the top one, and the window moves down a
+   line as soon as the cursor enters the next. Space plays and pauses, the
+   arrow keys go a bar or a line back and forward, Home stops (rewinds to the
+   start of the video), `[` and `]` step the tempo, `1` `2` `3` mute and
+   unmute the faders, a click on the score seeks the video there, and the
+   mouse wheel over the notation browses it while paused. The faders mix the
+   no-drums stem, the drums stem and a click on the beat map (the video's own
+   sound is muted: it is the full mix). Tempo slows all of it, pitch kept.
+   Faders, lines and theme are remembered per browser.
 
 ## Where things stand
 
@@ -81,7 +87,7 @@ milliseconds in its sync table, so the notation is written at the nearest
 tempo whose beat is a whole number of ms (`syncSafeTempo`, 96 here) with the
 tempo marking hidden; and the video's soundtrack is not the mix -- for this
 song it runs 36.28 ms behind it (`drums align`), and `VideoClock` converts
-between video time and mix time so that alphaTab, the beat map and (next) the
+between video time and mix time so that alphaTab, the beat map and the
 stems all share one timeline.
 
 The mixer (`app/src/mixer.ts`, `app/src/click.ts`) is one Web Audio graph:
@@ -106,32 +112,45 @@ events and `VideoClock` is untouched. Two things learned:
   rate`, accented on `bar_one_beat + k * beats_per_bar` (the count-in gets
   clicks too), and forgets booked blips on seek and pause.
 
-Next, reviewable in the browser:
+And the notation window (step 5, 2026-09-12, `app/src/score-window.ts`):
+the score sits over the bottom of the video, N lines of four bars, the line
+being played on top. The page is one screen (a flex column: header,
+controls, then the stage takes the rest, the video filling it), the window
+is a clipped box positioned over the stage with a translucent panel and a
+backdrop blur, and alphaTab's element keeps its full height inside it.
+alphaTab's own follow-cursor is off (`ScrollMode.Off`); the window reads the
+row geometry from `api.boundsLookup.staffSystems` after `postRenderFinished`
+(each row's top and the bars on it, so the height is `lines` times the row
+pitch and the scroll target for a row is its top) and sets `scrollTop`
+whenever the bar under the cursor is on another row. The keyboard is one
+table in `main.ts` (`keys`), ignored while a select or slider has the
+focus; sliders give the focus up on pointer-up so the arrows go back to the
+player after a drag. Two things learned:
 
-5. **Overlay layout.** Notation over the video: 4 bars per line, N lines
-   visible (2 by default), auto-scroll to the next line when the current one
-   ends. Keyboard shortcuts. Today the score is a scroll box under the video
-   that alphaTab scrolls to keep the cursor in view (the box wraps alphaTab's
-   element; alphaTab's scroll maths needs that). What to build on:
+- `playedBeatChanged` only fires while playing (alphaTab gates it on the
+  player state), so a window driven by it does not follow an arrow key, a
+  click on the score or Stop while paused. `playerPositionChanged` fires on
+  every position push, seeks included; the bar comes from its tick through
+  `masterBars[i].start`.
+- The staff systems' `realBounds` are in the score element's coordinates:
+  the first row starts 35 px down (alphaTab's top padding), the rest are
+  121 px apart at scale 1, and the same rows are re-measured after the
+  re-render a resize or a theme switch triggers, which is when the window
+  is resized and put back on its row.
 
-   - alphaTab renders into `#score` with `barsPerRow: 4`; each row is a
-     `.at-surface` block of fixed height, so "N lines" is N row heights and
-     the window can be a clipped box positioned over the video.
-   - The cursor's row is known from `api.playedBeatChanged` (beat -> bar ->
-     row = floor(barIndex / 4)); scroll the box to that row's top when the
-     row changes, with alphaTab's own follow-cursor off
-     (`player.scrollMode = ScrollMode.Off`) so the two do not fight.
-   - The video is the layer under it: a wrapper with `position: relative`,
-     the score box `position: absolute; bottom: 0` with a translucent panel,
-     and the notation palette (`palette()` in `main.ts`) already adapts to
-     the background.
-   - Keyboard: Space is taken (play/pause); suggested Home for Stop, arrows
-     for a bar back/forward via `api.tickPosition`, `[`/`]` for tempo, and
-     `1`-`3` or `m` for the faders (the `mixer.setLevel()` + `applyFader()`
-     path in `main.ts` is the one to call).
-   - Verify with `check-ui.mjs` (cursor visible inside the window while
-     playing, and the window scrolled to the second line by bar 5) and a
-     screenshot in both themes.
+The first milestone is complete: the song can be learned from the player as
+it is. Candidates for what comes next, none started:
+
+- **A loop.** Two keys to mark the bar the loop starts and ends on, and the
+  video jumps back at the end. The seek chain (tick -> `VideoClock.seekTo`
+  -> `seeked` -> stems realign) is tens of ms; pre-rolling the seek a beat
+  early, or a second video element, if the gap is audible.
+- **Bigger notes.** alphaTab's `display.scale` makes the rows taller; the
+  window already measures whatever it is given. A Zoom control next to
+  Lines.
+- **A count-in on a paused start.** Playing from the middle of the song
+  starts the video at once; a bar of click before it would give time to
+  pick the sticks up.
 
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections
@@ -139,7 +158,9 @@ is in the old plan: `git show transcriber:player-plan.md` (sections
 
 Headless checks in `app/scripts/`, all needing `npm run dev`: `smoke.mjs`
 (render + playback), `shot.mjs <png>` (screenshot + sample alphaTex),
-`check-ui.mjs <png>` (drives Space, inspects cursor and chrome), and
+`check-ui.mjs <png>` (drives Space, every shortcut and the Lines control,
+asserts the window follows the cursor a line at a time playing and paused,
+and screenshots line 2 in both themes: `<png>` and `<png minus .png>-dark.png`), and
 `check-sync.mjs` (seeks every bar both ways and asserts video and cursor agree
 within 15 ms, then plays through the count-in), and `check-mix.mjs` (plays at
 100% and 50% and asserts the stems stay within 20 ms of the video, the graph

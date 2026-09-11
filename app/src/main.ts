@@ -3,6 +3,7 @@ import songs from 'virtual:songs';
 import { VideoClock } from './media';
 import { midiToAlphaTex, type TabResult } from './midi-tab';
 import { FADERS, Mixer, type Fader } from './mixer';
+import { ScoreWindow, barAtTick } from './score-window';
 import { barStartMs, gridSyncPoints, syncSafeTempo, type Grid } from './syncpoints';
 
 // Per-song inputs, imported straight from songs/ (outside the Vite root, which
@@ -26,6 +27,7 @@ const playBtn = document.getElementById('play') as HTMLButtonElement;
 const stopBtn = document.getElementById('stop') as HTMLButtonElement;
 const speedEl = document.getElementById('speed') as HTMLInputElement;
 const speedOut = document.getElementById('speed-out') as HTMLOutputElement;
+const linesEl = document.getElementById('lines') as HTMLSelectElement;
 const themeBtn = document.getElementById('theme') as HTMLButtonElement;
 
 // --- theme --------------------------------------------------------------------
@@ -58,6 +60,8 @@ function palette(dark: boolean): Partial<alphaTab.RenderingResources> {
 
 function setStatus(text: string, isError = false) {
   statusEl.textContent = text;
+  // One line with an ellipsis; the tooltip has all of it.
+  statusEl.title = text;
   statusEl.style.color = isError ? '#c0392b' : '';
 }
 
@@ -105,8 +109,8 @@ const api = new alphaTab.AlphaTabApi(scoreEl, {
     enableLazyLoading: false,
   },
   display: {
-    // Four bars per line: the unit you practise in, and what the video overlay
-    // will show N lines of.
+    // Four bars per line: the unit you practise in, and what the window over
+    // the video shows N lines of.
     barsPerRow: 4,
     resources: palette(isDark()),
   },
@@ -114,6 +118,9 @@ const api = new alphaTab.AlphaTabApi(scoreEl, {
     elements: new Map([
       // One track, and its name ("Drums") in the margin says nothing.
       [alphaTab.NotationElement.TrackNames, false],
+      // The song's title is in the song selector; in the window over the
+      // video it would only take a line from the notes.
+      [alphaTab.NotationElement.ScoreTitle, false],
       // The written tempo is a sync-friendly stand-in (see syncSafeTempo), not
       // the song's; the status line shows the drummer's real one.
       [alphaTab.NotationElement.EffectTempo, false],
@@ -125,10 +132,36 @@ const api = new alphaTab.AlphaTabApi(scoreEl, {
     playerMode: alphaTab.PlayerMode.EnabledExternalMedia,
     enableCursor: true,
     enableUserInteraction: true,
-    // Follow the cursor by scrolling the score box, not the page: the video
-    // above it has to stay on screen.
-    scrollElement: document.getElementById('score-box') as HTMLElement,
+    // The notation window (score-window.ts) does the following: a whole
+    // line at a time, the line being played on top. alphaTab's own smooth
+    // scroll would fight it.
+    scrollMode: alphaTab.ScrollMode.Off,
   },
+});
+
+// --- the notation window ------------------------------------------------------
+// N lines of the score over the video; the number of lines is remembered like
+// the theme.
+
+const scoreWindow = new ScoreWindow(api, document.getElementById('score-box') as HTMLElement);
+function applyLines(n: number) {
+  linesEl.value = String(n);
+  scoreWindow.lines = n;
+}
+try {
+  const n = Number(localStorage.getItem('lines'));
+  applyLines(n >= 1 && n <= 4 ? n : 2);
+} catch {
+  applyLines(2);
+}
+linesEl.addEventListener('change', () => {
+  applyLines(Number(linesEl.value));
+  try {
+    localStorage.setItem('lines', linesEl.value);
+  } catch {
+    /* private mode: the choice lasts for this page */
+  }
+  linesEl.blur();
 });
 
 function applyTheme(theme: 'light' | 'dark' | undefined) {
@@ -206,20 +239,36 @@ function applyFader(f: Fader, percent: number) {
   faderOut(f).textContent = `${percent}%`;
   mixer.setLevel(f, percent / 100);
 }
+function saveFaders() {
+  try {
+    localStorage.setItem(
+      'mix',
+      JSON.stringify(Object.fromEntries(FADERS.map((g) => [g, Number(faderEl(g).value)])))
+    );
+  } catch {
+    /* private mode: the levels last for this page */
+  }
+}
 const saved = savedLevels();
 for (const f of FADERS) {
   applyFader(f, saved[f] ?? Number(faderEl(f).value));
   faderEl(f).addEventListener('input', () => {
     applyFader(f, Number(faderEl(f).value));
-    try {
-      localStorage.setItem(
-        'mix',
-        JSON.stringify(Object.fromEntries(FADERS.map((g) => [g, Number(faderEl(g).value)])))
-      );
-    } catch {
-      /* private mode: the levels last for this page */
-    }
+    saveFaders();
   });
+}
+// Mute from the keyboard: a fader at 0 comes back where it was, or at full
+// if it was never anywhere else (the click starts at 0).
+const unmuted: Partial<Record<Fader, number>> = {};
+function toggleFader(f: Fader) {
+  const now = Number(faderEl(f).value);
+  if (now > 0) {
+    unmuted[f] = now;
+    applyFader(f, 0);
+  } else {
+    applyFader(f, unmuted[f] ?? 100);
+  }
+  saveFaders();
 }
 
 let summary = '';
@@ -302,13 +351,22 @@ videoEl.addEventListener('error', () => {
   setStatus(`Video failed to load (${videoEl.currentSrc}): ${err?.message || `code ${err?.code}`}`, true);
 });
 
-speedEl.addEventListener('input', () => {
-  const percent = Number(speedEl.value);
+function applySpeed(percent: number) {
+  const p = Math.max(Number(speedEl.min), Math.min(Number(speedEl.max), percent));
+  speedEl.value = String(p);
   // Through alphaTab, never straight onto the element: alphaTab derives the
   // cursor animation speed from playbackSpeed and forwards it to the video.
-  api.playbackSpeed = percent / 100;
-  speedOut.textContent = `${percent}%`;
-});
+  api.playbackSpeed = p / 100;
+  speedOut.textContent = `${p}%`;
+}
+speedEl.addEventListener('input', () => applySpeed(Number(speedEl.value)));
+
+// A slider keeps the focus after a drag, and then the arrow keys move it
+// instead of the cursor. Hand the keyboard back to the player once the drag
+// is over (the sliders are for the mouse; the keys have their own controls).
+for (const slider of document.querySelectorAll<HTMLInputElement>('input[type="range"]')) {
+  slider.addEventListener('pointerup', () => slider.blur());
+}
 
 interface Loaded {
   slug: string;
@@ -406,13 +464,56 @@ new MutationObserver((mutations) => {
   }
 }).observe(scoreEl, { childList: true, subtree: true });
 
-// Space toggles playback from anywhere except a control that uses it itself.
+// --- seeking by bar -------------------------------------------------------------
+// Positions are alphaTab ticks; a master bar knows its first tick. Seeking
+// through tickPosition goes out to the video through VideoClock, and the
+// cursor (and the stems) follow the video's seek, playing or paused.
+
+function seekToBar(barIndex: number) {
+  const bars = api.score?.masterBars ?? [];
+  if (bars.length === 0 || playBtn.disabled) return;
+  const target = bars[Math.max(0, Math.min(bars.length - 1, barIndex))]!;
+  api.tickPosition = target.start;
+}
+const currentBar = () => (api.score ? barAtTick(api.score, api.tickPosition) : 0);
+function seekBars(delta: number) {
+  seekToBar(currentBar() + delta);
+}
+/** A line back or forward: the first bar of the row `delta` rows away. */
+function seekLines(delta: number) {
+  const row = scoreWindow.rowOf(currentBar());
+  if (row === undefined) return;
+  const bar = scoreWindow.firstBarOfRow(row + delta);
+  if (bar !== undefined) seekToBar(bar);
+}
+
+// --- keyboard -------------------------------------------------------------------
+// From anywhere except a control that uses the key itself (a select, a
+// slider being dragged). Space is play/pause; Home is Stop; arrows seek by a
+// bar or a line; brackets step the tempo; 1/2/3 mute a fader.
+const keys: Record<string, () => void> = {
+  Space: () => {
+    if (!playBtn.disabled) api.playPause();
+  },
+  Home: stop,
+  ArrowLeft: () => seekBars(-1),
+  ArrowRight: () => seekBars(1),
+  ArrowUp: () => seekLines(-1),
+  ArrowDown: () => seekLines(1),
+  BracketLeft: () => applySpeed(Number(speedEl.value) - Number(speedEl.step)),
+  BracketRight: () => applySpeed(Number(speedEl.value) + Number(speedEl.step)),
+  Digit1: () => toggleFader('nodrums'),
+  Digit2: () => toggleFader('drums'),
+  Digit3: () => toggleFader('click'),
+};
 document.addEventListener('keydown', (e) => {
-  if (e.code !== 'Space' || e.repeat) return;
+  const action = keys[e.code];
+  if (!action || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.repeat && e.code === 'Space') return;
   const target = e.target as HTMLElement | null;
   if (target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return;
   e.preventDefault();
-  if (!playBtn.disabled) api.playPause();
+  action();
 });
 
 songEl.addEventListener('change', () => {
@@ -439,6 +540,8 @@ if (import.meta.env.DEV) {
     video: videoEl,
     clock,
     mixer,
+    scoreWindow,
+    seekToBar,
     get current() {
       return current;
     },

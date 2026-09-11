@@ -38,6 +38,13 @@ export interface TabResult {
   tex: string;
   bars: number;
   notes: number;
+  /**
+   * Rests that should not be drawn, as (bar index, voice index, beat index in
+   * that voice). alphaTex has no way to say it, so the player flags them on the
+   * parsed score. Drum charts never write the feet's rests, and a hands rest on
+   * a beat where the foot plays is noise: the kick already marks the time.
+   */
+  hiddenRests: { bar: number; voice: number; beat: number }[];
   /** MIDI keys that had no mapping and were dropped. */
   unmapped: number[];
   /** Mapped instruments alphaTab has no articulation for. */
@@ -67,20 +74,41 @@ function durationToken(size: number, slotsPerBar: number): string {
   return DURATION[size] ?? '16';
 }
 
-function renderVoice(hits: Map<number, Set<string>>, slotsPerBar: number): string {
+interface VoiceRender {
+  text: string;
+  /** Indices (into this voice's beats) of rests that should not be drawn. */
+  hidden: number[];
+}
+
+interface RestPolicy {
+  /** Positions the other voice plays at: rests are split there so that... */
+  splitAt: Set<number>;
+  /** ...each rest can be judged on its own start: hide it or not. */
+  hideAt: (pos: number) => boolean;
+}
+
+function renderVoice(
+  hits: Map<number, Set<string>>,
+  slotsPerBar: number,
+  policy: RestPolicy
+): VoiceRender {
   const tokens: string[] = [];
+  const hidden: number[] = [];
   const emitRests = (from: number, to: number) => {
     let pos = from;
     while (pos < to) {
-      const size = piece(pos, to - pos);
+      let limit = to;
+      for (const split of policy.splitAt) if (split > pos && split < limit) limit = split;
+      const size = piece(pos, limit - pos);
       tokens.push(`r.${durationToken(size, slotsPerBar)}`);
+      if (policy.hideAt(pos)) hidden.push(tokens.length - 1);
       pos += size;
     }
   };
   const positions = [...hits.keys()].sort((a, b) => a - b);
   if (positions.length === 0) {
     emitRests(0, slotsPerBar);
-    return tokens.join(' ');
+    return { text: tokens.join(' '), hidden };
   }
   let cursor = 0;
   positions.forEach((pos, i) => {
@@ -96,7 +124,7 @@ function renderVoice(hits: Map<number, Set<string>>, slotsPerBar: number): strin
     emitRests(pos + size, next);
     cursor = next;
   });
-  return tokens.join(' ');
+  return { text: tokens.join(' '), hidden };
 }
 
 export function midiToAlphaTex(bytes: Uint8Array, opts: TabOptions): TabResult {
@@ -162,17 +190,24 @@ export function midiToAlphaTex(bytes: Uint8Array, opts: TabOptions): TabResult {
     `\\ts(${opts.beatsPerBar} 4)`,
     '',
   ];
+  const hiddenRests: TabResult['hiddenRests'] = [];
   for (let bar = 0; bar < barCount; bar++) {
     const [hands, feet] = bars.get(bar) ?? [new Map(), new Map()];
-    lines.push(
-      `/* ${bar + 1} */ ${renderVoice(hands, slotsPerBar)} \\voice ${renderVoice(feet, slotsPerBar)} |`
-    );
+    const feetAt = new Set(feet.keys());
+    // Hands: a rest is drawn unless the foot plays right where it starts.
+    const top = renderVoice(hands, slotsPerBar, { splitAt: feetAt, hideAt: (p) => feetAt.has(p) });
+    // Feet: never draw rests; the hands carry the time.
+    const bottom = renderVoice(feet, slotsPerBar, { splitAt: new Set(), hideAt: () => true });
+    lines.push(`/* ${bar + 1} */ ${top.text} \\voice ${bottom.text} |`);
+    for (const beat of top.hidden) hiddenRests.push({ bar, voice: 0, beat });
+    for (const beat of bottom.hidden) hiddenRests.push({ bar, voice: 1, beat });
   }
 
   return {
     tex: lines.filter((l) => l !== '').join('\n') + '\n',
     bars: barCount,
     notes: hits.length,
+    hiddenRests,
     unmapped: [...unmapped].sort((a, b) => a - b),
     unknown: [...unknown].sort(),
   };

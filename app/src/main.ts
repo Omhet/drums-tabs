@@ -1,6 +1,6 @@
 import * as alphaTab from '@coderline/alphatab';
 import songs from 'virtual:songs';
-import { midiToAlphaTex } from './midi-tab';
+import { midiToAlphaTex, type TabResult } from './midi-tab';
 
 // Per-song inputs, imported straight from songs/ (outside the Vite root, which
 // is why vite.config.ts opens server.fs.allow). tab.mid is rewritten by the
@@ -85,7 +85,14 @@ const api = new alphaTab.AlphaTabApi(scoreEl, {
       // background part, they are half of what is being played. Stems down
       // already distinguishes them.
       secondaryGlyphColor: new alphaTab.model.Color(0, 0, 0),
+      // Bar numbers are for finding your place, not for reading; keep them
+      // out of the way of the notes.
+      barNumberColor: new alphaTab.model.Color(180, 180, 180),
     },
+  },
+  notation: {
+    // One track, and its name ("Drums") in the margin says nothing.
+    elements: new Map([[alphaTab.NotationElement.TrackNames, false]]),
   },
   player: {
     // `enablePlayer` is deprecated in favour of `playerMode`.
@@ -125,8 +132,16 @@ api.playerStateChanged.on((e) => {
   playBtn.textContent = e.state === alphaTab.synth.PlayerState.Playing ? 'Pause' : 'Play';
 });
 
-playBtn.addEventListener('click', () => api.playPause());
-stopBtn.addEventListener('click', () => api.stop());
+// Blur after a click so a following Space toggles playback once, not twice
+// (the focused button would fire its own click on the same key).
+playBtn.addEventListener('click', () => {
+  api.playPause();
+  playBtn.blur();
+});
+stopBtn.addEventListener('click', () => {
+  api.stop();
+  stopBtn.blur();
+});
 
 speedEl.addEventListener('input', () => {
   const percent = Number(speedEl.value);
@@ -165,25 +180,49 @@ async function load(slug: string) {
     tab.unknown.length ? `no articulation for: ${tab.unknown.join(', ')}` : '',
   ].filter(Boolean);
   summary = `${tab.notes} notes.` + (problems.length ? ` ${problems.join('; ')}.` : '');
-  api.renderScore(parseTex(tab.tex));
+  api.renderScore(parseTex(tab.tex, tab.hiddenRests));
 }
 
-// alphaTex cannot mark a rest as hidden, and alphaTab pushes a second-voice
-// rest above the staff whenever a first-voice note sits on the same beat --
-// which on a drum staff is every beat the hands play. Drum books simply do not
-// write the feet's rests, so flag them as empty beats: the time is kept, nothing
-// is drawn.
-function parseTex(tex: string): alphaTab.model.Score {
+// alphaTex cannot mark a rest as hidden, so the converter says which rests are
+// noise and we flag them as empty beats on the parsed score: the time is kept,
+// nothing is drawn. (alphaTab would otherwise push every feet rest above the
+// staff, because a hands note sits on the same beat.)
+function parseTex(tex: string, hiddenRests: TabResult['hiddenRests']): alphaTab.model.Score {
   const importer = new alphaTab.importer.AlphaTexImporter();
   importer.initFromString(tex, api.settings);
   const score = importer.readScore();
-  for (const bar of score.tracks[0]?.staves[0]?.bars ?? []) {
-    for (const beat of bar.voices[1]?.beats ?? []) {
-      if (beat.isRest) beat.isEmpty = true;
-    }
+  const bars = score.tracks[0]?.staves[0]?.bars ?? [];
+  for (const { bar, voice, beat } of hiddenRests) {
+    const target = bars[bar]?.voices[voice]?.beats[beat];
+    if (target?.isRest) target.isEmpty = true;
   }
   return score;
 }
+
+// The percussion clef (two bars at the start of every line) is the one glyph
+// alphaTab cannot switch off, and it is meaningless on a one-staff drum chart.
+// It renders as the Bravura character U+E069 in a <text> element; hide those
+// as they appear (alphaTab adds rows to the DOM lazily while you scroll).
+const CLEF_GLYPH = '\uE069';
+new MutationObserver((mutations) => {
+  for (const m of mutations) {
+    for (const node of m.addedNodes) {
+      if (!(node instanceof Element)) continue;
+      for (const text of node.querySelectorAll('text')) {
+        if (text.textContent === CLEF_GLYPH) (text as SVGElement).style.display = 'none';
+      }
+    }
+  }
+}).observe(scoreEl, { childList: true, subtree: true });
+
+// Space toggles playback from anywhere except a control that uses it itself.
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' || e.repeat) return;
+  const target = e.target as HTMLElement | null;
+  if (target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return;
+  e.preventDefault();
+  if (!playBtn.disabled) api.playPause();
+});
 
 songEl.addEventListener('change', () => {
   location.hash = encodeURIComponent(songEl.value);

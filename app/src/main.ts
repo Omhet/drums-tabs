@@ -25,6 +25,35 @@ const playBtn = document.getElementById('play') as HTMLButtonElement;
 const stopBtn = document.getElementById('stop') as HTMLButtonElement;
 const speedEl = document.getElementById('speed') as HTMLInputElement;
 const speedOut = document.getElementById('speed-out') as HTMLOutputElement;
+const themeBtn = document.getElementById('theme') as HTMLButtonElement;
+
+// --- theme --------------------------------------------------------------------
+// The page is themed by CSS variables, but alphaTab paints the notation in its
+// own colours, so a theme change also re-renders the score with a palette
+// that reads on that background.
+
+const systemDark = matchMedia('(prefers-color-scheme: dark)');
+const chosenTheme = () => document.documentElement.dataset.theme as 'light' | 'dark' | undefined;
+const isDark = () => chosenTheme()?.startsWith('dark') ?? systemDark.matches;
+
+function palette(dark: boolean): Partial<alphaTab.RenderingResources> {
+  const C = alphaTab.model.Color;
+  const ink = dark ? new C(236, 236, 240) : new C(0, 0, 0);
+  return {
+    mainGlyphColor: ink,
+    // alphaTab draws secondary voices at 40% black, which is right for a
+    // guitar counter-melody and wrong for drums: the feet are not a
+    // background part, they are half of what is being played. Stems down
+    // already distinguishes them.
+    secondaryGlyphColor: ink,
+    scoreInfoColor: ink,
+    staffLineColor: dark ? new C(110, 110, 120) : new C(165, 165, 165),
+    barSeparatorColor: dark ? new C(190, 190, 200) : new C(34, 34, 17),
+    // Bar numbers are for finding your place, not for reading; keep them
+    // out of the way of the notes.
+    barNumberColor: dark ? new C(110, 110, 120) : new C(180, 180, 180),
+  };
+}
 
 function setStatus(text: string, isError = false) {
   statusEl.textContent = text;
@@ -69,21 +98,16 @@ const api = new alphaTab.AlphaTabApi(scoreEl, {
     // The vite plugin copies the fonts to <root>/font/ but does not point
     // alphaTab at them, so we do it here.
     fontDirectory: '/font/',
+    // Draw every row up front. Lazy loading skips the row already in view
+    // when the score is re-rendered for a theme change, and a song is only a
+    // few dozen rows anyway.
+    enableLazyLoading: false,
   },
   display: {
     // Four bars per line: the unit you practise in, and what the video overlay
     // will show N lines of.
     barsPerRow: 4,
-    resources: {
-      // alphaTab draws secondary voices at 40% black, which is right for a
-      // guitar counter-melody and wrong for drums: the feet are not a
-      // background part, they are half of what is being played. Stems down
-      // already distinguishes them.
-      secondaryGlyphColor: new alphaTab.model.Color(0, 0, 0),
-      // Bar numbers are for finding your place, not for reading; keep them
-      // out of the way of the notes.
-      barNumberColor: new alphaTab.model.Color(180, 180, 180),
-    },
+    resources: palette(isDark()),
   },
   notation: {
     elements: new Map([
@@ -102,9 +126,35 @@ const api = new alphaTab.AlphaTabApi(scoreEl, {
     enableUserInteraction: true,
     // Follow the cursor by scrolling the score box, not the page: the video
     // above it has to stay on screen.
-    scrollElement: scoreEl,
+    scrollElement: document.getElementById('score-box') as HTMLElement,
   },
 });
+
+function applyTheme(theme: 'light' | 'dark' | undefined) {
+  if (theme) document.documentElement.dataset.theme = theme;
+  else delete document.documentElement.dataset.theme;
+  const dark = isDark();
+  themeBtn.textContent = dark ? '☀' : '☾';
+  themeBtn.title = dark ? 'Switch to light' : 'Switch to dark';
+  Object.assign(api.settings.display.resources, palette(dark));
+  api.updateSettings();
+  if (api.score) api.render();
+}
+themeBtn.addEventListener('click', () => {
+  const next = isDark() ? 'light' : 'dark';
+  try {
+    localStorage.setItem('theme', next);
+  } catch {
+    /* private mode: the choice lasts for this page */
+  }
+  applyTheme(next);
+  themeBtn.blur();
+});
+// Nothing chosen: follow the system as it changes.
+systemDark.addEventListener('change', () => {
+  if (!chosenTheme()) applyTheme(undefined);
+});
+applyTheme(chosenTheme());
 
 // alphaTab's external-media output has no idea what the media is; it calls
 // play/pause/seek on whatever handler it is given and waits for positions to

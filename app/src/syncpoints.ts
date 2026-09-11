@@ -17,7 +17,12 @@ export interface Grid {
   /** Bars from bar 1 to the end of the beat map. */
   bar_count: number;
   score: { bpm: number };
-  /** Seconds into the media of every beat the drummer played. */
+  /**
+   * video time - mix time, in ms, measured by `drums align`. The beats (and
+   * the stems) are on mix.wav's timeline; the video is cut differently.
+   */
+  video_offset_ms?: number | null;
+  /** Seconds into the mix of every beat the drummer played. */
   beats: number[];
 }
 

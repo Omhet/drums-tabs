@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "created": "2026-09-09T13:36:09+00:00",
+  "created": "2026-09-11T21:55:37+00:00",
   "source": {
     "detector": "beat_this",
     "checkpoint": "final0",
@@ -32,6 +32,7 @@
     "coverage": 0.8858,
     "plausible_tempo": true
   },
+  "video_offset_ms": 36.28,
   "repair": {
     "raw_beat_count": 254,
     "beat_count": 254,

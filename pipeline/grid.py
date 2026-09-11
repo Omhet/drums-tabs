@@ -140,6 +140,8 @@ class Grid:
     score: GridScore
     repair: dict = field(default_factory=dict)
     source: dict = field(default_factory=dict)
+    # video time - mix time, pinned by `drums align`; None until measured.
+    video_offset_ms: float | None = None
 
     @property
     def count_in_bars(self) -> int:
@@ -715,6 +717,7 @@ def to_dict(grid: Grid) -> dict:
         "count_in_bars": grid.count_in_bars,
         "bar_count": grid.bar_count,
         "score": grid.score.as_dict(),
+        "video_offset_ms": grid.video_offset_ms,
         "repair": grid.repair,
         # Millisecond precision. Finer would be false precision -- the detector's
         # own frame hop is 20 ms -- and it keeps the lock file diffable.
@@ -756,6 +759,7 @@ def load(song: paths.Song) -> Grid:
         ),
         repair=data.get("repair", {}),
         source=data.get("source", {}),
+        video_offset_ms=data.get("video_offset_ms"),
     )
 
 

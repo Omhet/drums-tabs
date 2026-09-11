@@ -27,6 +27,11 @@ export class VideoClock implements alphaTab.synth.IExternalMediaHandler {
   floorMs = 0;
   /** Used until the video's metadata has loaded and the true duration is known. */
   fallbackDurationMs = 0;
+  /**
+   * video time - mix time. Positions alphaTab sees are mix time (the beat
+   * map's timeline); the video runs this much ahead or behind it.
+   */
+  offsetMs = 0;
 
   constructor(
     readonly video: HTMLVideoElement,
@@ -57,9 +62,14 @@ export class VideoClock implements alphaTab.synth.IExternalMediaHandler {
 
   // --- IExternalMediaHandler ------------------------------------------------
 
+  /** Mix time in ms for the video's current position. */
+  get mixTimeMs(): number {
+    return this.video.currentTime * 1000 - this.offsetMs;
+  }
+
   get backingTrackDuration(): number {
     const d = this.video.duration;
-    return Number.isFinite(d) && d > 0 ? d * 1000 : this.fallbackDurationMs;
+    return Number.isFinite(d) && d > 0 ? d * 1000 - this.offsetMs : this.fallbackDurationMs;
   }
 
   get playbackRate(): number {
@@ -77,7 +87,7 @@ export class VideoClock implements alphaTab.synth.IExternalMediaHandler {
   }
 
   seekTo(time: number): void {
-    this.video.currentTime = time / 1000;
+    this.video.currentTime = (time + this.offsetMs) / 1000;
   }
 
   play(): void {
@@ -90,8 +100,9 @@ export class VideoClock implements alphaTab.synth.IExternalMediaHandler {
 
   // --- the clock --------------------------------------------------------------
 
-  private push(ms: number) {
-    this.output?.updatePosition(Math.max(ms, this.floorMs));
+  /** `videoMs` is the video's own time; alphaTab gets mix time. */
+  private push(videoMs: number) {
+    this.output?.updatePosition(Math.max(videoMs - this.offsetMs, this.floorMs));
   }
 
   private anchor() {

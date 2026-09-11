@@ -286,6 +286,7 @@ async function load(slug: string) {
   const syncPoints = grid ? gridSyncPoints(grid, bars) : [];
   if (syncPoints.length > 0) score.applyFlatSyncPoints(syncPoints);
   clock.floorMs = grid ? (barStartMs(grid, 0) ?? 0) : 0;
+  clock.offsetMs = grid?.video_offset_ms ?? 0;
   clock.fallbackDurationMs = grid ? grid.source.audio_duration * 1000 : 0;
   current = { slug, grid, syncPoints, bars };
 
@@ -293,6 +294,7 @@ async function load(slug: string) {
     tab.unmapped.length ? `unmapped MIDI keys: ${tab.unmapped.join(', ')}` : '',
     tab.unknown.length ? `no articulation for: ${tab.unknown.join(', ')}` : '',
     !grid ? 'no grid.lock.json, cursor runs at the written tempo' : '',
+    grid && grid.video_offset_ms == null ? 'video offset not measured (drums align)' : '',
     // applyFlatSyncPoints drops points past the last bar without a word, and
     // bars past the last point run at an extrapolated tempo. Either way the
     // cursor quietly parts from the drummer, so say so.

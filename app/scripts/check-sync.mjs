@@ -23,6 +23,8 @@ const result = await page.evaluate(async (toleranceMs) => {
   const grid = current.grid;
   if (!grid) return { error: 'no grid loaded' };
   const perBar = grid.meter.beats_per_bar;
+  // The beats are mix time; the video is cut `video_offset_ms` differently.
+  const offsetS = (grid.video_offset_ms ?? 0) / 1000;
   const ticksPerBar = 960 * perBar; // alphaTab: 960 ticks per quarter, 4/4
   // The written tempo, not the drummer's: ticks live on the notation's clock.
   const ticksPerMs = (960 * api.score.tempo) / 60000;
@@ -38,7 +40,7 @@ const result = await page.evaluate(async (toleranceMs) => {
     const beatS = grid.beats[grid.bar_one_beat + bar * perBar];
     // Media -> score. A hair after the beat so we are inside this bar, not
     // on the boundary where either answer is right.
-    await seekVideo(beatS + 0.002);
+    await seekVideo(beatS + offsetS + 0.002);
     const tickErrMs = (api.tickPosition - bar * ticksPerBar) / ticksPerMs - 2;
     worst.mediaToScore = Math.max(worst.mediaToScore, Math.abs(tickErrMs));
     if (Math.abs(tickErrMs) > toleranceMs) bad.push({ bar: bar + 1, dir: 'media->score', errMs: Math.round(tickErrMs) });
@@ -46,7 +48,7 @@ const result = await page.evaluate(async (toleranceMs) => {
     const seeked = new Promise((resolve) => video.addEventListener('seeked', () => resolve(), { once: true }));
     api.tickPosition = bar * ticksPerBar;
     await seeked;
-    const mediaErrMs = video.currentTime * 1000 - beatS * 1000;
+    const mediaErrMs = (video.currentTime - offsetS - beatS) * 1000;
     worst.scoreToMedia = Math.max(worst.scoreToMedia, Math.abs(mediaErrMs));
     if (Math.abs(mediaErrMs) > toleranceMs) bad.push({ bar: bar + 1, dir: 'score->media', errMs: Math.round(mediaErrMs) });
   }
@@ -64,6 +66,7 @@ const result = await page.evaluate(async (toleranceMs) => {
   return {
     bars,
     syncPoints: current.syncPoints.length,
+    videoOffsetMs: grid.video_offset_ms ?? null,
     worst,
     bad,
     tempo: api.score.tempo,

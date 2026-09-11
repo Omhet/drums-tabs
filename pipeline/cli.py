@@ -17,6 +17,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from pipeline import align as align_mod
 from pipeline import audit as audit_mod
 from pipeline import beats as beats_mod
 from pipeline import doctor as doctor_mod
@@ -241,6 +242,33 @@ def _prepare(
     audit_mod.render_inspector(song, built)
     audit_mod.render_click_track(song, built)
     return song, built
+
+
+@app.command()
+def align(song: str = typer.Argument(..., help="Song slug or URL")) -> None:
+    """Measure the video's soundtrack against mix.wav and pin the offset.
+
+    The stems and the beat map live on mix.wav's timeline; the video is a
+    separate download cut a few tens of milliseconds differently. The player
+    clocks off the video, so it needs this number to put the cursor, the
+    stems and the click on what the video shows.
+    """
+    target = _resolve(song)
+    try:
+        loaded = grid_mod.load(target)
+        info = align_mod.measure(target)
+        written = align_mod.save(target, loaded, info)
+    except StageError as exc:
+        _fail(exc)
+    for window in info.windows:
+        console.print(
+            f"  [dim]{window.start_s:6.1f}s[/dim]  {window.offset_ms:+8.2f} ms"
+            f"  [dim](corr {window.correlation:.2f})[/dim]"
+        )
+    console.print(
+        f"video is [bold]{info.offset_ms:+.2f} ms[/bold] from the mix "
+        f"-> {written.name}"
+    )
 
 
 @app.command()

@@ -51,3 +51,36 @@ songs/<slug>/
    by hand from any DAW works the same, without the `[author]` section.
 
 3. **Play** with `cd app && npm run dev`.
+
+## Where things stand
+
+Done: media pipeline, straightened authoring stems, Ableton set -> `tab.mid`
+-> notation (`app/src/midi-tab.ts`), four bars per line, cursor, space to
+play/pause. Playback is still alphaTab's own synth; the video is not in the
+page yet.
+
+Next, in order, each reviewable in the browser:
+
+3. **Video and sync.** `audio/video.mp4` in the page as the master clock;
+   alphaTab in `PlayerMode.EnabledExternalMedia` with an `IExternalMediaHandler`
+   (we push media time in, alphaTab pushes play/pause/seek/rate out); the beat
+   map fed through `Score.applyFlatSyncPoints()` as `{barIndex, barPosition,
+   millisecondOffset}` (bar 1 = `beats[bar_one_beat]`, the count-in bar before
+   it is bar index 0 of the grid, not of the notation). Cursor follows the
+   drummer, click on the score seeks. Drop the soundfont.
+4. **Mixer and tempo.** Three gains in one Web Audio graph over
+   `<audio>`/`<video>` elements: no-drums stem, drums stem, click synthesised
+   on the beat map. Tempo via `api.playbackSpeed` only (alphaTab derives the
+   cursor animation from it), `preservesPitch` on the elements.
+5. **Overlay layout.** Notation over the video: 4 bars per line, N lines
+   visible (2 by default), auto-scroll to the next line when the current one
+   ends. Keyboard shortcuts.
+
+The archived research on alphaTab's external-media mode, drift correction
+between media elements and the sweep is in the old plan:
+`git show transcriber:player-plan.md` (sections "Transport", "Sync points",
+"Notation window").
+
+Headless checks in `app/scripts/`: `smoke.mjs` (render + playback),
+`shot.mjs <png>` (screenshot + sample alphaTex), `check-ui.mjs <png>` (drives
+Space, inspects cursor and chrome). They need `npm run dev` running.

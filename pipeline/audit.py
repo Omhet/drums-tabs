@@ -27,7 +27,6 @@ import soundfile as sf
 
 from pipeline import grid as grid_mod
 from pipeline import onsets, paths
-from pipeline.backends.base import OnsetEvent
 from pipeline.grid import DrumSupport, Grid
 
 # Zoom strips are placed at these fractions through the song. The last one is the
@@ -293,62 +292,3 @@ def render_click_track(song: paths.Song, grid: Grid, *, mix_gain: float = 0.55) 
     song.debug_dir.mkdir(parents=True, exist_ok=True)
     sf.write(str(song.beat_click), mono, sr, subtype="PCM_16")
     return song.beat_click
-
-# --------------------------------------------------------------------------
-# onset click tracks
-# --------------------------------------------------------------------------
-
-# One pitch per instrument, so a stray hit is identifiable by ear without
-# looking anywhere: a click where the drum stem is silent is a phantom, a hit
-# with no click over it is a miss.
-ONSET_CLICK_HZ: dict[str, float] = {
-    "kick": 700.0,
-    "snare": 1200.0,
-    "hihat_closed": 2400.0,
-    "hihat_open": 2400.0,
-    "tom_high": 1000.0,
-    "tom_mid": 900.0,
-    "tom_floor": 800.0,
-    "ride": 2000.0,
-    "crash": 1800.0,
-}
-
-
-def render_onset_clicks(
-    song: paths.Song,
-    events: list[OnsetEvent],
-    *,
-    stem_gain: float = 0.6,
-) -> list[Path]:
-    """One click track per instrument, mixed over the drum stem.
-
-    Per instrument rather than one combined track because these are checked by
-    *listening*, and a combined track only tells you that something is wrong
-    somewhere. Played against drums.wav, a kick track answers "did it find the
-    kicks" on its own.
-    """
-    by_instrument: dict[str, list[float]] = {}
-    for event in events:
-        by_instrument.setdefault(event.instrument, []).append(event.t)
-
-    data, sr = sf.read(str(song.drums), always_2d=True, dtype="float32")
-    stem = data.mean(axis=1) * stem_gain
-    song.debug_dir.mkdir(parents=True, exist_ok=True)
-
-    written: list[Path] = []
-    for instrument, times in sorted(by_instrument.items()):
-        track = stem.copy()
-        click = _click(sr, ONSET_CLICK_HZ.get(instrument, 1500.0))
-        for t in times:
-            start = int(t * sr)
-            if start >= track.size:
-                continue
-            end = min(track.size, start + click.size)
-            track[start:end] += click[: end - start] * 0.4
-        peak = float(np.max(np.abs(track))) or 1.0
-        if peak > 0.99:
-            track *= 0.99 / peak
-        out = song.onset_click(instrument)
-        sf.write(str(out), track, sr, subtype="PCM_16")
-        written.append(out)
-    return written

@@ -12,7 +12,10 @@
     "articulations": "node scripts/dump-articulations.mjs"
   },
   "dependencies": {
-    "@coderline/alphatab": "^1.8.4"
+    "@coderline/alphatab": "^1.8.4",
+    "fast-xml-parser": "^5.11.1",
+    "midi-file": "^1.2.4",
+    "smol-toml": "^1.8.0"
   },
   "devDependencies": {
     "@coderline/alphatab-vite": "^1.8.4",

@@ -12,3 +12,20 @@ separation = ""
 meter = ""
 tempo_multiplier = 0
 downbeat_rotation = -1
+
+# Where the notation is authored. Saving the Live set regenerates tab.mid.
+[author]
+als = "C:/Users/omhet/Music/Ableton/Projects/Drum Tabs/Hayley Williams - Kill Me (midi for tabs) Project/Hayley Williams - Kill Me (midi for tabs) fixed.als"
+track = "1-Sticks Kit"
+
+# MIDI key -> instrument, as laid out on the drum rack in that set.
+[midi_map]
+36 = "kick"
+37 = "snare"
+38 = "hihat_closed"
+39 = "hihat_open"
+40 = "hihat_pedal"
+41 = "crash"
+42 = "tom_high"
+43 = "tom_mid"
+44 = "tom_floor"

@@ -1,7 +1,7 @@
 [project]
 name = "drums-tabs"
 version = "0.1.0"
-description = "YouTube -> drum tabs -> practice player"
+description = "Drum practice player: hand-authored MIDI notation synced over a drum-cover video"
 requires-python = ">=3.11,<3.12"
 dependencies = [
     "librosa>=0.10",

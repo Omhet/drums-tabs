@@ -1,9 +1,12 @@
-import { chromium } from 'playwright';
+// Screenshot the loaded page and print a sample of the generated alphaTex.
+import { launch, waitForPlayer } from './browser.mjs';
 const out = process.argv[2];
-const browser = await chromium.launch();
+const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
 await page.goto('http://localhost:5173/');
-await page.waitForFunction(() => /player loaded/.test(document.getElementById('status').textContent), null, { timeout: 60000 });
+await waitForPlayer(page);
+// Let the first video frame arrive so the screenshot shows the poster, not black.
+await page.waitForFunction(() => window.drums.video.readyState >= 2, null, { timeout: 30000 }).catch(() => {});
 await page.screenshot({ path: out, fullPage: false });
 const tex = await page.evaluate(async () => {
   const d = window.drums; const s = d.songs[0];

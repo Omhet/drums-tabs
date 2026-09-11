@@ -1,10 +1,14 @@
 import * as alphaTab from '@coderline/alphatab';
 import songs from 'virtual:songs';
+import { VideoClock } from './media';
 import { midiToAlphaTex, type TabResult } from './midi-tab';
+import { barStartMs, gridSyncPoints, syncSafeTempo, type Grid } from './syncpoints';
 
 // Per-song inputs, imported straight from songs/ (outside the Vite root, which
 // is why vite.config.ts opens server.fs.allow). tab.mid is rewritten by the
 // Ableton plugin on every save of the Live set; grid.lock.json is the beat map.
+// The video is too big to import: plugins/media.ts serves it from the same
+// directory at /media/<slug>/audio/video.mp4.
 const midiUrls = import.meta.glob('../../songs/*/tab.mid', {
   query: '?url',
   import: 'default',
@@ -13,23 +17,14 @@ const grids = import.meta.glob('../../songs/*/grid.lock.json', {
   import: 'default',
 }) as Record<string, () => Promise<Grid>>;
 
-interface Grid {
-  meter: { beats_per_bar: number; beat_unit: number };
-  bar_one_beat: number;
-  bar_count: number;
-  score: { bpm: number };
-  beats: number[];
-}
-
 const scoreEl = document.getElementById('score') as HTMLElement;
 const statusEl = document.getElementById('status') as HTMLElement;
 const songEl = document.getElementById('song') as HTMLSelectElement;
+const videoEl = document.getElementById('video') as HTMLVideoElement;
 const playBtn = document.getElementById('play') as HTMLButtonElement;
 const stopBtn = document.getElementById('stop') as HTMLButtonElement;
 const speedEl = document.getElementById('speed') as HTMLInputElement;
 const speedOut = document.getElementById('speed-out') as HTMLOutputElement;
-const metroEl = document.getElementById('metronome') as HTMLInputElement;
-const metroOut = document.getElementById('metronome-out') as HTMLOutputElement;
 
 function setStatus(text: string, isError = false) {
   statusEl.textContent = text;
@@ -91,41 +86,73 @@ const api = new alphaTab.AlphaTabApi(scoreEl, {
     },
   },
   notation: {
-    // One track, and its name ("Drums") in the margin says nothing.
-    elements: new Map([[alphaTab.NotationElement.TrackNames, false]]),
+    elements: new Map([
+      // One track, and its name ("Drums") in the margin says nothing.
+      [alphaTab.NotationElement.TrackNames, false],
+      // The written tempo is a sync-friendly stand-in (see syncSafeTempo), not
+      // the song's; the status line shows the drummer's real one.
+      [alphaTab.NotationElement.EffectTempo, false],
+    ]),
   },
   player: {
-    // `enablePlayer` is deprecated in favour of `playerMode`.
-    playerMode: alphaTab.PlayerMode.EnabledAutomatic,
-    // Required: soundFont defaults to null and the vite plugin does not set it,
-    // it only copies the file into /public. Without this the synth never loads
-    // and `playerReady` never fires.
-    soundFont: '/soundfont/sonivox.sf3',
+    // The video is the clock and the sound; alphaTab only draws the cursor
+    // and owns the transport. No synth, so no soundfont.
+    playerMode: alphaTab.PlayerMode.EnabledExternalMedia,
     enableCursor: true,
     enableUserInteraction: true,
+    // Follow the cursor by scrolling the score box, not the page: the video
+    // above it has to stay on screen.
+    scrollElement: scoreEl,
   },
 });
 
+// alphaTab's external-media output has no idea what the media is; it calls
+// play/pause/seek on whatever handler it is given and waits for positions to
+// be pushed back. The video element plays that part.
+const clock = new VideoClock(videoEl, {
+  onPlayError: (err) => {
+    api.pause();
+    setStatus(`The browser refused to start the video: ${err}`, true);
+  },
+});
+const attachClock = () => {
+  const output = api.player?.output as alphaTab.synth.IExternalMediaSynthOutput | undefined;
+  if (output && 'handler' in output) clock.attach(output);
+};
+attachClock();
+
 let summary = '';
+let rendered = '';
+let playerLoaded = false;
+// Render and player readiness arrive in either order (with external media the
+// player is ready before the first row is drawn), so the status is composed
+// rather than written by whichever event came last.
+const showStatus = () => setStatus([summary, rendered, playerLoaded ? 'Player loaded.' : ''].filter(Boolean).join(' '));
 
 // Handlers must be attached *before* api.tex(), which fires renderStarted
 // synchronously -- otherwise the first event is missed.
-api.renderStarted.on(() => setStatus('Rendering…'));
+api.renderStarted.on(() => {
+  rendered = '';
+  setStatus('Rendering…');
+});
 
 api.renderFinished.on(() => {
   const staff = api.score?.tracks[0]?.staves[0];
-  setStatus(staff ? `${summary} Rendered ${staff.bars.length} bars. Loading soundfont…` : 'Rendered.');
+  rendered = staff ? `Rendered ${staff.bars.length} bars.` : 'Rendered.';
+  showStatus();
 });
 
 api.error.on((error) => setStatus(`alphaTab error: ${error.message ?? error}`, true));
 
-// The soundfont loads asynchronously; playback stays disabled until the synth
-// reports ready, so a click cannot silently no-op.
+// Playback stays disabled until the player reports ready, so a click cannot
+// silently no-op. (With external media that is immediate; the video itself
+// buffers on demand.)
 api.playerReady.on(() => {
+  attachClock();
   playBtn.disabled = false;
   stopBtn.disabled = false;
-  const tempo = api.score?.tempo ?? 0;
-  setStatus(`${summary} ${tempo} BPM, player loaded.`);
+  playerLoaded = true;
+  showStatus();
 });
 
 api.playerStateChanged.on((e) => {
@@ -139,21 +166,46 @@ playBtn.addEventListener('click', () => {
   playBtn.blur();
 });
 stopBtn.addEventListener('click', () => {
-  api.stop();
+  stop();
   stopBtn.blur();
+});
+
+// Stop means the top of the video, count-in included. alphaTab's own stop
+// seeks to the score's tick 0, which is the first beat of bar 1, a couple of
+// seconds in.
+function stop() {
+  api.stop();
+  videoEl.currentTime = 0;
+}
+
+// The video has no native controls (they would bypass alphaTab's transport);
+// a click on it is play/pause.
+videoEl.addEventListener('click', () => {
+  if (!playBtn.disabled) api.playPause();
+});
+// The score may be longer than the video (an unfinished beat map, or a tab
+// with trailing bars); tell alphaTab when the media runs out.
+videoEl.addEventListener('ended', () => api.pause());
+videoEl.addEventListener('error', () => {
+  const err = videoEl.error;
+  setStatus(`Video failed to load (${videoEl.currentSrc}): ${err?.message || `code ${err?.code}`}`, true);
 });
 
 speedEl.addEventListener('input', () => {
   const percent = Number(speedEl.value);
+  // Through alphaTab, never straight onto the element: alphaTab derives the
+  // cursor animation speed from playbackSpeed and forwards it to the video.
   api.playbackSpeed = percent / 100;
   speedOut.textContent = `${percent}%`;
 });
 
-metroEl.addEventListener('input', () => {
-  const percent = Number(metroEl.value);
-  api.metronomeVolume = percent / 100;
-  metroOut.textContent = percent === 0 ? 'off' : `${percent}%`;
-});
+interface Loaded {
+  slug: string;
+  grid: Grid | undefined;
+  syncPoints: alphaTab.model.FlatSyncPoint[];
+  bars: number;
+}
+let current: Loaded | undefined;
 
 async function load(slug: string) {
   playBtn.disabled = true;
@@ -170,17 +222,37 @@ async function load(slug: string) {
   const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
   const tab = midiToAlphaTex(bytes, {
     title: song.title,
-    bpm: grid ? Math.round(grid.score.bpm) : 120,
+    bpm: grid ? syncSafeTempo(grid.score.bpm) : 120,
     map: song.map,
     beatsPerBar: grid?.meter.beats_per_bar ?? 4,
     barCount: grid?.bar_count ?? 0,
   });
+  const score = parseTex(tab.tex, tab.hiddenRests);
+  const bars = score.masterBars.length;
+
+  // Sync the score to the drummer before alphaTab generates its playback
+  // model from it. Without a beat map the video would run against the
+  // notation's constant tempo, and the cursor would drift off within bars.
+  const syncPoints = grid ? gridSyncPoints(grid, bars) : [];
+  if (syncPoints.length > 0) score.applyFlatSyncPoints(syncPoints);
+  clock.floorMs = grid ? (barStartMs(grid, 0) ?? 0) : 0;
+  clock.fallbackDurationMs = grid ? grid.source.audio_duration * 1000 : 0;
+  current = { slug, grid, syncPoints, bars };
+
   const problems = [
     tab.unmapped.length ? `unmapped MIDI keys: ${tab.unmapped.join(', ')}` : '',
     tab.unknown.length ? `no articulation for: ${tab.unknown.join(', ')}` : '',
+    !grid ? 'no grid.lock.json, cursor runs at the written tempo' : '',
+    // applyFlatSyncPoints drops points past the last bar without a word, and
+    // bars past the last point run at an extrapolated tempo. Either way the
+    // cursor quietly parts from the drummer, so say so.
+    grid && bars !== grid.bar_count ? `notation has ${bars} bars, beat map has ${grid.bar_count}` : '',
   ].filter(Boolean);
-  summary = `${tab.notes} notes.` + (problems.length ? ` ${problems.join('; ')}.` : '');
-  api.renderScore(parseTex(tab.tex, tab.hiddenRests));
+  const tempo = grid ? `${Math.round(grid.score.bpm)} BPM, ` : '';
+  summary = `${tempo}${tab.notes} notes, ${syncPoints.length} sync points.` + (problems.length ? ` ${problems.join('; ')}.` : '');
+
+  videoEl.src = `/media/${encodeURIComponent(slug)}/audio/video.mp4`;
+  api.renderScore(score);
 }
 
 // alphaTex cannot mark a rest as hidden, so the converter says which rests are
@@ -239,7 +311,17 @@ window.addEventListener('hashchange', () => {
 // Handle for the headless checks in scripts/ -- they drive playback and read
 // the position back, which is the only way to verify the player from outside.
 if (import.meta.env.DEV) {
-  (window as unknown as { drums: unknown }).drums = { api, load, songs: playable, midiToAlphaTex };
+  (window as unknown as { drums: unknown }).drums = {
+    api,
+    load,
+    stop,
+    songs: playable,
+    midiToAlphaTex,
+    video: videoEl,
+    get current() {
+      return current;
+    },
+  };
 }
 
 void load(songEl.value);

@@ -50,37 +50,49 @@ songs/<slug>/
    arrangement clips on that track and reloads the player. A `tab.mid` exported
    by hand from any DAW works the same, without the `[author]` section.
 
-3. **Play** with `cd app && npm run dev`.
+3. **Play** with `cd app && npm run dev`. Space plays and pauses, a click on
+   the score seeks the video there, Stop rewinds to the start of the video.
 
 ## Where things stand
 
 Done: media pipeline, straightened authoring stems, Ableton set -> `tab.mid`
 -> notation (`app/src/midi-tab.ts`), four bars per line, cursor, space to
-play/pause. Playback is still alphaTab's own synth; the video is not in the
-page yet.
+play/pause, and the video as the clock: `audio/video.mp4` plays in the page
+(served by `app/plugins/media.ts` at `/media/<slug>/...`, with range requests),
+alphaTab runs in `PlayerMode.EnabledExternalMedia` with the video element as
+its `IExternalMediaHandler` (`app/src/media.ts`), and the beat map goes in as
+one sync point per played beat (`app/src/syncpoints.ts`). The cursor follows
+the drummer, clicking the score seeks the video, the tempo slider slows the
+video, Stop rewinds to the top of the count-in. No soundfont, no synth.
+
+Two things learned on the way, both encoded in `syncpoints.ts`: notation bar 1
+is the beat at `grid.bar_one_beat`, the count-in before it has no place in the
+score (the cursor waits on bar 1); and alphaTab truncates each beat's duration
+to whole milliseconds when it builds its sync table, so the notation is written
+at the nearest tempo whose beat is a whole number of milliseconds (96 for this
+song) and the tempo marking is hidden. The status line shows the real BPM.
 
 Next, in order, each reviewable in the browser:
 
-3. **Video and sync.** `audio/video.mp4` in the page as the master clock;
-   alphaTab in `PlayerMode.EnabledExternalMedia` with an `IExternalMediaHandler`
-   (we push media time in, alphaTab pushes play/pause/seek/rate out); the beat
-   map fed through `Score.applyFlatSyncPoints()` as `{barIndex, barPosition,
-   millisecondOffset}` (bar 1 = `beats[bar_one_beat]`, the count-in bar before
-   it is bar index 0 of the grid, not of the notation). Cursor follows the
-   drummer, click on the score seeks. Drop the soundfont.
 4. **Mixer and tempo.** Three gains in one Web Audio graph over
    `<audio>`/`<video>` elements: no-drums stem, drums stem, click synthesised
-   on the beat map. Tempo via `api.playbackSpeed` only (alphaTab derives the
-   cursor animation from it), `preservesPitch` on the elements.
+   on the beat map. Tempo stays on `api.playbackSpeed` (alphaTab derives the
+   cursor animation from it and forwards it to the video), `preservesPitch`
+   on the elements. The stems are already reachable at
+   `/media/<slug>/stems/<name>.wav`.
 5. **Overlay layout.** Notation over the video: 4 bars per line, N lines
    visible (2 by default), auto-scroll to the next line when the current one
-   ends. Keyboard shortcuts.
+   ends. Keyboard shortcuts. Today the score is a scroll box under the video
+   that alphaTab scrolls to keep the cursor in view.
 
-The archived research on alphaTab's external-media mode, drift correction
-between media elements and the sweep is in the old plan:
-`git show transcriber:player-plan.md` (sections "Transport", "Sync points",
-"Notation window").
+The archived research on drift correction between media elements and the sweep
+is in the old plan: `git show transcriber:player-plan.md` (sections
+"Transport", "Sync points", "Notation window").
 
-Headless checks in `app/scripts/`: `smoke.mjs` (render + playback),
-`shot.mjs <png>` (screenshot + sample alphaTex), `check-ui.mjs <png>` (drives
-Space, inspects cursor and chrome). They need `npm run dev` running.
+Headless checks in `app/scripts/`, all needing `npm run dev`: `smoke.mjs`
+(render + playback), `shot.mjs <png>` (screenshot + sample alphaTex),
+`check-ui.mjs <png>` (drives Space, inspects cursor and chrome), and
+`check-sync.mjs` (seeks every bar both ways and asserts video and cursor agree
+within 15 ms, then plays through the count-in). They launch the installed
+Chrome or Edge (`browser.mjs`): Playwright's own Chromium cannot decode the
+H.264 video.

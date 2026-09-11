@@ -3,14 +3,14 @@
 // landed in the DOM.
 //
 // Usage: node scripts/smoke.mjs [url]
-import { chromium } from 'playwright';
+import { launch } from './browser.mjs';
 
 const url = process.argv[2] ?? 'http://localhost:5173/';
 const consoleErrors = [];
 const pageErrors = [];
 const failedRequests = [];
 
-const browser = await chromium.launch();
+const browser = await launch();
 const page = await browser.newPage();
 
 page.on('console', (msg) => {
@@ -19,9 +19,13 @@ page.on('console', (msg) => {
   }
 });
 page.on('pageerror', (err) => pageErrors.push(String(err)));
-page.on('requestfailed', (req) =>
-  failedRequests.push(`${req.url()} (${req.failure()?.errorText ?? 'failed'})`)
-);
+page.on('requestfailed', (req) => {
+  // The browser opens the video with an open-ended range request and aborts it
+  // once it has the metadata it wanted; that is how media loading works, not
+  // a failure.
+  if (req.resourceType() === 'media' && req.failure()?.errorText === 'net::ERR_ABORTED') return;
+  failedRequests.push(`${req.url()} (${req.failure()?.errorText ?? 'failed'})`);
+});
 // A dev server answers missing paths with index.html rather than a 404, so a
 // broken asset shows up as a 200 of the wrong content type, not as a failure.
 page.on('response', (res) => {
@@ -34,7 +38,7 @@ page.on('response', (res) => {
 
 await page.goto(url, { waitUntil: 'networkidle' });
 
-// Give alphaTab a moment to finish rendering and load the soundfont.
+// Give alphaTab a moment to finish rendering and the video to load metadata.
 await page.waitForTimeout(4000);
 
 const status = await page.locator('#status').textContent();
@@ -52,13 +56,19 @@ const dom = await page.evaluate(() => {
 });
 
 // Rendering is only half of it: the score has to *play*. Press play, let the
-// synth run, and read the transport position back -- a cursor that never moves
-// is the failure a screenshot cannot show.
+// video run past its count-in, and read the transport position back -- a
+// cursor that never moves is the failure a screenshot cannot show.
 await page.locator('#play').click();
-await page.waitForTimeout(2500);
+await page.waitForTimeout(4500);
 const playback = await page.evaluate(() => {
   const api = window.drums?.api;
-  return { state: api?.playerState ?? -1, position: Math.round(api?.timePosition ?? -1) };
+  const video = window.drums?.video;
+  return {
+    state: api?.playerState ?? -1,
+    position: Math.round(api?.timePosition ?? -1),
+    videoTime: Math.round((video?.currentTime ?? -1) * 1000),
+    videoPaused: video?.paused ?? null,
+  };
 });
 await page.locator('#stop').click();
 
@@ -76,6 +86,7 @@ console.log(`#score html  : ${dom.innerLength} bytes`);
 console.log(`glyphs (text): ${dom.glyphCount}   (noteheads are Bravura glyphs)`);
 console.log(`play enabled : ${dom.playDisabled === false}`);
 console.log(`playback     : state ${playback.state} at ${playback.position} ms (state 1 = playing, position > 0 = the transport moved)`);
+console.log(`video        : at ${playback.videoTime} ms, paused ${playback.videoPaused}`);
 
 const problems = [...pageErrors, ...consoleErrors, ...failedRequests];
 if (problems.length) {

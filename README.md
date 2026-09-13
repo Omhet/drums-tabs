@@ -238,8 +238,8 @@ inside a stretch of identical bars (a groove repeated twelve times offers a
 boundary at every offset and none of them is where a section starts), merges a
 groove with its own immediate repeats, merges what is too short to practise,
 and letters what is left by content. Nine blocks for this song at first; re-run
-at `--min-bars 8` it proposes six, all distinct, lettered A-F -- a 28-cell
-routine until the letters become names.
+at `--min-bars 8` it proposes six, lettered A-F. The letters are a seed: this
+song's blocks were then named and re-cut by hand from the notation (below).
 
 And the sticking solver (2026-09-13, `avatar-plan.md`'s half of M0). The chart
 says "snare on the 2" and never says which hand, so `pipeline/sticking.py`
@@ -373,13 +373,18 @@ not at the end of a sitting, which is not an event this program ever sees, since
 Live reloads the page on every Ctrl+S. Sealing is by hand and refuses a routine
 with holes in it; a sealed routine records its date span, so a run spread over a
 week is visible next to its score rather than forbidden. Discarding throws away
-the run and never the takes. Five things learned:
+the run and never the takes. The grid is drawn under the controls -- sections
+down, the ladder across, green above 90% and red below, click a cell to go
+there -- and folds away while a take is running, because the thing that needs
+the stage then is the notation. Five things learned:
 
-- **The grid shrinks by naming, not by code.** Two `[[section]]` blocks with the
-  same name are one cell, practised once against the first of them. Six lettered
-  blocks are 28 cells; the same song with its repeats named honestly (verse,
-  prechorus, chorus) is 20. The names are in `song.toml` and the player draws
-  them over the staff, so the grid is edited by reading the score.
+- **The grid shrinks by naming, and grows by cutting.** Two `[[section]]` blocks
+  with the same name are one cell, practised once against the first of them, so
+  naming both verses `verse` halves them. Cutting the fills out into blocks of
+  their own does the opposite and is worth it: a fill is the bar you actually
+  drop, and a fill inside an eight-bar section is a bar you play once per
+  attempt. The names are in `song.toml` and the player draws them over the
+  staff, so the grid is edited by reading the score.
 - **"Where next" is two rules, not one.** Finishing a cell walks *forwards* from
   it, so someone working up section D stays in section D. Picking a run up in a
   new sitting has no such context and goes to the first hole in the grid. One
@@ -400,9 +405,17 @@ the run and never the takes. Five things learned:
   disagree about what speed you are playing at -- and at 70% the count-in has to
   slow down with it, or four clicks hand you the wrong speed to start in.
 
-Two things are the user's, not the code's: the sections are still lettered A-F
-and want real names (which is what makes the routine smaller), and **renaming
-them starts a new epoch**, so it is worth doing before recording takes to keep.
+**The sections were then named from the notation (2026-09-13).** A-F became
+twelve blocks under ten names: `verse` (bars 1-12 and 24-31, the same sparse
+groove both times, so one cell), `chorus` (15-22 and 34-40, likewise), `bridge`,
+`build`, `last chorus` -- and **every fill and pickup as a block of its own**:
+`into chorus`, `into verse`, `into chorus 2`, `into bridge`, `into last chorus`.
+Each of those is one to four bars and starts with the empty bar in front of it,
+so drilling a fill gives you the bar of air to hear it coming. Ten names is 44
+cells, more than the lettered grid's 28 -- but the new cells are one to four
+bars each, so a full run is about 47 bars per tempo rather than 62, and a
+sitting works out shorter, not longer. Renaming **starts a new epoch**, which is
+why it was done before any take worth keeping was recorded.
 
 Older candidates, still unstarted: a loop (two keys marking the start and end
 bar), bigger notes (`display.scale` and a Zoom control next to Lines), and a

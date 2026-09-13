@@ -69,24 +69,29 @@ editor tool.
 - **The WSOLA tempo question is closed.** 70% and 80% sound fine on the
   original's stems, so the tempo ladder costs nothing and no `drums ladder`
   pipeline step is needed.
-- **Sections were re-detected** at `--min-bars 8` -- six blocks, six distinct, a
-  28-cell routine -- and `drums sticking --restick` has been run, so the lock's
-  kit digest matches again.
+- **Sections are named and cut**, by hand from the notation on 2026-09-13:
+  twelve blocks under ten names, with every fill and pickup a block of its own.
+  44 cells. `drums sticking --restick` has been run, so the lock's kit digest
+  matches again. Re-running `drums sections --redetect` would throw the names
+  away -- don't, unless the chart itself has changed shape.
 - **Calibration on this machine is about +27 to +31 ms** with a ±20-25 ms
   spread, measured on the snare while cold. One number for the whole module, by
   the user's choice; per-pad stays possible later because takes keep raw stamps.
 
 ### What the user still owes the work
 
-1. **Rename the sections** in the original song's `song.toml`. They are A-F, and
-   the song is closer to verse / prechorus / afterchorus / verse and then a
-   near-repeat -- and **two blocks given the same name become one cell practised
-   once**, which is how a 28-cell routine gets down to 20. The player draws the
-   names over the staff, so it can be done by reading the score. This is now the
-   only thing standing between the grid and a run worth keeping: renaming
-   changes `sectionsHash`, which **starts a new epoch** -- any open routine
-   refuses to resume and old takes stop matching the grid. Do it before
-   recording takes to keep, not after.
+1. **Play a routine and see whether the sections are cut where you would cut
+   them.** They were named from the notation, not from the record, and the names
+   are a guess at the song's form: `verse` / `into chorus` / `chorus` /
+   `into verse` / `verse` / `into chorus 2` / `chorus` / `into bridge` /
+   `bridge` / `build` / `into last chorus` / `last chorus`. `bridge` (42-45) and
+   `build` (46-49) are the least certain. Renaming is free *now* and expensive
+   later: it changes `sectionsHash`, which **starts a new epoch** -- any open
+   routine refuses to resume and old runs leave the comparison line. Two knobs
+   worth knowing: naming `build` `chorus` would merge it away (it is the same
+   plain groove) and take the routine to 40 cells; naming `into chorus 2`
+   `into chorus` would merge the two pickups, which differ only by two hi-hat
+   notes, for 36.
 2. **Re-calibrate warmed up.** The first measurement had a ±20-25 ms spread,
    wide enough that the offset it produced is itself uncertain by several ms --
    and every take in the history is corrected by that number.
@@ -109,9 +114,10 @@ editor tool.
   asked for it yet.
 - **Whether to shift the reference** by the offset `drums reference` measures.
   Deliberately not decided in M1 -- see §4.
-- **The grid takes ~200 px of the one-screen layout.** Fine on a big display,
-  and the stage still gets two lines of notation at 900 px tall. If it ever
-  needs to fold away, it is one `hidden` toggle next to Monitor.
+- **The grid folds away while a take is running** and comes back when it stops,
+  so the notation gets the stage exactly when it is being read. Eleven rows is
+  about 240 px otherwise. If it ever needs to fold on demand as well, that is
+  one checkbox next to Monitor.
 
 ---
 
@@ -122,10 +128,11 @@ The rules live in `app/src/routine.ts`, which is pure and has 27 tests on it
 named export with the reasoning above it.
 
 - **The grid** is `[[section]]` blocks x 70/80/90/100, walked section-major,
-  then the whole song at each tempo, with the whole song at 100% last. Six
-  distinct sections is 28 cells. **Two blocks with the same name are one cell**,
+  then the whole song at each tempo, with the whole song at 100% last. Ten
+  distinct sections is 44 cells. **Two blocks with the same name are one cell**,
   practised against the first of them -- that is the only lever that makes a
-  routine smaller.
+  routine smaller, and cutting fills into blocks of their own is the one that
+  makes it bigger.
 - **Only a complete take fills a cell** (the transport reached the last bar),
   and **the last complete take counts, not the best**. An abandoned take is
   still written to `takes/`; it just fills nothing.

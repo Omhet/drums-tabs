@@ -448,6 +448,7 @@ export class Practice {
     this.el.record.textContent = 'Stop';
     this.el.record.dataset.armed = '1';
     this.el.record.disabled = false;
+    this.drawGrid();
     this.onStatus(
       `Counting in ${describeCell(cell)}` +
         (this.calibration ? '' : ' -- uncalibrated, so the mean offset will include the audio path')
@@ -541,6 +542,7 @@ export class Practice {
     this.capture = undefined;
     this.el.record.textContent = 'Record';
     delete this.el.record.dataset.armed;
+    this.drawGrid();
     if (!window_ || !events) {
       this.showCell();
       return;
@@ -798,7 +800,11 @@ export class Practice {
         : 'no sections to build a grid from';
 
     el.replaceChildren();
-    el.hidden = this.cells.length === 0;
+    // Folded away while a take is running. The grid is for choosing what to
+    // play; once you are playing it, the thing that needs the room is the
+    // notation, and a song with ten sections and a fill between each of them
+    // has a tall grid.
+    el.hidden = this.cells.length === 0 || !!this.recording;
     if (el.hidden) return;
 
     const table = document.createElement('table');

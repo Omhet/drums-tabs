@@ -51,31 +51,61 @@ track = "1-Sticks Kit"
 # to new ones.
 
 [[section]]
-name = "A"
+name = "verse"
 start_bar = 1
 end_bar = 12
 
 [[section]]
-name = "B"
+name = "into chorus"
 start_bar = 13
-end_bar = 21
+end_bar = 14
 
 [[section]]
-name = "C"
-start_bar = 22
+name = "chorus"
+start_bar = 15
+end_bar = 22
+
+[[section]]
+name = "into verse"
+start_bar = 23
+end_bar = 23
+
+[[section]]
+name = "verse"
+start_bar = 24
 end_bar = 31
 
 [[section]]
-name = "D"
+name = "into chorus 2"
 start_bar = 32
+end_bar = 33
+
+[[section]]
+name = "chorus"
+start_bar = 34
 end_bar = 40
 
 [[section]]
-name = "E"
+name = "into bridge"
 start_bar = 41
+end_bar = 41
+
+[[section]]
+name = "bridge"
+start_bar = 42
+end_bar = 45
+
+[[section]]
+name = "build"
+start_bar = 46
+end_bar = 49
+
+[[section]]
+name = "into last chorus"
+start_bar = 50
 end_bar = 53
 
 [[section]]
-name = "F"
+name = "last chorus"
 start_bar = 54
 end_bar = 62

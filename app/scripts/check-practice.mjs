@@ -37,8 +37,8 @@ const EXTRA_AFTER = 9; // plus a stroke nobody wrote  -> extra
 const WRONG = 15; // played on a tom instead     -> wrong-voice
 const FLAM = 21; // played twice, a bounce      -> flam
 
-/** The cell the take leg plays. Not the first of the walk: see where it is chosen. */
-const TAKE_CELL = 'A@100';
+/** The cell the take leg plays, filled in once the grid is known: see where it is chosen. */
+let TAKE_CELL = '';
 
 const songs = fileURLToPath(new URL('../../songs', import.meta.url));
 const takesDir = join(songs, SLUG, 'takes');
@@ -124,8 +124,13 @@ check(
   'the grid is the sections times the ladder',
   `${grid.cells} cells, ${grid.sections.length - 1} sections`
 );
+// Section names come from song.toml, so the expectation is built from them
+// rather than written out: renaming a section is the user's business and must
+// not be a failing check.
+const [FIRST, SECOND] = grid.sections;
+TAKE_CELL = `${FIRST}@100`;
 check(
-  grid.ids.join(' ') === 'A@70 A@80 A@90 A@100 B@70',
+  grid.ids.join(' ') === `${FIRST}@70 ${FIRST}@80 ${FIRST}@90 ${FIRST}@100 ${SECOND}@70`,
   'it is walked section-major, up the ladder then on',
   grid.ids.join(' ')
 );
@@ -323,20 +328,19 @@ if (after.length === 1) {
 // A take played to the end fills its cell, and the routine is rewritten there
 // and then -- not at the end of the sitting, which is not an event this program
 // ever sees.
-const filled = await page.evaluate(() => {
+const filled = await page.evaluate((at) => {
   const p = window.drums.practice;
-  const at = document.querySelector('#routine .cell.at');
   return {
     cells: p.routine?.cells.filter((c) => c.fill).length ?? 0,
-    fill: p.routine?.cells.find((c) => c.id === 'A@100')?.fill ?? null,
+    fill: p.routine?.cells.find((c) => c.id === at)?.fill ?? null,
     next: p.at,
     state: document.getElementById('routine-state').textContent,
     green: document.querySelectorAll('#routine .cell.pass').length,
     red: document.querySelectorAll('#routine .cell.fail').length,
-    atLabel: at?.textContent ?? '',
+    atLabel: document.querySelector('#routine .cell.at')?.textContent ?? '',
     sealDisabled: document.getElementById('routine-seal').disabled,
   };
-});
+}, TAKE_CELL);
 check(filled.cells === 1, 'the completed take filled exactly one cell', `${filled.cells} filled`);
 check(!!filled.fill && filled.fill.take === after[0], 'the cell points at the take that filled it', filled.fill?.take);
 check(
@@ -348,9 +352,9 @@ check(
 // to the middle of the grid is working through it from there. Picking a routine
 // up in a new sitting is the other case, and goes to the first hole -- see the
 // reload leg below.
-check(filled.next === 'B@70', 'it walks on to the next unfilled cell', filled.next);
+check(filled.next === `${SECOND}@70`, 'it walks on to the next unfilled cell', filled.next);
 check(filled.green + filled.red === 1, 'the filled cell is drawn green or red', `${filled.green} green, ${filled.red} red`);
-check(filled.sealDisabled, 'one cell of twenty-eight is not a routine you can seal');
+check(filled.sealDisabled, `one cell of ${grid.cells} is not a routine you can seal`);
 
 // --- the reload ---------------------------------------------------------------------
 // Every Ctrl+S in Live reloads this page. A run you cannot pick up afterwards
@@ -373,7 +377,7 @@ const resumed = await page.evaluate(() => {
 });
 check(resumed.open, 'the routine survived the reload', resumed.state);
 check(resumed.filled === 1, 'the cell it had filled is still filled', `${resumed.filled} filled`);
-check(resumed.at === 'A@70', 'it picks up at the first unfilled cell', resumed.at);
+check(resumed.at === `${FIRST}@70`, 'it picks up at the first unfilled cell', resumed.at);
 check(resumed.startHidden && resumed.sealShown, 'the page offers to seal it, not to start another');
 
 // A second routine cannot be opened behind the first one's back, even by a

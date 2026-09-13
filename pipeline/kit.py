@@ -10,6 +10,7 @@ One source, two consumers.
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import tomllib
 from dataclasses import dataclass
@@ -88,11 +89,40 @@ class Kit:
         return math.hypot(first.x - second.x, first.y - second.y)
 
 
+def _digest(instruments: dict[str, Instrument], hands: Weights) -> str:
+    """What a sticking is pinned to: the geometry and the weights, nothing else.
+
+    Hashing the file would tie every sticking to edits that cannot change which
+    hand plays what -- a reworded comment, or a pad number in ``[input]``, which
+    the player reads and this module never looks at -- and mark every lock file
+    stale for it.
+    """
+    shape = json.dumps(
+        {
+            "instruments": {
+                name: [i.x, i.y, list(i.limbs), i.time_keeper]
+                for name, i in sorted(instruments.items())
+            },
+            "hands": [
+                hands.max_speed_cm_s,
+                hands.travel,
+                hands.crossover,
+                hands.repeat,
+                hands.repeat_below_ms,
+                hands.lead,
+                hands.lead_bias,
+            ],
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return "sha256:" + hashlib.sha256(shape.encode("utf-8")).hexdigest()[:16]
+
+
 def load(path: Path = KIT_PATH) -> Kit:
     if not path.exists():
         raise StageError(f"no kit at {path}. It is tracked in git; restore it or write one.")
-    raw = path.read_bytes()
-    data = tomllib.loads(raw.decode("utf-8"))
+    data = tomllib.loads(path.read_bytes().decode("utf-8"))
 
     instruments: dict[str, Instrument] = {}
     for name, body in (data.get("instrument") or {}).items():
@@ -132,5 +162,4 @@ def load(path: Path = KIT_PATH) -> Kit:
     if weights.max_speed_cm_s <= 0:
         raise StageError(f"{path.name}: [hands] max_speed_cm_s must be positive")
 
-    digest = "sha256:" + hashlib.sha256(raw).hexdigest()[:16]
-    return Kit(instruments=instruments, hands=weights, digest=digest)
+    return Kit(instruments=instruments, hands=weights, digest=_digest(instruments, weights))

@@ -10,8 +10,9 @@
     "smoke": "node scripts/smoke.mjs",
     "check-sync": "node scripts/check-sync.mjs",
     "check-mix": "node scripts/check-mix.mjs",
-    "zoom": "node scripts/zoom.mjs",
-    "articulations": "node scripts/dump-articulations.mjs"
+    "check-ui": "node scripts/check-ui.mjs",
+    "check-practice": "node scripts/check-practice.mjs",
+    "test": "node --import ./scripts/ts-resolve.mjs --test scripts/test-*.mjs"
   },
   "dependencies": {
     "@coderline/alphatab": "^1.8.4",

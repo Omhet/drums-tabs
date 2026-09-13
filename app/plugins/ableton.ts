@@ -5,6 +5,7 @@
 // pulls the arrangement clips off the drum track, and rewrites
 // songs/<slug>/tab.mid. A tab.mid exported by hand from Ableton is the same
 // file, so the browser side never knows which way it was made.
+import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
@@ -13,11 +14,32 @@ import { writeMidi, type MidiData, type MidiEvent } from 'midi-file';
 import { parse as parseToml } from 'smol-toml';
 import type { Plugin, ViteDevServer } from 'vite';
 
+/** One `[[section]]` block: a stretch of bars you can practise on its own. */
+export interface Section {
+  name: string;
+  /** 1-based and inclusive, as written in song.toml. */
+  start_bar: number;
+  end_bar: number;
+}
+
 export interface SongMeta {
   slug: string;
   title: string;
   /** MIDI key -> instrument name (kick, snare, hihat_closed, ...). */
   map: Record<number, string>;
+  /** The `[[section]]` blocks, in the order they are written. */
+  sections: Section[];
+  /**
+   * What those blocks are, as one string a take can be pinned to.
+   *
+   * `chartHash` covers tab.mid, which knows nothing about sections: move a
+   * boundary and the cell grid changes shape while the chart hash stays
+   * identical, so a take needs both (practice-plan Q8). The recipe is the
+   * compact JSON of `[name, start_bar, end_bar]` triples in file order, sha256,
+   * first 16 hex, prefixed -- matching `chart_hash` in pipeline/chart.py so the
+   * Python side can compute the same string when it needs to.
+   */
+  sectionsHash: string;
   /** Present when the notation is authored in a Live set. */
   author?: { als: string; track?: string };
   /**
@@ -48,10 +70,17 @@ export function readSongs(songsDir: string): SongMeta[] {
     for (const [key, name] of Object.entries((toml.midi_map ?? {}) as Record<string, string>)) {
       map[Number(key)] = String(name);
     }
+    const sections: Section[] = ((toml.section ?? []) as Record<string, unknown>[]).map((s) => ({
+      name: String(s.name ?? ''),
+      start_bar: Number(s.start_bar ?? 0),
+      end_bar: Number(s.end_bar ?? 0),
+    }));
     songs.push({
       slug,
       title: String(source.title ?? slug),
       map,
+      sections,
+      sectionsHash: sectionsHash(sections),
       author: author?.als ? { als: author.als, track: author.track } : undefined,
       media: {
         mix: existsSync(join(songsDir, slug, 'audio', 'mix.wav')),
@@ -60,6 +89,12 @@ export function readSongs(songsDir: string): SongMeta[] {
     });
   }
   return songs;
+}
+
+/** See `SongMeta.sectionsHash` for the recipe and why it is not the chart hash. */
+export function sectionsHash(sections: Section[]): string {
+  const shape = JSON.stringify(sections.map((s) => [s.name, s.start_bar, s.end_bar]));
+  return 'sha256:' + createHash('sha256').update(shape, 'utf-8').digest('hex').slice(0, 16);
 }
 
 // --- .als -> notes -----------------------------------------------------------

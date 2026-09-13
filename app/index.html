@@ -139,6 +139,51 @@
         font: 600 11px/1 ui-monospace, "Cascadia Mono", Consolas, monospace;
         color: var(--muted); pointer-events: none; white-space: nowrap;
       }
+      /* --- practice mode ------------------------------------------------ */
+      .practice { margin-top: -6px; }
+      .grow { flex: 1; }
+      #record[data-armed="1"] { border-color: #d33; color: #d33; font-weight: 600; }
+      /* The monitor: the last few hits as they arrive, newest on the right.
+         It is the fastest way to find out what a pad actually sends, so an
+         unmapped note is the thing it shows loudest. */
+      #monitor {
+        display: flex; gap: 6px; overflow: hidden; margin: 0 0 10px;
+        font: 11px/1.6 ui-monospace, "Cascadia Mono", Consolas, monospace;
+      }
+      #monitor span {
+        padding: 1px 7px; border-radius: 4px; white-space: nowrap;
+        background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+      }
+      #monitor span b { color: var(--fg); font-weight: 600; }
+      #monitor span.unmapped { border-color: #d33; color: #d33; }
+      #monitor span.unmapped b { color: #d33; }
+      /* The timing strip: mean +- spread per limb, then the worst bars. Mean
+         and spread are kept apart on purpose -- consistently late is the
+         calibration, randomly late is the playing (practice-plan Q7). */
+      #report {
+        margin: 10px 0 0; padding: 10px 14px; font-size: 12px;
+        background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+      }
+      #report table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+      #report th, #report td { padding: 1px 12px 1px 0; text-align: left; font-weight: normal; }
+      #report th { color: var(--muted); }
+      #report td.num { text-align: right; padding-right: 18px; }
+      #report .heads { color: var(--muted); }
+      #report .totals { margin: 0 0 6px; }
+      #report .totals b { font-weight: 600; }
+      #report .swatch {
+        display: inline-block; width: 9px; height: 9px; border-radius: 2px;
+        margin-right: 5px; vertical-align: baseline;
+      }
+      #report .worst { margin: 8px 0 0; color: var(--muted); }
+      /* Extra notes have nowhere on the staff to be coloured -- nothing was
+         written where you played -- so they get a lane of their own under the
+         bar, placed from alphaTab's bounds the way the sticking letters are. */
+      .extras span {
+        position: absolute; transform: translateX(-50%);
+        font: 700 12px/1 ui-monospace, "Cascadia Mono", Consolas, monospace;
+        color: #d33; pointer-events: none; white-space: nowrap;
+      }
       /* alphaTab creates the cursor elements but leaves them unstyled. */
       .at-cursor-bar { background: rgba(255, 200, 0, 0.18); }
       .at-cursor-beat { background: rgba(230, 60, 60, 0.85); width: 3px; }
@@ -206,6 +251,25 @@
           </label>
         </div>
       </div>
+      <!-- Practice mode: what you play, measured against what is written.
+           Dev-mode only -- writing a take needs the dev server (plugins/practice.ts). -->
+      <div class="controls practice">
+        <button id="midi-enable">Enable MIDI</button>
+        <label>
+          Input
+          <select id="midi-port" disabled></select>
+        </label>
+        <button id="calibrate" disabled title="Play steady quarters to the click">Calibrate</button>
+        <output id="calibration">uncalibrated</output>
+        <span class="grow"></span>
+        <button id="record" disabled>Record</button>
+        <output id="cell"></output>
+        <label title="The last few hits, as they arrive">
+          <input id="monitor-on" type="checkbox" />
+          Monitor
+        </label>
+      </div>
+      <div id="monitor" hidden></div>
       <!-- The master clock: audio/mix.wav, the timeline the beat map, the
            stems and the notation all refer to. Everything else on the page
            follows it. No controls: the transport is alphaTab's, and the mixer
@@ -215,6 +279,9 @@
         <video id="video" playsinline preload="auto"></video>
         <div id="score-box"><div id="score"></div></div>
       </div>
+      <!-- The take report: per-limb mean and spread, and the worst bars. The
+           heatmap half of it is on the notation itself (heatmap.ts). -->
+      <div id="report" hidden></div>
       <p id="status">Loading alphaTab&hellip;</p>
     </main>
     <script type="module" src="/src/main.ts"></script>

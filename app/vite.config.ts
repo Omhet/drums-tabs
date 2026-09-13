@@ -3,8 +3,10 @@ import { defineConfig } from 'vite';
 import { alphaTab } from '@coderline/alphatab-vite';
 import { abletonTabs } from './plugins/ableton.ts';
 import { songMedia } from './plugins/media.ts';
+import { practice } from './plugins/practice.ts';
 
 const songsDir = fileURLToPath(new URL('../songs', import.meta.url));
+const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 
 // The alphaTab plugin copies the music fonts, soundfont and audio worklets into
 // the bundle. Wiring those asset paths by hand is the most common way an
@@ -16,7 +18,7 @@ const songsDir = fileURLToPath(new URL('../songs', import.meta.url));
 // stems from there at /media/<slug>/..., with range requests so the browser
 // can seek.
 export default defineConfig({
-  plugins: [alphaTab(), abletonTabs(songsDir), songMedia(songsDir)],
+  plugins: [alphaTab(), abletonTabs(songsDir), songMedia(songsDir), practice(songsDir, repoRoot)],
   server: {
     port: 5173,
     // The tabs and beat maps live in songs/, outside the Vite root, and are

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import NoReturn
 
+import numpy as np
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -25,6 +26,7 @@ from pipeline import fetch as fetch_mod
 from pipeline import grid as grid_mod
 from pipeline import kit as kit_mod
 from pipeline import paths, separation
+from pipeline import reference as reference_mod
 from pipeline import sections as sections_mod
 from pipeline import sticking as sticking_mod
 from pipeline import straighten as straighten_mod
@@ -359,6 +361,62 @@ def _print_sections(found: list[sections_mod.Section]) -> None:
             "" if first == index else f"#{first}",
         )
     console.print(table)
+
+
+@app.command()
+def reference(
+    song: str = typer.Argument(..., help="Song slug or URL"),
+) -> None:
+    """How far behind the chart's grid the record's own drummer actually plays.
+
+    A take is marked against the chart, which is written on a sixteenth grid.
+    The record is played by a person, who sits wherever the music wants them to.
+    If that is behind the grid, a perfectly faithful take -- one that copies the
+    feel in your ears -- is marked late by the difference, and no practice will
+    move it. This says how big that difference is, so the number can be read as
+    a property of the reference rather than a fault of the player.
+    """
+    target = _resolve(song)
+    try:
+        loaded = grid_mod.load(target)
+        mapping = {
+            int(key): str(value) for key, value in (target.meta().get("midi_map") or {}).items()
+        }
+        if not mapping:
+            _fail(StageError(f"{target.toml}: no [midi_map], so the notes have no instruments"))
+        measured = reference_mod.measure(target, loaded, mapping)
+    except StageError as exc:
+        _fail(exc)
+
+    if not measured:
+        console.print("[yellow]Nothing to measure: the chart has no kick or snare.[/yellow]")
+        raise typer.Exit(code=1)
+
+    table = Table(title="the record against the chart it is written as")
+    for column in ("instrument", "matched", "mean", "median", "spread"):
+        table.add_column(column, justify="right" if column != "instrument" else "left")
+    for row in measured:
+        table.add_row(
+            row.instrument,
+            f"{row.values.size}/{row.written}",
+            f"{row.mean_ms:+.1f} ms",
+            f"{row.median_ms:+.1f} ms",
+            f"{row.sd_ms:.1f} ms",
+        )
+    console.print(table)
+
+    every = np.concatenate([row.values for row in measured if row.values.size])
+    mean = float(every.mean())
+    console.print(
+        f"Over {every.size} notes the record sits [bold]{mean:+.1f} ms[/bold] from the "
+        "grid the chart is written on."
+    )
+    console.print(
+        "Positive means the record is behind the chart, so playing along with what you "
+        f"hear scores about {mean:+.0f} ms before you have done anything."
+        if mean > 0
+        else "Negative means the record is ahead of the chart."
+    )
 
 
 @app.command()

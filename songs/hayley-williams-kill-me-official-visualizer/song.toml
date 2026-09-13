@@ -58,39 +58,24 @@ end_bar = 12
 [[section]]
 name = "B"
 start_bar = 13
-end_bar = 16
-
-[[section]]
-name = "C"
-start_bar = 17
 end_bar = 21
 
 [[section]]
-name = "D"
+name = "C"
 start_bar = 22
 end_bar = 31
 
 [[section]]
-name = "E"
+name = "D"
 start_bar = 32
-end_bar = 35
-
-[[section]]
-name = "C"
-start_bar = 36
 end_bar = 40
 
 [[section]]
-name = "F"
+name = "E"
 start_bar = 41
-end_bar = 44
-
-[[section]]
-name = "G"
-start_bar = 45
 end_bar = 53
 
 [[section]]
-name = "H"
+name = "F"
 start_bar = 54
 end_bar = 62

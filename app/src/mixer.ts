@@ -130,6 +130,15 @@ export class Mixer {
     this.routeMix();
   }
 
+  /**
+   * Where the click goes, so the calibration ritual can put its own click on
+   * the same bus -- same fader, same output path, and therefore the same
+   * latency as the click you practise to.
+   */
+  get clickOut(): GainNode | undefined {
+    return this.clickGain;
+  }
+
   level(fader: Fader): number {
     return this.levels[fader];
   }

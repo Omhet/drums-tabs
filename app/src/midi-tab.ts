@@ -1,6 +1,9 @@
 // tab.mid -> alphaTex. The notation is derived, never edited: the MIDI is the
 // source, this file decides how it looks on the staff.
-import { parseMidi } from 'midi-file';
+//
+// Reading the MIDI is `chart.ts`'s job and shared with the scorer, so that the
+// notes you are marked against are the notes on the page.
+import { readChart, SLOTS_PER_BEAT } from './chart';
 
 // alphaTab addresses percussion by articulation *name*; the number is where
 // the notehead lands, and alphaTab's numbering is not General MIDI (its kick
@@ -50,13 +53,6 @@ export interface TabResult {
   /** Mapped instruments alphaTab has no articulation for. */
   unknown: string[];
 }
-
-interface Hit {
-  slot: number; // position in 16ths from bar 1
-  instrument: string;
-}
-
-const SLOTS_PER_BEAT = 4; // sixteenth grid
 
 /** Largest power of two <= n that also divides pos, so pieces sit on the grid. */
 function piece(pos: number, n: number): number {
@@ -128,32 +124,18 @@ function renderVoice(
 }
 
 export function midiToAlphaTex(bytes: Uint8Array, opts: TabOptions): TabResult {
-  const midi = parseMidi(bytes);
-  const ppq = midi.header.ticksPerBeat;
-  if (!ppq) throw new Error('tab.mid uses SMPTE timing; expected ticks per beat');
-  const step = ppq / SLOTS_PER_BEAT;
   const slotsPerBar = opts.beatsPerBar * SLOTS_PER_BEAT;
+  const { hits: read, unmapped } = readChart(bytes, opts.map);
 
-  const hits: Hit[] = [];
-  const unmapped = new Set<number>();
+  // An instrument the kit knows but the staff cannot draw is dropped here
+  // rather than in chart.ts: the scorer can still mark you on a cowbell that
+  // alphaTab has no notehead for.
   const unknown = new Set<string>();
-  for (const track of midi.tracks) {
-    let tick = 0;
-    for (const event of track) {
-      tick += event.deltaTime;
-      if (event.type !== 'noteOn' || event.velocity === 0) continue;
-      const instrument = opts.map[event.noteNumber];
-      if (!instrument) {
-        unmapped.add(event.noteNumber);
-        continue;
-      }
-      if (!ARTICULATION[instrument]) {
-        unknown.add(instrument);
-        continue;
-      }
-      hits.push({ slot: Math.round(tick / step), instrument });
-    }
-  }
+  const hits = read.filter((hit) => {
+    if (ARTICULATION[hit.instrument]) return true;
+    unknown.add(hit.instrument);
+    return false;
+  });
 
   // bar -> voice -> slot-in-bar -> instruments
   const bars = new Map<number, [Map<number, Set<string>>, Map<number, Set<string>>]>();
@@ -208,7 +190,7 @@ export function midiToAlphaTex(bytes: Uint8Array, opts: TabOptions): TabResult {
     bars: barCount,
     notes: hits.length,
     hiddenRests,
-    unmapped: [...unmapped].sort((a, b) => a - b),
+    unmapped,
     unknown: [...unknown].sort(),
   };
 }

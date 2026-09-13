@@ -71,6 +71,24 @@ export class MixClock implements alphaTab.synth.IExternalMediaHandler {
     return this.el.currentTime * 1000;
   }
 
+  /**
+   * Mix time in ms at a given moment on the `performance.now()` clock.
+   *
+   * A hit is stamped when it arrives, a few milliseconds before anything gets
+   * to look at it, so "mix time now" is the wrong answer by that much. Two
+   * things have to be undone to get the right one: the delay since it arrived,
+   * and the playback rate -- at 80% a millisecond of wall clock is 0.8 ms of
+   * mix, and a take recorded slow would otherwise read as played early.
+   *
+   * Playing, this reads off the same smoothed line the cursor runs on, so a
+   * hit and the cursor agree about where they are. Paused, mix time is not
+   * moving and the media's own position is the whole answer.
+   */
+  mixTimeAt(wallMs: number): number {
+    if (this.el.paused || this.frame === 0) return this.el.currentTime * 1000;
+    return this.anchorMedia + (wallMs - this.anchorWall) * this.el.playbackRate;
+  }
+
   get backingTrackDuration(): number {
     const d = this.el.duration;
     return Number.isFinite(d) && d > 0 ? d * 1000 : this.fallbackDurationMs;

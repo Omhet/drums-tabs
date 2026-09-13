@@ -3,6 +3,7 @@ import songs from 'virtual:songs';
 import { MixClock } from './media';
 import { midiToAlphaTex, type TabResult } from './midi-tab';
 import { FADERS, Mixer, type Fader } from './mixer';
+import { Practice, readPracticeSong } from './practice';
 import { ScoreWindow, barAtTick, type Lines } from './score-window';
 import { StickingLetters, chartHash, type StickingLock } from './sticking';
 import { barStartMs, gridSyncPoints, syncSafeTempo, type Grid } from './syncpoints';
@@ -36,6 +37,7 @@ const speedOut = document.getElementById('speed-out') as HTMLOutputElement;
 const linesEl = document.getElementById('lines') as HTMLSelectElement;
 const stickingEl = document.getElementById('sticking') as HTMLInputElement;
 const themeBtn = document.getElementById('theme') as HTMLButtonElement;
+const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 // --- theme --------------------------------------------------------------------
 // The page is themed by CSS variables, but alphaTab paints the notation in its
@@ -204,6 +206,11 @@ stickingEl.addEventListener('change', () => {
   }
 });
 
+// Set once practice mode exists: the heatmap has a palette of its own that has
+// to be re-read on a theme change, and it is built further down the file than
+// the first applyTheme call.
+let onThemeChange: ((dark: boolean) => void) | undefined;
+
 function applyTheme(theme: 'light' | 'dark' | undefined) {
   if (theme) document.documentElement.dataset.theme = theme;
   else delete document.documentElement.dataset.theme;
@@ -211,6 +218,7 @@ function applyTheme(theme: 'light' | 'dark' | undefined) {
   themeBtn.textContent = dark ? '☀' : '☾';
   themeBtn.title = dark ? 'Switch to light' : 'Switch to dark';
   Object.assign(api.settings.display.resources, palette(dark));
+  onThemeChange?.(dark);
   api.updateSettings();
   if (api.score) api.render();
 }
@@ -321,6 +329,11 @@ function toggleFader(f: Fader) {
 let summary = '';
 let rendered = '';
 let playerLoaded = false;
+// What practice mode last had to say. It goes through the composed status
+// rather than straight to the element because drawing a heatmap re-renders the
+// score, and a re-render would otherwise wipe the result that caused it.
+let practiceNote = '';
+let practiceError = false;
 // Render and player readiness arrive in either order (with external media the
 // player is ready before the first row is drawn), so the status is composed
 // rather than written by whichever event came last.
@@ -333,10 +346,42 @@ const showStatus = () =>
       stemsMissing.length ? `No ${stemsMissing.join(' or ')} stem: playing the mix itself.` : '',
       pictureFailed,
       stickingStale,
+      practiceNote,
     ]
       .filter(Boolean)
-      .join(' ')
+      .join(' '),
+    practiceError
   );
+
+// --- practice mode ----------------------------------------------------------------
+// What you play, marked against what is written (practice.ts). Everything it
+// needs is already on the page: the clock stamps the hits, the mixer's graph
+// carries the calibration click, and alphaTab colours its own noteheads.
+const practice = new Practice(
+  api,
+  clock,
+  mixer,
+  {
+    enable: byId('midi-enable'),
+    port: byId('midi-port'),
+    calibrate: byId('calibrate'),
+    calibration: byId('calibration'),
+    record: byId('record'),
+    cell: byId('cell'),
+    monitorOn: byId('monitor-on'),
+    monitor: byId('monitor'),
+    report: byId('report'),
+    clickFader: byId('fader-click'),
+  },
+  scoreEl,
+  (text, isError = false) => {
+    practiceNote = text;
+    practiceError = isError;
+    showStatus();
+  }
+);
+onThemeChange = (dark) => practice.setTheme(dark);
+practice.setTheme(isDark());
 
 // Handlers must be attached *before* api.tex(), which fires renderStarted
 // synchronously -- otherwise the first event is missed.
@@ -458,6 +503,22 @@ async function load(slug: string) {
   const score = parseTex(tab.tex, tab.hiddenRests);
   const bars = score.masterBars.length;
 
+  // The section names over the staff, from song.toml's [[section]] blocks.
+  // alphaTab draws these as rehearsal marks, which is exactly what they are:
+  // you cannot sensibly rename a boundary you cannot see, and the routine a
+  // practice run walks is built from these names (practice-plan Q5).
+  for (const section of song.sections) {
+    const bar = score.masterBars[section.start_bar - 1];
+    if (!bar || !section.name) continue;
+    const marker = new alphaTab.model.Section();
+    // alphaTab draws `[marker] text`, so filling both prints the name twice.
+    // The name is a word like "chorus", not a rehearsal letter, so it reads
+    // better without the brackets.
+    marker.marker = '';
+    marker.text = section.name;
+    bar.section = marker;
+  }
+
   // Sync the score to the drummer before alphaTab generates its playback
   // model from it. Without a beat map the video would run against the
   // notation's constant tempo, and the cursor would drift off within bars.
@@ -479,6 +540,12 @@ async function load(slug: string) {
       stickingStale = 'Sticking is from an older chart (drums sticking --restick).';
     }
   }
+
+  // Practice mode reads the same bytes: the notes you are marked against are
+  // the notes on the page, from one parse.
+  practiceNote = '';
+  practiceError = false;
+  practice.load(await readPracticeSong(song, bytes, grid, lock));
 
   const problems = [
     tab.unmapped.length ? `unmapped MIDI keys: ${tab.unmapped.join(', ')}` : '',
@@ -629,6 +696,7 @@ if (import.meta.env.DEV) {
     mixer,
     scoreWindow,
     sticking,
+    practice,
     seekToBar,
     get current() {
       return current;

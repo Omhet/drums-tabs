@@ -94,3 +94,70 @@ crossover = 2.0
 repeat = 1.5
 # "No time for it" means a gap shorter than this.
 repeat_below_ms = 260
+
+# What your module sends, and which instrument each note means.
+#
+# This is the other half of a song's `[midi_map]`, and the two are easy to
+# confuse because they are both "MIDI note -> instrument" and they disagree
+# about almost every number. `[midi_map]` describes the **drum rack in
+# Ableton** that the notation is authored on -- chromatic from 36, so 38 is
+# the hi-hat. This describes the **module you actually hit**, which sends
+# Roland's layout, where 38 is the snare head. Nothing translates between
+# them: a take stores the raw numbers the module sent, and this table is what
+# reads them as instruments for scoring.
+#
+# The numbers below are Roland's factory layout, shared by the TD-17/27/50.
+# Do not trust them -- the practice panel lists every note it receives and
+# says which are unmapped, so hit each pad once and fix whatever is wrong.
+# Several notes map to one instrument on purpose: a rim shot and a head hit
+# are both the snare as far as the chart is concerned, and the notation has no
+# way to write the difference.
+[input]
+# Which MIDI port to open, matched as a case-insensitive substring of the
+# port name. Empty means "ask", and the choice is remembered per browser.
+port = "TD-27"
+
+# One drum caught in two states, not two drums.
+#
+# A hi-hat module decides "open" or "closed" from where your foot is at the
+# instant of the strike, and the threshold rarely matches where *you* think
+# closed is -- so a normal closed groove sends a mixture. Scored literally that
+# is a wrong note on every flicker, which buries the mistakes you actually
+# made. Listed here, the pair is matched as one drum: you hit the right thing
+# at the right time, and the report says separately how many landed on the
+# other side of the threshold.
+#
+# This is not a way to excuse wrong drums. A tom where a snare is written stays
+# wrong; only states of the same instrument belong here.
+same_drum = [["hihat_closed", "hihat_open"]]
+
+[input.note]
+36 = "kick"           # kick
+35 = "kick"           # kick, alternate
+
+38 = "snare"          # snare head
+40 = "snare"          # snare rim shot
+37 = "snare"          # snare cross-stick
+
+48 = "tom_high"       # tom 1 head
+50 = "tom_high"       # tom 1 rim
+45 = "tom_mid"        # tom 2 head
+47 = "tom_mid"        # tom 2 rim
+43 = "tom_floor"      # tom 3 head
+58 = "tom_floor"      # tom 3 rim
+
+42 = "hihat_closed"   # hi-hat bow, pedal down
+22 = "hihat_closed"   # hi-hat edge, pedal down
+46 = "hihat_open"     # hi-hat bow, pedal up
+26 = "hihat_open"     # hi-hat edge, pedal up
+44 = "hihat_pedal"    # hi-hat pedal, closed with the foot
+21 = "hihat_pedal"    # hi-hat pedal splash
+
+49 = "crash"          # crash 1 bow
+55 = "crash"          # crash 1 edge
+57 = "crash2"         # crash 2 bow
+52 = "crash2"         # crash 2 edge
+
+51 = "ride"           # ride bow
+59 = "ride"           # ride edge
+53 = "ride"           # ride bell

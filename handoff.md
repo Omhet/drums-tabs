@@ -85,8 +85,25 @@ editor tool.
 2. **Re-calibrate warmed up.** The first measurement had a ±20-25 ms spread,
    wide enough that the offset it produced is itself uncertain by several ms --
    and every take in the history is corrected by that number.
-3. **Read the R/L letters** and tune `kit.toml` if they are not what they would
+3. **Check the module's hi-hat offset** (parked, the user will do it later).
+   Closed only registers under heavy pressure, which is either a miscalibrated
+   offset or honest reporting of a loose-hat playing style. The Monitor tells
+   them apart: press to what *you* call closed and see whether note 42 or 46
+   comes out. If 42 arrives at normal pressure, nothing is wrong and
+   `same_drum` is already the right answer. Nothing in the app depends on the
+   outcome -- `[input]` maps both notes, and takes re-grade from raw stamps.
+4. **Read the R/L letters** and tune `kit.toml` if they are not what they would
    play, then `drums sticking <slug> --restick`.
+
+### Open, small, and offered but not built
+
+- **Show the hi-hat pedal's position live.** The module streams it as CC4,
+  which `midi-in.ts` currently drops on the floor (it only reads note-ons).
+  Surfacing it in the Monitor would turn the offset check above from probing
+  hit-by-hit into watching a number. Perhaps twenty lines; the user has not
+  asked for it yet.
+- **Whether to shift the reference** by the offset `drums reference` measures.
+  Deliberately not decided in M1 -- see §3.
 
 ---
 
@@ -107,6 +124,20 @@ From `practice-plan.md` Q5 and Q10: **the routine grid.**
   because the Ableton watcher reloads the page on every Ctrl+S.
 - At most one open routine per song. A chart edit mid-routine warns; sealing a
   routine whose cells span more than one `chartHash` marks it **mixed**.
+
+### Two real takes already exist, and they are the proof of the format
+
+`songs/hayley-williams-kill-me-official-visualizer/takes/` holds the first two
+takes played on the real kit, before the hi-hat fix. **Do not delete them** and
+do not re-write their `grade` field: they are the evidence that Q8's "store raw
+timestamps, record the calibration beside them" decision works. Re-graded under
+today's rules the second one goes 56/72 → 66/72 with wrong-voice 10 → 0, purely
+because the hi-hat pair is now grouped — a scoring rule fixed afterwards re-read
+an old attempt instead of invalidating it.
+
+They also carry the **pre-redetect `sectionsHash`**, so M2's epoch handling has
+a real case to get right on day one: same chart, same bars 1-12, different
+section grid.
 
 ### Where it plugs in
 

@@ -25,6 +25,14 @@ export function barAtTick(score: alphaTab.model.Score, tick: number): number {
   return i;
 }
 
+/**
+ * How tall the window is: a number of rows, or 'fit' to fill the box it was
+ * given. A song with a video keeps the notation to a few lines over the
+ * picture; with no video there is nothing to make room for, so it fills the
+ * stage and 'fit' is the default.
+ */
+export type Lines = number | 'fit';
+
 /** Whitespace kept above the top row's staff, in px. */
 const GAP_PX = 6;
 /** A wheel has to travel this far (in deltaY units) to move one row. */
@@ -37,7 +45,7 @@ export class ScoreWindow {
   private pitch = 0;
   private topRow = 0;
   private wheelAcc = 0;
-  private _lines = 2;
+  private _lines: Lines = 2;
 
   constructor(
     private readonly api: alphaTab.AlphaTabApi,
@@ -69,12 +77,12 @@ export class ScoreWindow {
     );
   }
 
-  /** How many rows the window shows. */
-  get lines(): number {
+  /** How many rows the window shows, or 'fit' for as many as there is room for. */
+  get lines(): Lines {
     return this._lines;
   }
-  set lines(n: number) {
-    this._lines = Math.max(1, Math.min(8, Math.round(n)));
+  set lines(n: Lines) {
+    this._lines = n === 'fit' ? n : Math.max(1, Math.min(8, Math.round(n)));
     this.resize();
     this.show(this.topRow);
   }
@@ -132,6 +140,13 @@ export class ScoreWindow {
   }
 
   private resize() {
-    if (this.pitch > 0) this.box.style.height = `${Math.round(this.pitch * this._lines + GAP_PX)}px`;
+    // 'fit' is the stylesheet's job -- the box is stretched over the whole
+    // stage and there is no row count to compute a height from.
+    const lines = this._lines;
+    this.box.classList.toggle('fit', lines === 'fit');
+    if (lines === 'fit') this.box.style.height = '';
+    else if (this.pitch > 0) {
+      this.box.style.height = `${Math.round(this.pitch * lines + GAP_PX)}px`;
+    }
   }
 }

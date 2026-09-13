@@ -3,9 +3,9 @@
 // landed in the DOM.
 //
 // Usage: node scripts/smoke.mjs [url]
-import { launch, waitForPlayer } from './browser.mjs';
+import { launch, pageUrl, waitForPlayer } from './browser.mjs';
 
-const url = process.argv[2] ?? 'http://localhost:5173/';
+const url = process.argv[2] ?? pageUrl();
 const consoleErrors = [];
 const pageErrors = [];
 const failedRequests = [];
@@ -20,9 +20,9 @@ page.on('console', (msg) => {
 });
 page.on('pageerror', (err) => pageErrors.push(String(err)));
 page.on('requestfailed', (req) => {
-  // The browser opens the video with an open-ended range request and aborts it
-  // once it has the metadata it wanted; that is how media loading works, not
-  // a failure.
+  // The browser opens the mix (and the video) with an open-ended range
+  // request and aborts it once it has the metadata it wanted; that is how
+  // media loading works, not a failure.
   if (req.resourceType() === 'media' && req.failure()?.errorText === 'net::ERR_ABORTED') return;
   failedRequests.push(`${req.url()} (${req.failure()?.errorText ?? 'failed'})`);
 });
@@ -42,7 +42,7 @@ page.on('response', (res) => {
 await page.goto(url);
 await waitForPlayer(page);
 
-// Give alphaTab a moment to finish rendering and the video to load metadata.
+// Give alphaTab a moment to finish rendering and the media to load metadata.
 await page.waitForTimeout(3000);
 
 const status = await page.locator('#status').textContent();
@@ -60,18 +60,20 @@ const dom = await page.evaluate(() => {
 });
 
 // Rendering is only half of it: the score has to *play*. Press play, let the
-// video run past its count-in, and read the transport position back -- a
+// clock run past its count-in, and read the transport position back -- a
 // cursor that never moves is the failure a screenshot cannot show.
 await page.locator('#play').click();
 await page.waitForTimeout(4500);
 const playback = await page.evaluate(() => {
   const api = window.drums?.api;
-  const video = window.drums?.video;
+  const mix = window.drums?.mix;
+  const picture = window.drums?.mixer?.picture;
   return {
     state: api?.playerState ?? -1,
     position: Math.round(api?.timePosition ?? -1),
-    videoTime: Math.round((video?.currentTime ?? -1) * 1000),
-    videoPaused: video?.paused ?? null,
+    mixTime: Math.round((mix?.currentTime ?? -1) * 1000),
+    mixPaused: mix?.paused ?? null,
+    picture: picture?.following ? Math.round(picture.errorMs(mix.currentTime)) : null,
   };
 });
 await page.locator('#stop').click();
@@ -90,7 +92,8 @@ console.log(`#score html  : ${dom.innerLength} bytes`);
 console.log(`glyphs (text): ${dom.glyphCount}   (noteheads are Bravura glyphs)`);
 console.log(`play enabled : ${dom.playDisabled === false}`);
 console.log(`playback     : state ${playback.state} at ${playback.position} ms (state 1 = playing, position > 0 = the transport moved)`);
-console.log(`video        : at ${playback.videoTime} ms, paused ${playback.videoPaused}`);
+console.log(`mix clock    : at ${playback.mixTime} ms, paused ${playback.mixPaused}`);
+console.log(`picture      : ${playback.picture === null ? 'none' : `${playback.picture} ms from the clock`}`);
 
 const problems = [...pageErrors, ...consoleErrors, ...failedRequests];
 if (problems.length) {

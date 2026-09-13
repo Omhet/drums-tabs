@@ -1,16 +1,17 @@
 import * as alphaTab from '@coderline/alphatab';
 import songs from 'virtual:songs';
-import { VideoClock } from './media';
+import { MixClock } from './media';
 import { midiToAlphaTex, type TabResult } from './midi-tab';
 import { FADERS, Mixer, type Fader } from './mixer';
-import { ScoreWindow, barAtTick } from './score-window';
+import { ScoreWindow, barAtTick, type Lines } from './score-window';
+import { StickingLetters, chartHash, type StickingLock } from './sticking';
 import { barStartMs, gridSyncPoints, syncSafeTempo, type Grid } from './syncpoints';
 
 // Per-song inputs, imported straight from songs/ (outside the Vite root, which
 // is why vite.config.ts opens server.fs.allow). tab.mid is rewritten by the
 // Ableton plugin on every save of the Live set; grid.lock.json is the beat map.
-// The video is too big to import: plugins/media.ts serves it from the same
-// directory at /media/<slug>/audio/video.mp4.
+// The audio is far too big to import: plugins/media.ts serves it from the same
+// directory at /media/<slug>/audio/mix.wav (and the video, when there is one).
 const midiUrls = import.meta.glob('../../songs/*/tab.mid', {
   query: '?url',
   import: 'default',
@@ -18,16 +19,22 @@ const midiUrls = import.meta.glob('../../songs/*/tab.mid', {
 const grids = import.meta.glob('../../songs/*/grid.lock.json', {
   import: 'default',
 }) as Record<string, () => Promise<Grid>>;
+const stickings = import.meta.glob('../../songs/*/sticking.lock.json', {
+  import: 'default',
+}) as Record<string, () => Promise<StickingLock>>;
 
 const scoreEl = document.getElementById('score') as HTMLElement;
 const statusEl = document.getElementById('status') as HTMLElement;
 const songEl = document.getElementById('song') as HTMLSelectElement;
+const stageEl = document.getElementById('stage') as HTMLElement;
+const mixEl = document.getElementById('mix') as HTMLAudioElement;
 const videoEl = document.getElementById('video') as HTMLVideoElement;
 const playBtn = document.getElementById('play') as HTMLButtonElement;
 const stopBtn = document.getElementById('stop') as HTMLButtonElement;
 const speedEl = document.getElementById('speed') as HTMLInputElement;
 const speedOut = document.getElementById('speed-out') as HTMLOutputElement;
 const linesEl = document.getElementById('lines') as HTMLSelectElement;
+const stickingEl = document.getElementById('sticking') as HTMLInputElement;
 const themeBtn = document.getElementById('theme') as HTMLButtonElement;
 
 // --- theme --------------------------------------------------------------------
@@ -76,6 +83,7 @@ window.addEventListener('unhandledrejection', (e) =>
 const slugOf = (path: string) => path.split('/').slice(-2)[0] ?? path;
 const midiBySlug = new Map(Object.entries(midiUrls).map(([p, l]) => [slugOf(p), l]));
 const gridBySlug = new Map(Object.entries(grids).map(([p, l]) => [slugOf(p), l]));
+const stickingBySlug = new Map(Object.entries(stickings).map(([p, l]) => [slugOf(p), l]));
 const playable = songs.filter((s) => midiBySlug.has(s.slug));
 
 for (const song of playable) {
@@ -127,7 +135,7 @@ const api = new alphaTab.AlphaTabApi(scoreEl, {
     ]),
   },
   player: {
-    // The video is the clock and the sound; alphaTab only draws the cursor
+    // The mix is the clock and the sound; alphaTab only draws the cursor
     // and owns the transport. No synth, so no soundfont.
     playerMode: alphaTab.PlayerMode.EnabledExternalMedia,
     enableCursor: true,
@@ -140,28 +148,60 @@ const api = new alphaTab.AlphaTabApi(scoreEl, {
 });
 
 // --- the notation window ------------------------------------------------------
-// N lines of the score over the video; the number of lines is remembered like
-// the theme.
+// N lines of the score over the picture, or the whole stage when the song has
+// no video. A chosen number is remembered like the theme; with nothing
+// remembered each song gets the default its media implies (see `load`).
 
 const scoreWindow = new ScoreWindow(api, document.getElementById('score-box') as HTMLElement);
-function applyLines(n: number) {
-  linesEl.value = String(n);
-  scoreWindow.lines = n;
+function applyLines(lines: Lines) {
+  linesEl.value = String(lines);
+  scoreWindow.lines = lines;
 }
-try {
-  const n = Number(localStorage.getItem('lines'));
-  applyLines(n >= 1 && n <= 4 ? n : 2);
-} catch {
-  applyLines(2);
+/** The remembered choice, if there is one that still means something. */
+function savedLines(): Lines | undefined {
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem('lines');
+  } catch {
+    /* private mode: there is nothing remembered */
+  }
+  if (raw === 'fit') return 'fit';
+  const n = Number(raw);
+  return n >= 1 && n <= 4 ? n : undefined;
 }
+applyLines(savedLines() ?? 2);
 linesEl.addEventListener('change', () => {
-  applyLines(Number(linesEl.value));
+  applyLines(linesEl.value === 'fit' ? 'fit' : Number(linesEl.value));
   try {
     localStorage.setItem('lines', linesEl.value);
   } catch {
     /* private mode: the choice lasts for this page */
   }
   linesEl.blur();
+});
+
+// --- sticking -------------------------------------------------------------------
+// R and L under the notation, worked out by `drums sticking` and frozen in
+// songs/<slug>/sticking.lock.json. On by default -- they are what the file is
+// for -- and remembered like the theme.
+
+const sticking = new StickingLetters(api, scoreEl);
+function applySticking(on: boolean) {
+  stickingEl.checked = on;
+  sticking.visible = on;
+}
+try {
+  applySticking(localStorage.getItem('sticking') !== 'off');
+} catch {
+  applySticking(true);
+}
+stickingEl.addEventListener('change', () => {
+  applySticking(stickingEl.checked);
+  try {
+    localStorage.setItem('sticking', stickingEl.checked ? 'on' : 'off');
+  } catch {
+    /* private mode: the choice lasts for this page */
+  }
 });
 
 function applyTheme(theme: 'light' | 'dark' | undefined) {
@@ -193,10 +233,10 @@ applyTheme(chosenTheme());
 // alphaTab's external-media output has no idea what the media is; it calls
 // play/pause/seek on whatever handler it is given and waits for positions to
 // be pushed back. The video element plays that part.
-const clock = new VideoClock(videoEl, {
+const clock = new MixClock(mixEl, {
   onPlayError: (err) => {
     api.pause();
-    setStatus(`The browser refused to start the video: ${err}`, true);
+    setStatus(`The browser refused to start the audio: ${err}`, true);
   },
 });
 const attachClock = () => {
@@ -206,13 +246,20 @@ const attachClock = () => {
 attachClock();
 
 // --- mixer --------------------------------------------------------------------
-// The stems and the click follow the video on their own (see mixer.ts); the
-// page only owns the faders, remembered like the theme.
+// The stems, the click and the picture follow the clock on their own (see
+// mixer.ts); the page only owns the faders, remembered like the theme.
 
 let stemsMissing: string[] = [];
-const mixer = new Mixer(videoEl, clock, {
+let pictureFailed = '';
+let stickingStale = '';
+const mixer = new Mixer(mixEl, videoEl, clock, {
   onStemError: (name) => {
     stemsMissing.push(name);
+    showStatus();
+  },
+  onPictureError: () => {
+    const err = videoEl.error;
+    pictureFailed = `Video failed to load: ${err?.message || `code ${err?.code}`}.`;
     showStatus();
   },
 });
@@ -283,7 +330,9 @@ const showStatus = () =>
       summary,
       rendered,
       playerLoaded ? 'Player loaded.' : '',
-      stemsMissing.length ? `No ${stemsMissing.join(' or ')} stem: playing the video's own sound.` : '',
+      stemsMissing.length ? `No ${stemsMissing.join(' or ')} stem: playing the mix itself.` : '',
+      pictureFailed,
+      stickingStale,
     ]
       .filter(Boolean)
       .join(' ')
@@ -330,25 +379,29 @@ stopBtn.addEventListener('click', () => {
   stopBtn.blur();
 });
 
-// Stop means the top of the video, count-in included. alphaTab's own stop
+// Stop means the top of the song, count-in included. alphaTab's own stop
 // seeks to the score's tick 0, which is the first beat of bar 1, a couple of
 // seconds in.
 function stop() {
   api.stop();
-  videoEl.currentTime = 0;
+  mixEl.currentTime = 0;
 }
 
-// The video has no native controls (they would bypass alphaTab's transport);
-// a click on it is play/pause.
+// The picture has no native controls (they would bypass alphaTab's transport);
+// a click on it is play/pause. Clicks on the notation stay alphaTab's, which
+// takes them as a seek -- so with no picture, clicking seeks and Space plays.
 videoEl.addEventListener('click', () => {
   if (!playBtn.disabled) api.playPause();
 });
-// The score may be longer than the video (an unfinished beat map, or a tab
-// with trailing bars); tell alphaTab when the media runs out.
-videoEl.addEventListener('ended', () => api.pause());
-videoEl.addEventListener('error', () => {
-  const err = videoEl.error;
-  setStatus(`Video failed to load (${videoEl.currentSrc}): ${err?.message || `code ${err?.code}`}`, true);
+// The score may be longer than the mix (an unfinished beat map, or a tab with
+// trailing bars); tell alphaTab when the media runs out.
+mixEl.addEventListener('ended', () => api.pause());
+mixEl.addEventListener('error', () => {
+  const err = mixEl.error;
+  setStatus(
+    `The mix failed to load (${mixEl.currentSrc}): ${err?.message || `code ${err?.code}`}`,
+    true
+  );
 });
 
 function applySpeed(percent: number) {
@@ -373,6 +426,8 @@ interface Loaded {
   grid: Grid | undefined;
   syncPoints: alphaTab.model.FlatSyncPoint[];
   bars: number;
+  /** Whether the stage has a picture on it. */
+  video: boolean;
 }
 let current: Loaded | undefined;
 
@@ -387,7 +442,11 @@ async function load(slug: string) {
     return;
   }
   setStatus(`Loading ${song.title}…`);
-  const [url, grid] = await Promise.all([midiUrl(), gridBySlug.get(slug)?.()]);
+  const [url, grid, lock] = await Promise.all([
+    midiUrl(),
+    gridBySlug.get(slug)?.(),
+    stickingBySlug.get(slug)?.(),
+  ]);
   const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
   const tab = midiToAlphaTex(bytes, {
     title: song.title,
@@ -405,15 +464,30 @@ async function load(slug: string) {
   const syncPoints = grid ? gridSyncPoints(grid, bars) : [];
   if (syncPoints.length > 0) score.applyFlatSyncPoints(syncPoints);
   clock.floorMs = grid ? (barStartMs(grid, 0) ?? 0) : 0;
-  clock.offsetMs = grid?.video_offset_ms ?? 0;
   clock.fallbackDurationMs = grid ? grid.source.audio_duration * 1000 : 0;
-  current = { slug, grid, syncPoints, bars };
+  const hasVideo = song.media.video;
+  current = { slug, grid, syncPoints, bars, video: hasVideo };
+
+  // The letters come from a file solved against one particular chart, and
+  // every save in Ableton writes a new one, so say so rather than drawing R
+  // and L under notes that have moved since.
+  sticking.load(lock);
+  stickingStale = '';
+  if (lock) {
+    const hash = await chartHash(bytes);
+    if (hash !== lock.chart) {
+      stickingStale = 'Sticking is from an older chart (drums sticking --restick).';
+    }
+  }
 
   const problems = [
     tab.unmapped.length ? `unmapped MIDI keys: ${tab.unmapped.join(', ')}` : '',
     tab.unknown.length ? `no articulation for: ${tab.unknown.join(', ')}` : '',
+    !song.media.mix ? 'no audio/mix.wav: nothing to play (drums fetch)' : '',
     !grid ? 'no grid.lock.json, cursor runs at the written tempo' : '',
-    grid && grid.video_offset_ms == null ? 'video offset not measured (drums align)' : '',
+    hasVideo && grid && grid.video_offset_ms == null
+      ? 'video offset not measured (drums align)'
+      : '',
     // applyFlatSyncPoints drops points past the last bar without a word, and
     // bars past the last point run at an extrapolated tempo. Either way the
     // cursor quietly parts from the drummer, so say so.
@@ -422,13 +496,25 @@ async function load(slug: string) {
   const tempo = grid ? `${Math.round(grid.score.bpm)} BPM, ` : '';
   summary = `${tempo}${tab.notes} notes, ${syncPoints.length} sync points.` + (problems.length ? ` ${problems.join('; ')}.` : '');
 
-  videoEl.src = `/media/${encodeURIComponent(slug)}/audio/video.mp4`;
-  // The click plays every beat the drummer played, count-in included, with
-  // the first beat of each bar accented. The stems sit next to the video.
+  // The clock, and with it everything that follows it. The click plays every
+  // beat the drummer played, count-in included, with the first beat of each
+  // bar accented.
+  mixEl.src = `/media/${encodeURIComponent(slug)}/audio/mix.wav`;
   stemsMissing = [];
+  pictureFailed = '';
   const perBar = grid?.meter.beats_per_bar ?? 4;
   const barOne = grid?.bar_one_beat ?? 0;
-  mixer.load(slug, grid?.beats ?? [], (beat) => (beat - barOne) % perBar === 0);
+  mixer.load({
+    slug,
+    video: hasVideo,
+    videoOffsetMs: grid?.video_offset_ms ?? 0,
+    beats: grid?.beats ?? [],
+    accent: (beat) => (beat - barOne) % perBar === 0,
+  });
+  // With no picture the notation has the stage to itself, and fills it unless
+  // a number of lines was chosen by hand.
+  stageEl.classList.toggle('no-video', !hasVideo);
+  applyLines(savedLines() ?? (hasVideo ? 2 : 'fit'));
   api.renderScore(score);
 }
 
@@ -537,10 +623,12 @@ if (import.meta.env.DEV) {
     stop,
     songs: playable,
     midiToAlphaTex,
+    mix: mixEl,
     video: videoEl,
     clock,
     mixer,
     scoreWindow,
+    sticking,
     seekToBar,
     get current() {
       return current;

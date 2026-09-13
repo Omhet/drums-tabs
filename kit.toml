@@ -1,0 +1,96 @@
+# Your kit: where everything is, and what it costs to play it.
+#
+# This is a property of you and your kit, not of a song, so it lives here at
+# the repo root rather than in any songs/<slug>/song.toml. `drums sticking`
+# reads it to work out which hand plays what -- it only ever needs *relative*
+# distances (is the ride further from the snare than the hi-hat is), so rough
+# numbers are enough to get R and L right. Precision starts to matter only when
+# a 3D stick has to visibly land on a drum, which is a later milestone; the
+# body measurements and camera shots that milestone needs will arrive here too.
+#
+# Positions are in centimetres, looking down on the kit: the origin is the
+# centre of the kick drum, +x is to your right, +y is away from the stool. The
+# heights are not modelled -- from above, a cymbal and a drum are both a place
+# to put a stick.
+#
+# `limbs` says who can reach it. Everything a hand can play is left to the
+# solver; the two pedals are a lookup, not a search.
+
+[instrument.kick]
+pos = [0, 0]
+limbs = ["right_foot"]
+
+[instrument.hihat_pedal]
+pos = [-50, -10]
+limbs = ["left_foot"]
+
+[instrument.snare]
+pos = [-25, -15]
+limbs = ["left_hand", "right_hand"]
+
+[instrument.hihat_closed]
+pos = [-50, -10]
+limbs = ["left_hand", "right_hand"]
+
+[instrument.hihat_open]
+pos = [-50, -10]
+limbs = ["left_hand", "right_hand"]
+
+[instrument.tom_high]
+pos = [-15, 25]
+limbs = ["left_hand", "right_hand"]
+
+[instrument.tom_mid]
+pos = [15, 25]
+limbs = ["left_hand", "right_hand"]
+
+[instrument.tom_floor]
+pos = [45, 5]
+limbs = ["left_hand", "right_hand"]
+
+[instrument.ride]
+pos = [50, 20]
+limbs = ["left_hand", "right_hand"]
+
+[instrument.crash]
+pos = [-45, 35]
+limbs = ["left_hand", "right_hand"]
+
+[instrument.crash2]
+pos = [35, 40]
+limbs = ["left_hand", "right_hand"]
+
+# What "effort" means. There is one hard rule -- a hand cannot move faster than
+# `max_speed_cm_s`, and a passage needing more is reported as unplayable rather
+# than played badly -- and three preferences, which are taste and are meant to
+# be tuned. Read the R and L letters under the notation, ask whether that is
+# what you would play, and change a number here. Nothing needs rebuilding; just
+# re-run `drums sticking --restick`.
+#
+# These first numbers were picked to be plausible and then tuned against one
+# song, so treat them as a starting point rather than as settled.
+[hands]
+# Hard: the fastest a hand can travel between two instruments.
+max_speed_cm_s = 700
+
+# Which hand keeps time. On a right-handed kit the hi-hat is on your left and
+# the right hand crosses over to reach it -- that is not a crossing to avoid,
+# it is how the kit is played, so the lead hand is the one that gets the
+# instruments marked `time_keeper` (the hats and the ride, unless you say
+# otherwise) and the other hand gets the snare under it.
+lead = "right"
+# Soft: the cost of the other hand taking a time-keeper instead. High enough
+# that grooves come out conventional, low enough that a fill can borrow it.
+lead_bias = 2.5
+
+# Soft: how much a rushed move costs, as a fraction of the speed limit used.
+travel = 1.0
+# Soft: the hands ending up on the wrong sides of each other, away from the
+# time-keepers -- crossing over to the hats does not count, see `lead`.
+crossover = 2.0
+# Soft: the same hand twice in a row when there is no time for it. Fills
+# alternate because one hand cannot keep up, and this is what makes the solver
+# alternate too.
+repeat = 1.5
+# "No time for it" means a gap shorter than this.
+repeat_below_ms = 260

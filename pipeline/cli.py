@@ -23,7 +23,10 @@ from pipeline import beats as beats_mod
 from pipeline import doctor as doctor_mod
 from pipeline import fetch as fetch_mod
 from pipeline import grid as grid_mod
+from pipeline import kit as kit_mod
 from pipeline import paths, separation
+from pipeline import sections as sections_mod
+from pipeline import sticking as sticking_mod
 from pipeline import straighten as straighten_mod
 from pipeline.proc import StageError
 
@@ -269,6 +272,165 @@ def align(song: str = typer.Argument(..., help="Song slug or URL")) -> None:
         f"video is [bold]{info.offset_ms:+.2f} ms[/bold] from the mix "
         f"-> {written.name}"
     )
+
+
+@app.command()
+def sections(
+    song: str = typer.Argument(..., help="Song slug or URL"),
+    redetect: bool = typer.Option(
+        False, "--redetect", help="Replace the sections already in song.toml"
+    ),
+    min_bars: int = typer.Option(
+        sections_mod.MIN_SECTION_BARS, "--min-bars", help="Shortest section to propose"
+    ),
+) -> None:
+    """Propose sections from the repeats in tab.mid and write them to song.toml.
+
+    A routine is a fixed grid of (section x tempo) cells, so the sections decide
+    the shape of every run and of the progress history: this proposes them once,
+    you rename and nudge them by hand, and song.toml is the truth from then on.
+    Re-detecting can move a boundary, which changes the grid and makes old runs
+    incomparable -- hence --redetect, like --regrid.
+    """
+    target = _resolve(song)
+    existing = sections_mod.read(target)
+    if existing and not redetect:
+        console.print(
+            f"[yellow]{target.toml.name} already has {len(existing)} sections.[/yellow] "
+            "Edit them by hand, or pass --redetect to replace them (this starts a new "
+            "comparison epoch: old routines stay readable but leave the progress line)."
+        )
+        _print_sections(existing)
+        raise typer.Exit(code=1)
+
+    try:
+        loaded = grid_mod.load(target)
+        bars = sections_mod.bar_fingerprints(
+            target.tab_midi, loaded.beats_per_bar, loaded.bar_count
+        )
+        found = sections_mod.detect(bars, min_section=min_bars)
+        if not found:
+            raise StageError(f"{target.tab_midi} has no bars to divide up")
+        sections_mod.write(target, found)
+    except StageError as exc:
+        _fail(exc)
+
+    if len(bars) != loaded.bar_count:
+        console.print(
+            f"[yellow]the notation is {len(bars)} bars and the beat map is "
+            f"{loaded.bar_count}[/yellow]"
+        )
+    _print_sections(found)
+    # Not cosmetic: a routine is every section at 70/80/90/100% plus the whole
+    # song at each, and every cell is played to the end. A section the song
+    # plays twice is one thing to practise, so the cells count the names.
+    cells = _cells(found)
+    console.print(
+        f"\n{len(found)} blocks, {len(sections_mod.distinct(found))} sections to practise"
+        f" -> a routine of [bold]{cells} cells[/bold]"
+        f" (roughly {cells * 2}-{cells * 4} minutes a run)."
+    )
+    alternatives = [
+        f"--min-bars {other}: {_cells(sections_mod.detect(bars, min_section=other))} cells"
+        for other in (4, 6, 8, 12, 16)
+        if other != min_bars
+    ]
+    console.print("[dim]" + "  |  ".join(alternatives) + "[/dim]")
+    console.print(f"written to {target.toml} -- rename and nudge them by hand.")
+
+
+def _cells(found: list[sections_mod.Section]) -> int:
+    """How big a routine these sections make: each at four tempos, plus the
+    whole song at four."""
+    return len(sections_mod.distinct(found)) * 4 + 4
+
+
+def _print_sections(found: list[sections_mod.Section]) -> None:
+    table = Table(box=None, header_style="bold", pad_edge=False)
+    for column in ("name", "bars", "length", "same as"):
+        table.add_column(column)
+    seen: dict[str, int] = {}
+    for index, section in enumerate(found, start=1):
+        first = seen.setdefault(section.name, index)
+        table.add_row(
+            section.name,
+            f"{section.start_bar}-{section.end_bar}",
+            str(section.bars),
+            "" if first == index else f"#{first}",
+        )
+    console.print(table)
+
+
+@app.command()
+def sticking(
+    song: str = typer.Argument(..., help="Song slug or URL"),
+    restick: bool = typer.Option(
+        False, "--restick", help="Replace an existing sticking.lock.json"
+    ),
+    bars: str = typer.Option(None, "--bars", help="Print the letters for a bar range, e.g. 15-18"),
+) -> None:
+    """Work out which hand plays what, and what the hi-hat foot is doing.
+
+    Reads the chart and kit.toml, assigns a limb to every note by minimum
+    effort, and writes songs/<slug>/sticking.lock.json pinned to the chart it
+    was solved from. The player draws R and L under the notation from it. It is
+    a proposal: fix what it gets wrong by hand, or change the weights in
+    kit.toml and re-run with --restick.
+    """
+    target = _resolve(song)
+    existing = sticking_mod.load(target)
+    if existing and not restick:
+        console.print(
+            f"[yellow]{sticking_mod.path_for(target).name} already exists.[/yellow] "
+            "Edit it by hand, or pass --restick to solve it again."
+        )
+        raise typer.Exit(code=1)
+
+    try:
+        loaded = grid_mod.load(target)
+        the_kit = kit_mod.load()
+        solved = sticking_mod.solve(
+            target, the_kit, tempo_bpm=loaded.score.bpm, beats_per_bar=loaded.beats_per_bar
+        )
+        sticking_mod.save(target, solved)
+    except StageError as exc:
+        _fail(exc)
+
+    hands = [s for s in solved.strokes if s.limb in kit_mod.HANDS]
+    right = sum(1 for s in hands if s.limb == "right_hand")
+    table = Table(box=None, show_header=False, pad_edge=False)
+    table.add_column(style="bold")
+    table.add_column(overflow="fold")
+    table.add_row("notes", f"{len(solved.strokes)} ({len(hands)} by hand, {len(solved.strokes) - len(hands)} by foot)")
+    table.add_row("hands", f"{right} right, {len(hands) - right} left")
+    table.add_row("hi-hat", f"{len(solved.hat)} foot changes")
+    table.add_row("cost", f"{solved.cost:g} at {solved.tempo_bpm:.1f} BPM")
+    table.add_row("chart", solved.chart)
+    console.print(table)
+    for note in solved.notes:
+        console.print(f"[yellow]{note}[/yellow]")
+    if bars:
+        _print_sticking(solved, bars)
+    console.print(f"\nwritten to {sticking_mod.path_for(target)}")
+
+
+def _print_sticking(solved: sticking_mod.Sticking, bars: str) -> None:
+    """The letters for a few bars, as a drummer would read them."""
+    try:
+        first, _, last = bars.partition("-")
+        low, high = int(first), int(last or first)
+    except ValueError as exc:
+        raise typer.BadParameter(f"--bars wants something like 15-18, got {bars!r}") from exc
+    console.print()
+    per_bar = solved.beats_per_bar * 4
+    for bar in range(low, high + 1):
+        letters = [""] * per_bar
+        for stroke in solved.strokes:
+            if stroke.bar != bar or stroke.limb not in kit_mod.HANDS:
+                continue
+            # Two hands on one sixteenth is a two-letter cell, e.g. "RL".
+            letters[stroke.slot] += "R" if stroke.limb == "right_hand" else "L"
+        console.print(f"  [dim]{bar:3d}[/dim]  " + " ".join((c or ".").ljust(2) for c in letters))
 
 
 @app.command()

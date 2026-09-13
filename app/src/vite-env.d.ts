@@ -8,6 +8,11 @@ declare module 'virtual:songs' {
     /** MIDI key -> instrument name (kick, snare, hihat_closed, ...). */
     map: Record<number, string>;
     author?: { als: string; track?: string };
+    /**
+     * Which untracked media is on disk: `mix` is the clock (without it the
+     * song cannot play), `video` the picture the notation sits over.
+     */
+    media: { mix: boolean; video: boolean };
   }
   const songs: SongMeta[];
   export default songs;

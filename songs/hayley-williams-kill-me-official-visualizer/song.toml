@@ -1,0 +1,96 @@
+[source]
+url = "https://www.youtube.com/watch?v=ci07WfA7WDE"
+video_id = "ci07WfA7WDE"
+title = "Hayley Williams - Kill Me (Official Visualizer)"
+uploader = "Hayley Williams"
+duration = 167.0
+
+[models]
+separation = ""
+
+[grid]
+meter = ""
+tempo_multiplier = ""
+downbeat_rotation = -1
+
+# Where the notation is authored. Saving the Live set regenerates tab.mid.
+#
+# The same set as the drum-cover song: the notes are the song's, and both are
+# 62 bars of 4/4 at 90.91 BPM, so the notation is right for either. What
+# differs is when each bar happens, and that comes from each song's own
+# grid.lock.json, not from here. The set's audio is still the cover's
+# straightened stems; drop this song's stems/straight-nodrums.wav in to check
+# the writing against the original.
+[author]
+als = "C:/Users/omhet/Music/Ableton/Projects/Drum Tabs/Hayley Williams - Kill Me (midi for tabs) Project/Hayley Williams - Kill Me (midi for tabs) fixed.als"
+track = "1-Sticks Kit"
+
+# MIDI key -> instrument, as laid out on the drum rack in that set.
+[midi_map]
+36 = "kick"
+37 = "snare"
+38 = "hihat_closed"
+39 = "hihat_open"
+40 = "hihat_pedal"
+41 = "crash"
+42 = "tom_high"
+43 = "tom_mid"
+44 = "tom_floor"
+
+# The sections a routine is built from, proposed by `drums sections` from
+# the repeats in tab.mid and then yours: rename them, nudge the bar
+# numbers, merge or split. Bars are 1-based and inclusive, and together
+# they cover the song in order.
+#
+# Two blocks with the same name are one section the song plays twice --
+# name both choruses `chorus` and you practise it once, against the first
+# of them, instead of learning the same music twice in a run.
+#
+# Once you have played a routine these are frozen: a boundary that moves
+# changes the shape of every routine, and old runs stop being comparable
+# to new ones.
+
+[[section]]
+name = "A"
+start_bar = 1
+end_bar = 12
+
+[[section]]
+name = "B"
+start_bar = 13
+end_bar = 16
+
+[[section]]
+name = "C"
+start_bar = 17
+end_bar = 21
+
+[[section]]
+name = "D"
+start_bar = 22
+end_bar = 31
+
+[[section]]
+name = "E"
+start_bar = 32
+end_bar = 35
+
+[[section]]
+name = "C"
+start_bar = 36
+end_bar = 40
+
+[[section]]
+name = "F"
+start_bar = 41
+end_bar = 44
+
+[[section]]
+name = "G"
+start_bar = 45
+end_bar = 53
+
+[[section]]
+name = "H"
+start_bar = 54
+end_bar = 62

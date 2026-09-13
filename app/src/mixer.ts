@@ -1,92 +1,111 @@
-// The mixer: the two stems and the click over the video, on the video's clock.
+// The mixer: what you hear, and the picture, on the mix clock.
 //
-// The video's own soundtrack is the full mix, so what you hear instead is
-// nodrums.wav + drums.wav, each on its own fader, plus a click synthesised on
-// the beat map. All of it runs through one Web Audio graph:
+// The clock is an <audio> element on audio/mix.wav (media.ts), so its time is
+// mix time. What you hear instead of that mix is nodrums.wav + drums.wav,
+// each on its own fader, plus a click synthesised on the beat map. All of it
+// runs through one Web Audio graph:
 //
-//   video   -> source -> gain (0)      -+
+//   mix     -> source -> gain (0)      -+
 //   nodrums -> source -> gain (fader)  -+-> master -> analyser -> speakers
 //   drums   -> source -> gain (fader)  -+
 //   click   ->           gain (fader)  -+
 //
-// The graph is built on the first user gesture (an AudioContext made before
-// one stays suspended), and until then the video plays through its own
-// output as before.
+// The mix's own gain is 0 while the stems play -- it is the same music twice
+// -- and 1 when neither stem loads, so a song that has not been separated
+// still plays. The graph is built on the first user gesture (an AudioContext
+// made before one stays suspended), and until then the mix plays through its
+// own output as before.
 //
-// Transport stays alphaTab's: it drives the video through `VideoClock`, and
-// the stems follow the video element's own play/pause/seek/rate events. The
-// stems are on mix time and the video is `VideoClock.offsetMs` away from it,
-// so a stem is in the right place when `currentTime == clock.mixTimeMs / 1000`.
-// A media element cannot be told to keep that; it drifts by a few ms per
-// second, so a 25 ms timer (not rAF: it must go on in a background tab, and
-// the click needs it anyway) corrects each stem with hysteresis, because
-// `currentTime` is read in steps of an audio render quantum and a naive
-// comparison would chase the noise.
+// Transport stays alphaTab's: it drives the clock element through MixClock,
+// and everything else follows that element's own play/pause/seek/rate events
+// as a Follower (follow.ts) -- the two stems, and the picture when the song
+// has a video bound to this timeline. The picture is muted whatever happens:
+// its soundtrack is this same mix (and after the practice pivot it is a
+// recording of a room with an e-kit in it, which is not music).
+//
+// The followers are corrected on a 25 ms timer rather than rAF: it must go on
+// in a background tab, and the click's lookahead scheduler needs it anyway.
 import { Click } from './click';
-import type { VideoClock } from './media';
+import { Follower } from './follow';
+import type { MixClock } from './media';
 
 export type StemName = 'nodrums' | 'drums';
 export type Fader = StemName | 'click';
 export const FADERS: readonly Fader[] = ['nodrums', 'drums', 'click'];
 
-/** A stem this far from the video is seeked to it. */
-const HARD_SEEK_MS = 250;
-/** Between here and HARD_SEEK_MS the stem's rate is nudged towards the video. */
-const NUDGE_ABOVE_MS = 20;
-/** Under this the stem runs at exactly the master rate again. */
-const LOCK_BELOW_MS = 10;
-const MAX_NUDGE = 0.03;
-const MIN_NUDGE = 0.01;
+const STEMS: readonly StemName[] = ['nodrums', 'drums'];
 const TICK_MS = 25;
-
-interface Stem {
-  name: StemName;
-  el: HTMLAudioElement;
-  gain?: GainNode;
-  failed: boolean;
-}
 
 export interface MixerOptions {
   /** A stem did not load (probably missing from songs/<slug>/stems/). */
-  onStemError?: (name: StemName, el: HTMLAudioElement) => void;
+  onStemError?: (name: StemName, el: HTMLMediaElement) => void;
+  /** The video did not load. Everything else plays on, without a picture. */
+  onPictureError?: () => void;
+}
+
+/** What the mixer needs to know about the song being loaded. */
+export interface MixerSong {
+  slug: string;
+  /** Whether songs/<slug>/audio/video.mp4 is there to be the picture. */
+  video: boolean;
+  /** video time - mix time, in ms, from `drums align`. */
+  videoOffsetMs: number;
+  /** Mix time of every beat the drummer played, in seconds. */
+  beats: number[];
+  /** Whether beat `i` is the first of a bar, so the click accents it. */
+  accent: (beat: number) => boolean;
 }
 
 export class Mixer {
   ctx: AudioContext | undefined;
   /** Taps the sum of everything, for the headless checks. */
   analyser: AnalyserNode | undefined;
-  readonly stems: Stem[];
+  /** The two stems: what you actually hear. */
+  readonly stems: Follower<StemName>[];
+  /** The video, when the song has one. Silent, and only as wide as the stage. */
+  readonly picture: Follower;
+  /** Everything that follows the clock, in the order it is corrected. */
+  readonly followers: Follower[];
   private click: Click | undefined;
-  private videoGain: GainNode | undefined;
+  private mixGain: GainNode | undefined;
   private clickGain: GainNode | undefined;
+  private stemGain = new Map<StemName, GainNode>();
   private levels: Record<Fader, number> = { nodrums: 1, drums: 1, click: 0 };
   private timer = 0;
   private beats: number[] = [];
   private accent = (_beat: number): boolean => false;
 
   constructor(
-    private readonly video: HTMLVideoElement,
-    private readonly clock: VideoClock,
+    /** The clock element: alphaTab drives it, everything else follows it. */
+    private readonly mixEl: HTMLMediaElement,
+    videoEl: HTMLVideoElement,
+    private readonly clock: MixClock,
     private readonly options: MixerOptions = {}
   ) {
-    // Slowing down must not drop the pitch: the drummer is practising the
-    // song, not a slowed-down recording of it.
-    video.preservesPitch = true;
-    this.stems = (['nodrums', 'drums'] as const).map((name) => {
-      const el = new Audio();
-      el.preload = 'auto';
-      el.preservesPitch = true;
-      el.addEventListener('error', () => this.stemFailed(name, el));
-      return { name, el, failed: false };
+    mixEl.preservesPitch = true;
+    this.stems = STEMS.map(
+      (name) => new Follower(name, new Audio(), { onError: () => this.stemFailed(name) })
+    );
+    videoEl.muted = true;
+    this.picture = new Follower('picture', videoEl, {
+      onError: () => this.options.onPictureError?.(),
+      // A picture is held to a couple of frames, not to a couple of ms (see
+      // follow.ts), and it is driven back hard: it starts about a tenth of a
+      // second behind the clock, and a silent video can be run 15% fast for a
+      // second without anyone seeing it.
+      nudgeAboveMs: 60,
+      lockBelowMs: 30,
+      maxNudge: 0.15,
     });
+    this.followers = [...this.stems, this.picture];
 
-    video.addEventListener('play', () => this.onPlay());
-    // `playing` also fires after a stall, when the video has caught up.
-    video.addEventListener('playing', () => this.follow());
-    video.addEventListener('waiting', () => this.hold());
-    video.addEventListener('pause', () => this.onPause());
-    video.addEventListener('seeked', () => this.onSeek());
-    video.addEventListener('ratechange', () => this.onRate());
+    mixEl.addEventListener('play', () => this.onPlay());
+    // `playing` also fires after a stall, when the mix has caught up.
+    mixEl.addEventListener('playing', () => this.follow());
+    mixEl.addEventListener('waiting', () => this.hold());
+    mixEl.addEventListener('pause', () => this.onPause());
+    mixEl.addEventListener('seeked', () => this.onSeek());
+    mixEl.addEventListener('ratechange', () => this.onRate());
 
     // Build the graph inside a gesture so the context is allowed to run.
     const unlock = () => {
@@ -100,16 +119,15 @@ export class Mixer {
     document.addEventListener('keydown', unlock);
   }
 
-  /** Point the stems at a song and give the click its beat map (mix seconds). */
-  load(slug: string, beats: number[], accent: (beat: number) => boolean) {
-    this.beats = beats;
-    this.accent = accent;
-    this.click?.load(beats, accent);
-    for (const stem of this.stems) {
-      stem.failed = false;
-      stem.el.src = `/media/${encodeURIComponent(slug)}/stems/${stem.name}.wav`;
-    }
-    this.routeVideo();
+  /** Point every follower at a song and give the click its beat map. */
+  load(song: MixerSong) {
+    this.beats = song.beats;
+    this.accent = song.accent;
+    this.click?.load(song.beats, song.accent);
+    const media = (path: string) => `/media/${encodeURIComponent(song.slug)}/${path}`;
+    for (const stem of this.stems) stem.load(media(`stems/${stem.name}.wav`));
+    this.picture.load(song.video ? media('audio/video.mp4') : null, song.videoOffsetMs);
+    this.routeMix();
   }
 
   level(fader: Fader): number {
@@ -120,11 +138,11 @@ export class Mixer {
   setLevel(fader: Fader, value: number) {
     const v = Math.min(1, Math.max(0, value));
     this.levels[fader] = v;
-    const gain = fader === 'click' ? this.clickGain : this.stems.find((s) => s.name === fader)?.gain;
+    const gain = fader === 'click' ? this.clickGain : this.stemGain.get(fader);
     if (gain && this.ctx) gain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.01);
   }
 
-  /** Mix time in seconds, never negative: the stems start at 0. */
+  /** Mix time in seconds, never negative: the followers start at 0. */
   get mixNow(): number {
     return Math.max(0, this.clock.mixTimeMs / 1000);
   }
@@ -141,23 +159,24 @@ export class Mixer {
     this.analyser.fftSize = 2048;
     master.connect(this.analyser).connect(ctx.destination);
 
-    this.videoGain = ctx.createGain();
-    ctx.createMediaElementSource(this.video).connect(this.videoGain).connect(master);
+    this.mixGain = ctx.createGain();
+    ctx.createMediaElementSource(this.mixEl).connect(this.mixGain).connect(master);
     for (const stem of this.stems) {
-      stem.gain = ctx.createGain();
-      stem.gain.gain.value = this.levels[stem.name];
-      ctx.createMediaElementSource(stem.el).connect(stem.gain).connect(master);
+      const gain = ctx.createGain();
+      gain.gain.value = this.levels[stem.name];
+      this.stemGain.set(stem.name, gain);
+      ctx.createMediaElementSource(stem.el).connect(gain).connect(master);
     }
     this.clickGain = ctx.createGain();
     this.clickGain.gain.value = this.levels.click;
     this.clickGain.connect(master);
     this.click = new Click(ctx, this.clickGain);
     this.click.load(this.beats, this.accent);
-    this.routeVideo();
+    this.routeMix();
     if (ctx.state !== 'running') void ctx.resume();
   }
 
-  // --- following the video ------------------------------------------------------
+  // --- following the clock ------------------------------------------------------
 
   private onPlay() {
     this.ensureGraph();
@@ -173,85 +192,52 @@ export class Mixer {
   }
 
   private onSeek() {
-    for (const stem of this.stems) this.align(stem);
-    this.click?.rewind(this.mixNow);
-  }
-
-  private onRate() {
-    for (const stem of this.stems) stem.el.playbackRate = this.video.playbackRate;
-  }
-
-  /** The video is running: put every stem where it is and start it. */
-  private follow() {
-    if (this.video.paused) return;
     const mixNow = this.mixNow;
-    for (const stem of this.stems) {
-      if (stem.failed) continue;
-      this.align(stem, mixNow);
-      stem.el.playbackRate = this.video.playbackRate;
-      stem.el.play().catch(() => {
-        /* reported through the element's error event, or a missing gesture */
-      });
-    }
+    for (const f of this.followers) f.align(mixNow);
     this.click?.rewind(mixNow);
   }
 
-  /** The video has stopped (paused, or buffering): the stems wait. */
+  private onRate() {
+    for (const f of this.followers) f.setRate(this.mixEl.playbackRate);
+  }
+
+  /** The clock is running: put every follower where it is and start it. */
+  private follow() {
+    if (this.mixEl.paused) return;
+    const mixNow = this.mixNow;
+    for (const f of this.followers) f.start(mixNow, this.mixEl.playbackRate);
+    this.click?.rewind(mixNow);
+  }
+
+  /** The clock has stopped (paused, or buffering): the followers wait. */
   private hold() {
-    for (const stem of this.stems) stem.el.pause();
+    for (const f of this.followers) f.stop();
     this.click?.forget();
   }
 
-  private align(stem: Stem, mixNow = this.mixNow) {
-    if (stem.failed) return;
-    stem.el.currentTime = mixNow;
-  }
-
   private tick() {
-    if (this.video.paused || !this.ctx) return;
+    if (this.mixEl.paused || !this.ctx) return;
     const mixNow = this.mixNow;
-    const rate = this.video.playbackRate;
-    for (const stem of this.stems) this.correct(stem, mixNow, rate);
+    const rate = this.mixEl.playbackRate;
+    for (const f of this.followers) f.correct(mixNow, rate);
     this.click?.book(mixNow, rate);
   }
 
-  /**
-   * Drift correction with hysteresis. `err` > 0 means the stem is ahead of
-   * the video, so it is slowed; the nudge grows with the error but never
-   * exceeds 3%, which is a time-stretch nobody hears for the second it lasts.
-   */
-  private correct(stem: Stem, mixNow: number, rate: number) {
-    const el = stem.el;
-    if (stem.failed || el.seeking || el.readyState < 2 || el.paused) return;
-    const err = (el.currentTime - mixNow) * 1000;
-    const abs = Math.abs(err);
-    if (abs > HARD_SEEK_MS) {
-      el.currentTime = mixNow;
-      el.playbackRate = rate;
-    } else if (abs > NUDGE_ABOVE_MS) {
-      const nudge = Math.min(MAX_NUDGE, Math.max(MIN_NUDGE, (abs / HARD_SEEK_MS) * MAX_NUDGE));
-      el.playbackRate = rate * (1 - Math.sign(err) * nudge);
-    } else if (abs < LOCK_BELOW_MS && el.playbackRate !== rate) {
-      el.playbackRate = rate;
-    }
-  }
+  // --- the mix's own sound ------------------------------------------------------
 
-  // --- the video's own sound ---------------------------------------------------
-
-  private stemFailed(name: StemName, el: HTMLAudioElement) {
+  private stemFailed(name: StemName) {
+    this.routeMix();
     const stem = this.stems.find((s) => s.name === name)!;
-    stem.failed = true;
-    this.routeVideo();
-    this.options.onStemError?.(name, el);
+    this.options.onStemError?.(name, stem.el);
   }
 
   /**
-   * The video's soundtrack is the full mix; with the stems playing it would
+   * The clock element plays the full mix; with the stems playing it would
    * double everything, so it is muted. Without any stem it is all there is.
    */
-  private routeVideo() {
-    if (!this.videoGain || !this.ctx) return;
+  private routeMix() {
+    if (!this.mixGain || !this.ctx) return;
     const noStems = this.stems.every((s) => s.failed);
-    this.videoGain.gain.setTargetAtTime(noStems ? 1 : 0, this.ctx.currentTime, 0.01);
+    this.mixGain.gain.setTargetAtTime(noStems ? 1 : 0, this.ctx.currentTime, 0.01);
   }
 }

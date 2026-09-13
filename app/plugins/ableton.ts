@@ -20,6 +20,13 @@ export interface SongMeta {
   map: Record<number, string>;
   /** Present when the notation is authored in a Live set. */
   author?: { als: string; track?: string };
+  /**
+   * Which media is on disk. Both are untracked and built by the pipeline, so
+   * either can be absent: without `mix` the song cannot play at all (it is the
+   * clock), without `video` there is no picture and the notation has the stage
+   * to itself.
+   */
+  media: { mix: boolean; video: boolean };
 }
 
 const VIRTUAL_ID = 'virtual:songs';
@@ -46,6 +53,10 @@ export function readSongs(songsDir: string): SongMeta[] {
       title: String(source.title ?? slug),
       map,
       author: author?.als ? { als: author.als, track: author.track } : undefined,
+      media: {
+        mix: existsSync(join(songsDir, slug, 'audio', 'mix.wav')),
+        video: existsSync(join(songsDir, slug, 'audio', 'video.mp4')),
+      },
     });
   }
   return songs;

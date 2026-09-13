@@ -5,15 +5,15 @@
 // next to it (<out>-dark.png).
 //
 // Usage: node scripts/check-ui.mjs <out.png>
-import { launch, waitForPlayer } from './browser.mjs';
+import { launch, pageUrl, waitForPlayer } from './browser.mjs';
 const out = process.argv[2];
 const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1200, height: 700 } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
-await page.goto('http://localhost:5173/');
+await page.goto(pageUrl());
 await waitForPlayer(page);
-await page.waitForFunction(() => window.drums.video.readyState >= 1, null, { timeout: 30000 });
+await page.waitForFunction(() => window.drums.mix.readyState >= 1, null, { timeout: 30000 });
 
 const problems = [];
 const check = (ok, what) => {
@@ -39,12 +39,13 @@ const snapshot = () =>
       bar: Math.floor(d.api.tickPosition / ticksPerBar),
       row: d.scoreWindow.row,
       lines: d.scoreWindow.lines,
-      video: { time: Math.round(d.video.currentTime * 1000) / 1000, paused: d.video.paused, rate: d.video.playbackRate },
+      mix: { time: Math.round(d.mix.currentTime * 1000) / 1000, paused: d.mix.paused, rate: d.mix.playbackRate },
       cursor: c,
       box: b,
       cursorInside: inside,
       speed: document.getElementById('speed').value,
       faders: Object.fromEntries(['nodrums', 'drums', 'click'].map((f) => [f, document.getElementById(`fader-${f}`).value])),
+      sticking: document.querySelectorAll('.sticking span').length,
       drumsLabel: texts.some((t) => t.textContent === 'Drums'),
       clefsVisible: texts.filter((t) => t.textContent === '' && t.style.display !== 'none').length,
       clefsHidden: texts.filter((t) => t.textContent === '' && t.style.display === 'none').length,
@@ -56,7 +57,7 @@ await page.keyboard.press('Space');
 await page.waitForTimeout(4500);
 let s = await snapshot();
 console.log('playing:', JSON.stringify(s));
-check(s.state === 1 && !s.video.paused, 'Space did not start playback');
+check(s.state === 1 && !s.mix.paused, 'Space did not start playback');
 check(s.cursorInside, 'cursor not inside the window while playing');
 check(s.row === 0, `window not on line 1 at the start (row ${s.row})`);
 check(!s.drumsLabel, '"Drums" track name is drawn');
@@ -75,7 +76,7 @@ check(s.cursorInside, 'cursor not inside the window at bar 5');
 await page.keyboard.press('Space');
 await page.waitForTimeout(300);
 s = await snapshot();
-check(s.state === 0 && s.video.paused, 'second Space did not pause');
+check(s.state === 0 && s.mix.paused, 'second Space did not pause');
 
 // 4. Arrows seek by a bar and a line, paused, and the window follows.
 const barAfter = async (key) => {
@@ -92,7 +93,7 @@ check(s.bar === 8 && s.row === 2, `ArrowDown went to bar ${s.bar + 1} row ${s.ro
 s = await barAfter('ArrowUp');
 check(s.bar === 4 && s.row === 1, `ArrowUp went to bar ${s.bar + 1} row ${s.row}, expected bar 5 row 2`);
 check(s.cursorInside, 'cursor not inside the window after arrow seeks');
-console.log('after arrows:', JSON.stringify({ bar: s.bar, row: s.row, inside: s.cursorInside, video: s.video }));
+console.log('after arrows:', JSON.stringify({ bar: s.bar, row: s.row, inside: s.cursorInside, mix: s.mix }));
 await page.screenshot({ path: out });
 
 // 5. Tempo and faders.
@@ -103,8 +104,8 @@ await page.keyboard.press('Digit3');
 await page.keyboard.press('Digit1');
 await page.waitForTimeout(200);
 s = await snapshot();
-console.log('keys:', JSON.stringify({ speed: s.speed, rate: s.video.rate, faders: s.faders }));
-check(s.speed === '105' && Math.abs(s.video.rate - 1.05) < 1e-6, `brackets left the tempo at ${s.speed}% / rate ${s.video.rate}`);
+console.log('keys:', JSON.stringify({ speed: s.speed, rate: s.mix.rate, faders: s.faders }));
+check(s.speed === '105' && Math.abs(s.mix.rate - 1.05) < 1e-6, `brackets left the tempo at ${s.speed}% / rate ${s.mix.rate}`);
 check(s.faders.click === '100', `Digit3 left the click at ${s.faders.click}%`);
 check(s.faders.nodrums === '0', `Digit1 left no-drums at ${s.faders.nodrums}%`);
 await page.keyboard.press('Digit1');
@@ -114,23 +115,47 @@ await page.waitForTimeout(200);
 s = await snapshot();
 check(s.faders.nodrums === '100' && s.faders.click === '0' && s.speed === '100', `toggling back left ${JSON.stringify(s.faders)} at ${s.speed}%`);
 
-// 6. Home stops: video at 0, paused, window back on line 1.
+// 6. Home stops: the clock at 0, paused, window back on line 1.
 await page.keyboard.press('Home');
 await page.waitForTimeout(500);
 s = await snapshot();
-console.log('home:', JSON.stringify({ video: s.video, row: s.row, bar: s.bar }));
-check(s.video.paused && s.video.time === 0, `Home left the video at ${s.video.time}s paused=${s.video.paused}`);
+console.log('home:', JSON.stringify({ mix: s.mix, row: s.row, bar: s.bar }));
+check(s.mix.paused && s.mix.time === 0, `Home left the clock at ${s.mix.time}s paused=${s.mix.paused}`);
 check(s.row === 0, `Home left the window on row ${s.row}`);
 
-// 7. Lines: 3 makes the window a line taller; the cursor stays inside.
-const h2 = s.box.h;
+// 7. Lines: 3 makes the window a line taller than 2, and Fill takes the whole
+// stage (which is the default for a song with no video, so start from 2
+// rather than from whatever this song loaded with).
+await page.selectOption('#lines', '2');
+await page.waitForTimeout(200);
+const h2 = (await snapshot()).box.h;
 await page.selectOption('#lines', '3');
 await page.waitForTimeout(200);
 s = await snapshot();
-check(s.lines === 3 && s.box.h > h2 + 100, `3 lines made the window ${s.box.h}px (was ${h2}px)`);
+check(s.lines === 3 && s.box.h > h2 + 100, `3 lines made the window ${s.box.h}px (2 lines was ${h2}px)`);
+await page.selectOption('#lines', 'fit');
+await page.waitForTimeout(200);
+s = await snapshot();
+const stage = await page.evaluate(() => Math.round(document.getElementById('stage').getBoundingClientRect().height));
+check(s.lines === 'fit' && Math.abs(s.box.h - stage) <= 2, `Fill made the window ${s.box.h}px of a ${stage}px stage`);
 await page.selectOption('#lines', '2');
 
-// 8. Dark theme screenshot of line 2 (a seek while paused moves the window too).
+// 8. Sticking: R and L under the notation, and the switch turns them off. A
+// song with no sticking.lock.json has none, and that is not a failure.
+const hasSticking = await page.evaluate(() => window.drums.sticking.count > 0);
+s = await snapshot();
+if (hasSticking) {
+  check(s.sticking > 0, 'sticking.lock.json is loaded but no letters are drawn');
+  await page.uncheck('#sticking');
+  await page.waitForTimeout(200);
+  check((await snapshot()).sticking === 0, 'unchecking Sticking left the letters up');
+  await page.check('#sticking');
+  await page.waitForTimeout(200);
+  check((await snapshot()).sticking > 0, 'checking Sticking back did not bring them back');
+}
+console.log('sticking:', hasSticking ? `${s.sticking} letters` : 'none for this song');
+
+// 9. Dark theme screenshot of line 2 (a seek while paused moves the window too).
 await page.evaluate(() => window.drums.seekToBar(4));
 await page.waitForTimeout(400);
 const dark = await page.evaluate(() => {
@@ -148,6 +173,7 @@ await page.evaluate(() => {
   document.getElementById('theme').click();
   localStorage.removeItem('theme');
   localStorage.removeItem('lines');
+  localStorage.removeItem('sticking');
 });
 
 console.log(errors.length ? `page errors: ${errors.join('; ')}` : 'no page errors');

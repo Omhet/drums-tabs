@@ -14,6 +14,15 @@ export async function launch(options = {}) {
   return chromium.launch(options);
 }
 
+/**
+ * The page, on a particular song: the hash is the song selector, so
+ * `SONG=<slug> node scripts/check-sync.mjs` checks that one instead of the
+ * first in the list.
+ */
+export function pageUrl(base = 'http://localhost:5173/') {
+  return process.env.SONG ? `${base}#${encodeURIComponent(process.env.SONG)}` : base;
+}
+
 /** Wait until the page reports the player ready. */
 export async function waitForPlayer(page, timeout = 60000) {
   await page.waitForFunction(

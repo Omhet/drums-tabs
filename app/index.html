@@ -92,8 +92,9 @@
         padding-left: 16px; border-left: 1px solid var(--border);
       }
       .mixer input[type="range"] { width: 90px; }
-      /* The stage: the video fills it, the notation window sits over the
-         bottom of it. */
+      /* The stage: the picture fills it, the notation window sits over the
+         bottom of it. A song with no video bound to its timeline has no
+         picture, and then the notation is the stage (#stage.no-video). */
       #stage {
         position: relative; flex: 1; min-height: 240px;
         background: #000; border-radius: 8px; overflow: hidden;
@@ -102,6 +103,19 @@
         position: absolute; inset: 0; width: 100%; height: 100%;
         object-fit: contain; cursor: pointer;
       }
+      #stage.no-video { background: var(--panel); border: 1px solid var(--border); }
+      #stage.no-video #video { display: none; }
+      /* Nothing behind it to see through, so no glass and no blur -- and no
+         picture to sit over, so the notation starts at the top of the stage
+         instead of hanging off the bottom of it. */
+      #stage.no-video #score-box {
+        top: 0; bottom: auto;
+        background: none; backdrop-filter: none; -webkit-backdrop-filter: none;
+      }
+      /* The Lines control set to Fill: the notation takes the whole stage
+         instead of N rows over the bottom of it (score-window.ts). */
+      #stage.no-video #score-box.fit,
+      #score-box.fit { top: 0; bottom: 0; height: auto; }
       /* The notation window: N lines of the score (score-window.ts sets the
          height), scrolled a whole line at a time so the line being played is
          the top one. It wraps alphaTab's element rather than being it: the
@@ -115,6 +129,16 @@
         margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
+      /* The sticking letters (sticking.ts): one per beat the hands play,
+         placed under the staff from alphaTab's own bounds. The overlay is
+         inside alphaTab's element so it scrolls with the score; each letter is
+         centred on the beat it belongs to. */
+      #score { position: relative; }
+      .sticking span {
+        position: absolute; transform: translateX(-50%);
+        font: 600 11px/1 ui-monospace, "Cascadia Mono", Consolas, monospace;
+        color: var(--muted); pointer-events: none; white-space: nowrap;
+      }
       /* alphaTab creates the cursor elements but leaves them unstyled. */
       .at-cursor-bar { background: rgba(255, 200, 0, 0.18); }
       .at-cursor-beat { background: rgba(230, 60, 60, 0.85); width: 3px; }
@@ -127,7 +151,7 @@
         <div>
           <h1>drums-tabs</h1>
           <p class="sub">
-            Notation from <code>songs/&lt;slug&gt;/tab.mid</code> over the cover video, synced to the drummer.
+            Notation from <code>songs/&lt;slug&gt;/tab.mid</code> on the song's own clock, synced to the drummer.
             <kbd>Space</kbd> play/pause &middot; <kbd>&larr;</kbd><kbd>&rarr;</kbd> a bar &middot; <kbd>&uarr;</kbd><kbd>&darr;</kbd> a line
             &middot; <kbd>Home</kbd> stop &middot; <kbd>[</kbd><kbd>]</kbd> tempo &middot; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> mute a fader &middot; click the score to seek.
           </p>
@@ -153,7 +177,14 @@
             <option selected>2</option>
             <option>3</option>
             <option>4</option>
+            <!-- As many as the stage has room for: the default with no video. -->
+            <option value="fit">Fill</option>
           </select>
+        </label>
+        <!-- Which hand plays what, from sticking.lock.json (`drums sticking`). -->
+        <label title="R and L under the notation">
+          <input id="sticking" type="checkbox" checked />
+          Sticking
         </label>
         <!-- The mixer: what you hear is the two stems and the click, not the
              video's own soundtrack (that is the full mix). -->
@@ -175,6 +206,11 @@
           </label>
         </div>
       </div>
+      <!-- The master clock: audio/mix.wav, the timeline the beat map, the
+           stems and the notation all refer to. Everything else on the page
+           follows it. No controls: the transport is alphaTab's, and the mixer
+           holds this element's own sound at 0 whenever the stems are playing. -->
+      <audio id="mix" preload="auto"></audio>
       <div id="stage">
         <video id="video" playsinline preload="auto"></video>
         <div id="score-box"><div id="score"></div></div>

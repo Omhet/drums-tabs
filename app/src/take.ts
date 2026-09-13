@@ -28,6 +28,15 @@
 import type { Grade, TakeEvent } from './grade';
 
 export interface Cell {
+  /**
+   * The cell's place in the routine grid, `<section>@<percent>` (routine.ts).
+   *
+   * Optional because the two takes played before the grid existed do not carry
+   * it, and a take is never rewritten. Derivable from the fields below; stored
+   * anyway so that a reader matching takes to cells does not have to guess at
+   * the recipe.
+   */
+  id?: string;
   /** The `[[section]]` name, which is why section identity has to be stable. */
   section: string;
   /** Playback rate it was played at: 1 is the record's tempo. */

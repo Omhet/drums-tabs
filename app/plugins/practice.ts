@@ -15,11 +15,18 @@
 //   POST /practice/take      songs/<slug>/takes/<id>.json, tracked in git: the
 //                            progress history, and what the coaching agent
 //                            reads (Q8).
+//   GET/POST/DELETE /practice/routine
+//                            songs/<slug>/routines/<id>.json, also tracked: the
+//                            run you are part-way through, rewritten after every
+//                            cell so that Live's reload cannot lose it (Q10).
+//                            GET returns the open one -- the rule that there is
+//                            at most one is enforced here, not in the page,
+//                            because the page is what keeps being reloaded.
 //   GET/POST /practice/calibration
 //                            calibration.local.json at the repo root. Untracked
 //                            and per machine: it measures this audio path, not
 //                            this song and not this drummer (Q9).
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
 import { parse as parseToml } from 'smol-toml';
@@ -72,6 +79,33 @@ function stamp(iso: string): string {
 /** Anything that is not plainly a name is not going into a path. */
 const safe = (s: string) => s.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'x';
 
+/**
+ * The routines of a song that are still in progress, by `sealedAt: null`.
+ *
+ * A directory scan rather than an index file: the routines directory is tracked
+ * in git, so it gets merged, reverted and copied between machines, and an index
+ * would be one more thing that can disagree with the files it describes.
+ */
+function openRoutines(songs: string, slug: string) {
+  const dir = join(songs, safe(slug), 'routines');
+  if (!slug || !existsSync(dir)) return [];
+  const open: { name: string; routine: unknown }[] = [];
+  for (const name of readdirSync(dir).sort()) {
+    if (!name.endsWith('.json')) continue;
+    try {
+      const routine = JSON.parse(readFileSync(join(dir, name), 'utf-8')) as {
+        sealedAt?: string | null;
+      };
+      if (routine.sealedAt == null) open.push({ name, routine });
+    } catch {
+      // A routine that will not parse is a file to fix by hand, not a reason to
+      // refuse to practise: skip it and let the readable ones through.
+      console.warn(`[practice] routines/${name} is not readable JSON`);
+    }
+  }
+  return open;
+}
+
 export function practice(songsDir: string, repoRoot: string): Plugin {
   const kitPath = join(repoRoot, 'kit.toml');
   const calibrationPath = join(repoRoot, 'calibration.local.json');
@@ -117,6 +151,63 @@ export function practice(songsDir: string, repoRoot: string): Plugin {
         writeFileSync(file, JSON.stringify(rest, null, 1) + '\n');
         console.log(`[practice] take -> ${file}`);
         return json(res, 200, JSON.stringify({ path: file, name }));
+      }
+      if (url.pathname === '/practice/routine') {
+        const slug = url.searchParams.get('slug') ?? '';
+        if (req.method === 'GET') {
+          const open = openRoutines(songs, slug);
+          // Two open routines is not a state the app can produce, so it means a
+          // file was edited or restored by hand. Saying so beats picking one.
+          if (open.length > 1) {
+            const names = open.map((r) => r.name).join(', ');
+            return json(res, 409, JSON.stringify({ error: `more than one open routine: ${names}` }));
+          }
+          return json(res, 200, JSON.stringify({ routine: open[0]?.routine ?? null }));
+        }
+        if (req.method === 'POST') {
+          const routine = JSON.parse(await read(req)) as {
+            slug?: string;
+            openedAt?: string;
+            sealedAt?: string | null;
+          };
+          if (!routine.slug) return json(res, 400, JSON.stringify({ error: 'no slug' }));
+          const name = `${stamp(routine.openedAt ?? '')}.json`;
+          const file = join(songs, safe(routine.slug), 'routines', name);
+          if (!file.startsWith(songs)) return json(res, 403, JSON.stringify({ error: 'bad slug' }));
+          // At most one routine in progress per song (Q10). Checked on the way
+          // in rather than trusted: the page holding the other one may have been
+          // reloaded, or be a second tab.
+          if (routine.sealedAt == null) {
+            const other = openRoutines(songs, routine.slug).find((r) => r.name !== name);
+            if (other) {
+              return json(
+                res,
+                409,
+                JSON.stringify({ error: `another routine is already open: ${other.name}` })
+              );
+            }
+          }
+          mkdirSync(dirname(file), { recursive: true });
+          const { slug: _slug, ...rest } = routine as Record<string, unknown>;
+          writeFileSync(file, JSON.stringify(rest, null, 1) + '\n');
+          console.log(`[practice] routine -> ${file}`);
+          return json(res, 200, JSON.stringify({ path: file, name }));
+        }
+        if (req.method === 'DELETE') {
+          const name = `${stamp(url.searchParams.get('openedAt') ?? '')}.json`;
+          const file = join(songs, safe(slug), 'routines', name);
+          if (!file.startsWith(songs)) return json(res, 403, JSON.stringify({ error: 'bad slug' }));
+          if (!existsSync(file)) return json(res, 404, JSON.stringify({ error: 'no such routine' }));
+          // A sealed routine is history, and history is not edited from the app.
+          const sealed = (JSON.parse(readFileSync(file, 'utf-8')) as { sealedAt?: string | null })
+            .sealedAt;
+          if (sealed != null) {
+            return json(res, 409, JSON.stringify({ error: 'that routine is sealed' }));
+          }
+          rmSync(file);
+          console.log(`[practice] routine discarded: ${file}`);
+          return json(res, 200, JSON.stringify({ discarded: name }));
+        }
       }
     } catch (err) {
       return json(res, 500, JSON.stringify({ error: String((err as Error)?.message ?? err) }));

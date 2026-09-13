@@ -15,8 +15,13 @@
 // `performance.now()` moment that maps to it, so they land where they are
 // meant to rather than wherever the timer happened to fire.
 //
-// It cleans up the take it writes: takes/ is tracked in git and a check should
-// not leave anything behind.
+// The second half is the routine (practice-plan Q5, Q10): open a run, fill a
+// cell by playing it, reload the page the way a Ctrl+S in Live does, and check
+// the run is still there with the cell still in it. That reload is the whole
+// reason a routine is a file rather than a variable.
+//
+// It cleans up the take and the routine it writes: both directories are tracked
+// in git and a check should not leave anything behind.
 import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,9 +37,16 @@ const EXTRA_AFTER = 9; // plus a stroke nobody wrote  -> extra
 const WRONG = 15; // played on a tom instead     -> wrong-voice
 const FLAM = 21; // played twice, a bounce      -> flam
 
+/** The cell the take leg plays. Not the first of the walk: see where it is chosen. */
+const TAKE_CELL = 'A@100';
+
 const songs = fileURLToPath(new URL('../../songs', import.meta.url));
 const takesDir = join(songs, SLUG, 'takes');
+const routinesDir = join(songs, SLUG, 'routines');
 const before = new Set(existsSync(takesDir) ? readdirSync(takesDir) : []);
+const routinesBefore = new Set(existsSync(routinesDir) ? readdirSync(routinesDir) : []);
+const newRoutines = () =>
+  (existsSync(routinesDir) ? readdirSync(routinesDir) : []).filter((f) => !routinesBefore.has(f));
 
 const problems = [];
 const check = (ok, label, detail = '') => {
@@ -83,6 +95,70 @@ const setCalibration = async (value) => {
 };
 await setCalibration(null);
 
+// --- the grid ---------------------------------------------------------------------
+// Open a run before recording, so the take that follows has a cell to fill.
+const grid = await page.evaluate(() => {
+  const p = window.drums.practice;
+  return {
+    cells: p.cells.length,
+    sections: [...new Set(p.cells.map((c) => c.section))],
+    ids: p.cells.slice(0, 5).map((c) => c.id),
+    last: p.cells.at(-1),
+    open: !!p.routine,
+    startHidden: document.getElementById('routine-start').hidden,
+  };
+});
+// A song with no [[section]] blocks has no grid, and the rest of this check has
+// nothing to run against. That is not a failure -- it means `drums sections`
+// has not been run on it yet.
+if (grid.cells === 0) {
+  console.log(`skip ${SLUG} has no routine grid: no [[section]] blocks in song.toml`);
+  console.log('nothing to check on this song (run `drums sections` on it first)');
+  await browser.close();
+  process.exit(0);
+}
+
+// Six named sections at four tempos, plus the whole song at each.
+check(
+  grid.cells === (grid.sections.length - 1) * 4 + 4,
+  'the grid is the sections times the ladder',
+  `${grid.cells} cells, ${grid.sections.length - 1} sections`
+);
+check(
+  grid.ids.join(' ') === 'A@70 A@80 A@90 A@100 B@70',
+  'it is walked section-major, up the ladder then on',
+  grid.ids.join(' ')
+);
+check(
+  grid.last?.whole && grid.last?.tempo === 1,
+  'the whole song at 100% is the last cell of every run'
+);
+check(!grid.open && !grid.startHidden, 'nothing is open yet, and the button to open one is there');
+
+await page.locator('#routine-start').click();
+await page.waitForTimeout(400);
+// Any cell, any time: the walk order is what teaches, not a lock. The take leg
+// wants 100% so that its numbers are the same ones M1 measured, and 100% is the
+// fourth cell of the first row.
+await page.locator('#routine tbody tr').first().locator('.cell').nth(3).click();
+
+const opened = await page.evaluate(() => {
+  const p = window.drums.practice;
+  return {
+    at: p.at,
+    open: !!p.routine,
+    sealed: p.routine ? String(p.routine.sealedAt) : 'no routine',
+    state: document.getElementById('routine-state').textContent,
+    sealDisabled: document.getElementById('routine-seal').disabled,
+    startHidden: document.getElementById('routine-start').hidden,
+  };
+});
+check(opened.open && opened.sealed === 'null', 'a routine opened, and it is open', opened.sealed);
+check(opened.at === TAKE_CELL, 'clicking a cell aims at it', opened.at);
+check(opened.sealDisabled, 'an empty routine cannot be sealed');
+check(opened.startHidden, 'there is no second routine to start while one is open');
+check(newRoutines().length === 1, 'the open routine is a file on disk', newRoutines().join(', '));
+
 const cell = await page.evaluate(() => {
   const p = window.drums.practice;
   const notes = p.expected();
@@ -95,11 +171,14 @@ const cell = await page.evaluate(() => {
     limbs: [...new Set(notes.map((n) => n.limb))],
   };
 });
-// A song with no [[section]] blocks has no cell to practise, which is not a
-// failure -- it means `drums sections <slug>` has not been run on it yet.
+// Sections but nothing to place them against: no grid.lock.json, so no bar has
+// a time and the cell cannot be played. A missing beat map, not a failure here.
 if (cell.count === 0) {
   console.log(`skip ${SLUG} has no cell to record: ${cell.label}`);
-  console.log('nothing to check on this song (run `drums sections` on it first)');
+  console.log('nothing to check on this song (run the pipeline on it first)');
+  // The routine opened a moment ago would otherwise be left behind, and a
+  // check should leave nothing behind.
+  for (const name of newRoutines()) rmSync(join(routinesDir, name));
   await browser.close();
   process.exit(0);
 }
@@ -235,9 +314,98 @@ if (after.length === 1) {
   const firstWritten = cell.first;
   const drift = Math.abs(take.events[0].tMs - (firstWritten + LATE_MS));
   check(drift < 25, 'timestamps are raw mix time', `first event ${Math.round(take.events[0].tMs)} ms vs written ${Math.round(firstWritten)} ms`);
+  check(take.cell.id === TAKE_CELL, 'the take knows which cell of the grid it was', take.cell.id);
   rmSync(join(takesDir, after[0]));
   console.log(`     (removed the take it wrote: takes/${after[0]})`);
 }
+
+// --- the cell is filled ------------------------------------------------------------
+// A take played to the end fills its cell, and the routine is rewritten there
+// and then -- not at the end of the sitting, which is not an event this program
+// ever sees.
+const filled = await page.evaluate(() => {
+  const p = window.drums.practice;
+  const at = document.querySelector('#routine .cell.at');
+  return {
+    cells: p.routine?.cells.filter((c) => c.fill).length ?? 0,
+    fill: p.routine?.cells.find((c) => c.id === 'A@100')?.fill ?? null,
+    next: p.at,
+    state: document.getElementById('routine-state').textContent,
+    green: document.querySelectorAll('#routine .cell.pass').length,
+    red: document.querySelectorAll('#routine .cell.fail').length,
+    atLabel: at?.textContent ?? '',
+    sealDisabled: document.getElementById('routine-seal').disabled,
+  };
+});
+check(filled.cells === 1, 'the completed take filled exactly one cell', `${filled.cells} filled`);
+check(!!filled.fill && filled.fill.take === after[0], 'the cell points at the take that filled it', filled.fill?.take);
+check(
+  filled.fill?.accuracy === g.accuracy,
+  'the cell carries the accuracy the grade gave it',
+  `${Math.round((filled.fill?.accuracy ?? 0) * 100)}%`
+);
+// Forwards from the cell just played, not back to the top: someone who jumped
+// to the middle of the grid is working through it from there. Picking a routine
+// up in a new sitting is the other case, and goes to the first hole -- see the
+// reload leg below.
+check(filled.next === 'B@70', 'it walks on to the next unfilled cell', filled.next);
+check(filled.green + filled.red === 1, 'the filled cell is drawn green or red', `${filled.green} green, ${filled.red} red`);
+check(filled.sealDisabled, 'one cell of twenty-eight is not a routine you can seal');
+
+// --- the reload ---------------------------------------------------------------------
+// Every Ctrl+S in Live reloads this page. A run you cannot pick up afterwards
+// is a run you cannot spread over a week, so this is the check that matters.
+await page.reload();
+await waitForPlayer(page);
+await page.waitForTimeout(2500);
+
+const resumed = await page.evaluate(() => {
+  const p = window.drums.practice;
+  return {
+    open: !!p.routine,
+    openedAt: p.routine?.openedAt ?? '',
+    filled: p.routine?.cells.filter((c) => c.fill).length ?? 0,
+    at: p.at,
+    state: document.getElementById('routine-state').textContent,
+    startHidden: document.getElementById('routine-start').hidden,
+    sealShown: !document.getElementById('routine-seal').hidden,
+  };
+});
+check(resumed.open, 'the routine survived the reload', resumed.state);
+check(resumed.filled === 1, 'the cell it had filled is still filled', `${resumed.filled} filled`);
+check(resumed.at === 'A@70', 'it picks up at the first unfilled cell', resumed.at);
+check(resumed.startHidden && resumed.sealShown, 'the page offers to seal it, not to start another');
+
+// A second routine cannot be opened behind the first one's back, even by a
+// second tab: the rule lives on the server, which is the thing that persists.
+const second = await fetch('http://localhost:5173/practice/routine', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ slug: SLUG, version: 1, openedAt: new Date().toISOString(), sealedAt: null, cells: [] }),
+});
+check(second.status === 409, 'a second open routine is refused', `${second.status}`);
+
+// --- discard -------------------------------------------------------------------------
+page.on('dialog', (d) => void d.accept());
+await page.locator('#routine-discard').click();
+await page.waitForTimeout(500);
+const discarded = await page.evaluate(() => ({
+  open: !!window.drums.practice.routine,
+  cells: window.drums.practice.cells.length,
+  startHidden: document.getElementById('routine-start').hidden,
+  status: document.getElementById('status').textContent.trim(),
+}));
+check(!discarded.open && !discarded.startHidden, 'discarding closes the run and offers a new one');
+check(discarded.cells === grid.cells, 'the grid itself is untouched: it belongs to the song', `${discarded.cells} cells`);
+check(newRoutines().length === 0, 'the routine file is gone', newRoutines().join(', '));
+check(existsSync(takesDir), 'takes/ is still there: discarding a run throws away the run, not the playing');
+
+// The reload above took the page's audio graph and its stroke source with it,
+// and the ritual below needs both. Same two gestures as at the top.
+await page.locator('#play').click();
+await page.waitForTimeout(300);
+await page.locator('#stop').click();
+await page.evaluate(() => window.drums.practice.midi.inject(38, 1));
 
 // --- the calibration ritual -----------------------------------------------------
 // The number every take in the history is corrected by, so it is checked rather

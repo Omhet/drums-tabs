@@ -26,6 +26,10 @@
         --panel: #ffffff;
         --glass: rgba(255, 255, 255, 0.86);
         --border: #e2e2e6;
+        /* The routine grid's two verdicts, matching the heatmap's `tight` and
+           `missed` so a green cell and a green notehead mean the same thing. */
+        --pass: #208c4e;
+        --fail: #c82d28;
       }
       :root[data-theme="dark"] {
         color-scheme: dark;
@@ -35,6 +39,8 @@
         --panel: #1f1f24;
         --glass: rgba(23, 23, 26, 0.84);
         --border: #303038;
+        --pass: #50c882;
+        --fail: #f56e64;
       }
       @media (prefers-color-scheme: dark) {
         :root:not([data-theme="light"]) {
@@ -45,6 +51,8 @@
           --panel: #1f1f24;
           --glass: rgba(23, 23, 26, 0.84);
           --border: #303038;
+          --pass: #50c882;
+          --fail: #f56e64;
         }
       }
       html, body { height: 100%; }
@@ -157,6 +165,34 @@
       #monitor span b { color: var(--fg); font-weight: 600; }
       #monitor span.unmapped { border-color: #d33; color: #d33; }
       #monitor span.unmapped b { color: #d33; }
+      /* The routine grid (routine.ts): rows are sections, columns the tempo
+         ladder, and the last row is the whole song. The same shape every run,
+         forever -- that is what makes two runs comparable at all. A filled cell
+         shows its accuracy and goes green or red; red is a signal and not a
+         gate, so it is not in the way of anything. */
+      #routine { margin: -4px 0 10px; font-size: 12px; }
+      #routine table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+      #routine th {
+        padding: 1px 10px 1px 0; text-align: left; font-weight: normal; color: var(--muted);
+        white-space: nowrap;
+      }
+      #routine thead th { text-align: center; padding: 0 0 2px; }
+      #routine td { padding: 1px 3px 1px 0; }
+      #routine .cell {
+        width: 54px; padding: 3px 0; font: inherit; text-align: center;
+        border-radius: 5px; border: 1px solid var(--border);
+        background: var(--panel); color: var(--muted); cursor: pointer;
+      }
+      #routine .cell.pass { border-color: var(--pass); color: var(--pass); }
+      #routine .cell.fail { border-color: var(--fail); color: var(--fail); }
+      /* Where you are. An outline rather than a fill, so it reads on top of
+         whichever of the three states the cell is already in. */
+      #routine .cell.at { outline: 2px solid var(--fg); outline-offset: 1px; color: var(--fg); }
+      #routine tr.whole th, #routine tr.whole .cell { font-weight: 600; }
+      #routine tr.whole td { padding-top: 6px; }
+      #routine tr.whole th { padding-top: 6px; color: var(--fg); }
+      #routine .note { margin: 6px 0 0; color: var(--muted); max-width: 70ch; }
+      #routine .note.warn { color: var(--fail); }
       /* The timing strip: mean +- spread per limb, then the worst bars. Mean
          and spread are kept apart on purpose -- consistently late is the
          calibration, randomly late is the playing (practice-plan Q7). */
@@ -270,6 +306,24 @@
         </label>
       </div>
       <div id="monitor" hidden></div>
+      <!-- The routine: the fixed grid of cells one run walks (practice-plan
+           Q5), and the run you are part-way through (Q10). It is a file on
+           disk rewritten after every cell, so saving the Live set -- which
+           reloads this page -- resumes where you were instead of losing it.
+           Sealing is by hand: there is no clock on a routine. -->
+      <div class="controls practice">
+        <button id="routine-start">Start routine</button>
+        <button id="routine-seal" hidden disabled>Seal routine</button>
+        <button
+          id="routine-discard"
+          hidden
+          title="Throw the run away. The takes it filled stay on disk."
+        >
+          Discard
+        </button>
+        <output id="routine-state" class="grow">no routine open</output>
+      </div>
+      <div id="routine" hidden></div>
       <!-- The master clock: audio/mix.wav, the timeline the beat map, the
            stems and the notation all refer to. Everything else on the page
            follows it. No controls: the transport is alphaTab's, and the mixer

@@ -9,7 +9,11 @@ the bottom of it.
 It also marks you. With an electronic kit on a MIDI port, `Record` plays a
 section and scores what you played against what is written -- every note
 coloured by verdict, mean and spread per limb, and the whole attempt kept as
-JSON so the history is readable by you and by an agent. Two things it needs:
+JSON so the history is readable by you and by an agent. A **routine** is the
+fixed grid those attempts fill: every section at 70/80/90/100% and then the
+whole song, the same set of cells every run so that two runs can be compared,
+open across as many sittings as it takes and sealed by hand. Two things it
+needs:
 the dev server, because writing files is a Vite plugin's job here and not a
 built page's; and a MIDI port Chrome can open **while your sampler is already
 holding one** -- the kit is a controller for Superior Drummer in Ableton, so
@@ -20,7 +24,7 @@ The earlier automatic-transcription work lives on the `transcriber` branch. What
 is being built next is in [`practice-plan.md`](practice-plan.md) (practice mode,
 M0-M5) and [`avatar-plan.md`](avatar-plan.md) (the sticking solver and the 3D
 avatar). **Picking the work up: [`handoff.md`](handoff.md)** — where it stands,
-how to run the checks, and what M2 has to honour.
+how to run the checks, and what M3 has to honour.
 
 ## Per song
 
@@ -36,6 +40,7 @@ songs/<slug>/
   tab.mid                   your notation: constant-tempo MIDI, bar 1 = song bar 1
   sticking.lock.json        which hand plays what, and the hi-hat foot
   takes/<when>-<cell>.json  every attempt you have recorded, and its grade
+  routines/<when>.json      every run of the grid: the open one has sealedAt null
   audio/mix.wav             (untracked) the song, and the clock
   audio/video.mp4           (untracked, optional) a picture on that timeline
   stems/drums.wav, nodrums.wav          (untracked) separated stems
@@ -232,8 +237,9 @@ drawn on, cuts at the ends of every repeated block, throws away cuts that fall
 inside a stretch of identical bars (a groove repeated twelve times offers a
 boundary at every offset and none of them is where a section starts), merges a
 groove with its own immediate repeats, merges what is too short to practise,
-and letters what is left by content. Nine blocks for this song, eight of them
-distinct: a 36-cell routine.
+and letters what is left by content. Nine blocks for this song at first; re-run
+at `--min-bars 8` it proposes six, all distinct, lettered A-F -- a 28-cell
+routine until the letters become names.
 
 And the sticking solver (2026-09-13, `avatar-plan.md`'s half of M0). The chart
 says "snare on the 2" and never says which hand, so `pipeline/sticking.py`
@@ -270,10 +276,10 @@ bar; the noteheads then colour by verdict and a strip under the stage gives
 mean ± spread per limb and the worst bars. The take lands in
 `songs/<slug>/takes/<when>-<section>-<tempo>.json`, tracked in git.
 
-The routine grid is deliberately absent -- `CELL` in `app/src/practice.ts` is
-one constant, and M2 is where it becomes 36 cells with sealing and epochs. The
-grid is worthless if the take format is wrong, which is what this milestone
-exists to find out. Six things learned:
+The routine grid was deliberately left out -- `CELL` in `app/src/practice.ts`
+was one constant, and M2 below is where it became a grid. The grid is worthless
+if the take format is wrong, which is what this milestone existed to find out.
+Six things learned:
 
 - **The module's note numbers are not the chart's, and this was not in the
   plan.** The TD-27 sends Roland's layout, where 38 is the snare head; the
@@ -350,10 +356,58 @@ spread are kept apart, and the script that measured it is worth keeping.
 **The recorded kit digest changed once** -- `drums sticking <slug> --restick`
 refreshes it and produces identical letters.
 
+**M2, the routine grid (2026-09-13).** A routine is the fixed set of cells one
+run walks: every section at 70/80/90/100%, then the whole song at each tempo,
+walked section-major, with the whole song at 100% as the last cell of every run.
+Fixed is the whole point -- if run 3 and run 4 are different sets of cells then
+comparing them is comparing nothing -- so `app/src/routine.ts` derives the grid
+from the `[[section]]` blocks and the ladder alone and nothing in it adapts to
+how you played. A cell below 90% goes red and is not in your way. Only a take
+that reached the last bar fills a cell, and **the last complete take counts, not
+the best**: farming a lucky take is exactly how a progress line stops meaning
+anything.
+
+The run itself lives in `songs/<slug>/routines/<when>.json`, tracked, with the
+open one marked by `sealedAt: null`, and it is rewritten after **every** cell --
+not at the end of a sitting, which is not an event this program ever sees, since
+Live reloads the page on every Ctrl+S. Sealing is by hand and refuses a routine
+with holes in it; a sealed routine records its date span, so a run spread over a
+week is visible next to its score rather than forbidden. Discarding throws away
+the run and never the takes. Five things learned:
+
+- **The grid shrinks by naming, not by code.** Two `[[section]]` blocks with the
+  same name are one cell, practised once against the first of them. Six lettered
+  blocks are 28 cells; the same song with its repeats named honestly (verse,
+  prechorus, chorus) is 20. The names are in `song.toml` and the player draws
+  them over the staff, so the grid is edited by reading the score.
+- **"Where next" is two rules, not one.** Finishing a cell walks *forwards* from
+  it, so someone working up section D stays in section D. Picking a run up in a
+  new sitting has no such context and goes to the first hole in the grid. One
+  rule for both cases is wrong in one of them.
+- **"At most one open routine" belongs on the server, not the page.** The page
+  is the thing that keeps being reloaded, and a second tab is a real case, so
+  the route scans `routines/` for `sealedAt: null` and refuses to write a second
+  open one (409). The app has no way to produce two, which is why finding two is
+  worth reporting rather than guessing between them.
+- **An epoch break and a chart edit are different severities.** Moving a section
+  boundary changes the *shape* of the grid, so its filled and empty cells no
+  longer describe the same music: the routine cannot be resumed at all, only
+  sealed or discarded. Editing the chart only changes the notes: the run carries
+  on, each fill records the chart it was graded against, and sealing a run that
+  spans two of them marks it **mixed** and keeps it off the comparison line.
+- **A cell's tempo goes through the page's own tempo slider**, not straight at
+  alphaTab. Otherwise the slider, its readout and the media's actual rate can
+  disagree about what speed you are playing at -- and at 70% the count-in has to
+  slow down with it, or four clicks hand you the wrong speed to start in.
+
+Two things are the user's, not the code's: the sections are still lettered A-F
+and want real names (which is what makes the routine smaller), and **renaming
+them starts a new epoch**, so it is worth doing before recording takes to keep.
+
 Older candidates, still unstarted: a loop (two keys marking the start and end
 bar), bigger notes (`display.scale` and a Zoom control next to Lines), and a
-count-in on a paused start. Next is M2 in `practice-plan.md`: the 36-cell
-routine, sealing, and resuming across sittings.
+count-in on a paused start. Next is M3 in `practice-plan.md`: the history --
+per-cell trend lines and a take-vs-take overlay.
 
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections
@@ -369,17 +423,20 @@ and paused, and screenshots line 2 in both themes: `<png>` and
 within 15 ms, then plays through the count-in), `check-mix.mjs` (plays at
 100% and 50% and asserts the stems stay within 20 ms of the clock and the
 picture settles within 60 ms of it, the graph is silent with every fader at 0,
-and the click is audible), and `check-practice.mjs` (records a cell with
-injected strokes -- one of each mistake -- and asserts the grade, the colours,
-the extras lane and the take on disk; then runs the calibration ritual with
+and the click is audible), and `check-practice.mjs` (opens a routine,
+records one of its cells with injected strokes -- one of each mistake -- and
+asserts the grade, the colours, the extras lane, the take on disk and the cell
+it filled; **reloads the page** the way a Ctrl+S in Live does and asserts the
+run came back with the cell still in it; then runs the calibration ritual with
 strokes placed a known lateness after each click is *heard* and asserts that
-number comes back. It deletes the take it wrote and restores the machine's own
-calibration). They
+number comes back. It deletes the take and the routine it wrote and restores the
+machine's own calibration). They
 launch the installed Chrome or Edge (`browser.mjs`): Playwright's own Chromium
 cannot decode the H.264 video. Each checks the first song in the list unless
 `SONG=<slug>` names another.
 
 Tests that need no browser: `.venv/Scripts/python -m pytest -q tests` for the
-pipeline, and `npm test` in `app/` for the scorer -- Node runs the TypeScript
+pipeline, and `npm test` in `app/` for the scorer, the chart reader and the
+routine grid -- Node runs the TypeScript
 source directly, with `scripts/ts-resolve.mjs` supplying the file extensions a
 bundler would.

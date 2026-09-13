@@ -372,6 +372,12 @@ const practice = new Practice(
     monitor: byId('monitor'),
     report: byId('report'),
     clickFader: byId('fader-click'),
+    speedFader: byId('speed'),
+    grid: byId('routine'),
+    start: byId('routine-start'),
+    seal: byId('routine-seal'),
+    discard: byId('routine-discard'),
+    routineState: byId('routine-state'),
   },
   scoreEl,
   (text, isError = false) => {
@@ -545,7 +551,9 @@ async function load(slug: string) {
   // the notes on the page, from one parse.
   practiceNote = '';
   practiceError = false;
-  practice.load(await readPracticeSong(song, bytes, grid, lock));
+  // Not awaited: it ends by reading the open routine off the dev server, and
+  // the page should finish loading whether or not there is one to read.
+  void practice.load(await readPracticeSong(song, bytes, grid, lock));
 
   const problems = [
     tab.unmapped.length ? `unmapped MIDI keys: ${tab.unmapped.join(', ')}` : '',

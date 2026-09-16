@@ -15,6 +15,8 @@
 //   POST /practice/take      songs/<slug>/takes/<id>.json, tracked in git: the
 //                            progress history, and what the coaching agent
 //                            reads (Q8).
+//   GET /practice/routines   the sealed runs, oldest first: the history the
+//                            per-section trend lines are drawn from.
 //   GET/POST/DELETE /practice/routine
 //                            songs/<slug>/routines/<id>.json, also tracked: the
 //                            run you are part-way through, rewritten after every
@@ -80,30 +82,39 @@ function stamp(iso: string): string {
 const safe = (s: string) => s.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'x';
 
 /**
- * The routines of a song that are still in progress, by `sealedAt: null`.
+ * Every routine of a song that parses, by filename.
  *
  * A directory scan rather than an index file: the routines directory is tracked
  * in git, so it gets merged, reverted and copied between machines, and an index
  * would be one more thing that can disagree with the files it describes.
  */
-function openRoutines(songs: string, slug: string) {
+function allRoutines(songs: string, slug: string) {
   const dir = join(songs, safe(slug), 'routines');
   if (!slug || !existsSync(dir)) return [];
-  const open: { name: string; routine: unknown }[] = [];
+  const found: { name: string; routine: { sealedAt?: string | null } }[] = [];
   for (const name of readdirSync(dir).sort()) {
     if (!name.endsWith('.json')) continue;
     try {
-      const routine = JSON.parse(readFileSync(join(dir, name), 'utf-8')) as {
-        sealedAt?: string | null;
-      };
-      if (routine.sealedAt == null) open.push({ name, routine });
+      found.push({ name, routine: JSON.parse(readFileSync(join(dir, name), 'utf-8')) });
     } catch {
       // A routine that will not parse is a file to fix by hand, not a reason to
       // refuse to practise: skip it and let the readable ones through.
       console.warn(`[practice] routines/${name} is not readable JSON`);
     }
   }
-  return open;
+  return found;
+}
+
+/** The runs still in progress. At most one, and the POST route keeps it that way. */
+function openRoutines(songs: string, slug: string) {
+  return allRoutines(songs, slug).filter((r) => r.routine.sealedAt == null);
+}
+
+/** The finished runs: the history. Oldest first, because that is the order a line is drawn in. */
+function sealedRoutines(songs: string, slug: string) {
+  return allRoutines(songs, slug)
+    .filter((r) => r.routine.sealedAt != null)
+    .sort((a, b) => String(a.routine.sealedAt).localeCompare(String(b.routine.sealedAt)));
 }
 
 export function practice(songsDir: string, repoRoot: string): Plugin {
@@ -151,6 +162,14 @@ export function practice(songsDir: string, repoRoot: string): Plugin {
         writeFileSync(file, JSON.stringify(rest, null, 1) + '\n');
         console.log(`[practice] take -> ${file}`);
         return json(res, 200, JSON.stringify({ path: file, name }));
+      }
+      if (url.pathname === '/practice/routines' && req.method === 'GET') {
+        const slug = url.searchParams.get('slug') ?? '';
+        // Whole routines rather than a summary: they are a few kilobytes each,
+        // and a summary would be one more thing that can disagree with the
+        // files it describes. The page decides what to plot from them.
+        const runs = sealedRoutines(songs, slug).map((r) => r.routine);
+        return json(res, 200, JSON.stringify({ routines: runs }));
       }
       if (url.pathname === '/practice/routine') {
         const slug = url.searchParams.get('slug') ?? '';

@@ -4,6 +4,7 @@ import { MixClock } from './media';
 import { midiToAlphaTex, type TabResult } from './midi-tab';
 import { FADERS, Mixer, type Fader } from './mixer';
 import { Practice, readPracticeSong } from './practice';
+import type { ReferenceLock } from './reference';
 import { ScoreWindow, barAtTick, type Lines } from './score-window';
 import { StickingLetters, chartHash, type StickingLock } from './sticking';
 import { barStartMs, gridSyncPoints, syncSafeTempo, type Grid } from './syncpoints';
@@ -23,6 +24,12 @@ const grids = import.meta.glob('../../songs/*/grid.lock.json', {
 const stickings = import.meta.glob('../../songs/*/sticking.lock.json', {
   import: 'default',
 }) as Record<string, () => Promise<StickingLock>>;
+// How far behind the written grid the record itself plays, so a take's timing
+// can be read against the record's feel rather than against the grid
+// (reference.ts). Absent for a song `drums reference` has not been run on.
+const references = import.meta.glob('../../songs/*/reference.lock.json', {
+  import: 'default',
+}) as Record<string, () => Promise<ReferenceLock>>;
 
 const scoreEl = document.getElementById('score') as HTMLElement;
 const statusEl = document.getElementById('status') as HTMLElement;
@@ -86,6 +93,7 @@ const slugOf = (path: string) => path.split('/').slice(-2)[0] ?? path;
 const midiBySlug = new Map(Object.entries(midiUrls).map(([p, l]) => [slugOf(p), l]));
 const gridBySlug = new Map(Object.entries(grids).map(([p, l]) => [slugOf(p), l]));
 const stickingBySlug = new Map(Object.entries(stickings).map(([p, l]) => [slugOf(p), l]));
+const referenceBySlug = new Map(Object.entries(references).map(([p, l]) => [slugOf(p), l]));
 const playable = songs.filter((s) => midiBySlug.has(s.slug));
 
 for (const song of playable) {
@@ -493,10 +501,11 @@ async function load(slug: string) {
     return;
   }
   setStatus(`Loading ${song.title}…`);
-  const [url, grid, lock] = await Promise.all([
+  const [url, grid, lock, reference] = await Promise.all([
     midiUrl(),
     gridBySlug.get(slug)?.(),
     stickingBySlug.get(slug)?.(),
+    referenceBySlug.get(slug)?.(),
   ]);
   const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
   const tab = midiToAlphaTex(bytes, {
@@ -553,7 +562,7 @@ async function load(slug: string) {
   practiceError = false;
   // Not awaited: it ends by reading the open routine off the dev server, and
   // the page should finish loading whether or not there is one to read.
-  void practice.load(await readPracticeSong(song, bytes, grid, lock));
+  void practice.load(await readPracticeSong(song, bytes, grid, lock, reference));
 
   const problems = [
     tab.unmapped.length ? `unmapped MIDI keys: ${tab.unmapped.join(', ')}` : '',

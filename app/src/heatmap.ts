@@ -26,8 +26,6 @@ import type { Grid } from './syncpoints';
 
 /** alphaTab counts 960 ticks to a quarter note, so a sixteenth is 240. */
 const TICKS_PER_SLOT = 240;
-/** A hit inside this many ms is on the beat rather than early or late. */
-const TIGHT_MS = 25;
 /**
  * How far under the bar the extras lane sits, in px.
  *
@@ -39,31 +37,30 @@ const GAP_PX = 15;
 type Rgb = [number, number, number];
 
 /**
- * One colour per verdict. `hit` splits three ways because a note that landed
- * 40 ms early is not the same finding as one that landed on time, and the two
- * directions are different findings again.
+ * One colour per verdict, and deliberately only three.
+ *
+ * An earlier version split `hit` into on-time / early / late, which meant five
+ * colours and a legend you had to decode before you could read your own take --
+ * and hue has no natural direction, so "is orange early or late?" was a
+ * question asked every time. Colour now answers one question only, the one
+ * colour is good at: **did the note happen.** *When* it happened is a
+ * quantity, so it is shown as one, on the bar strip and the timing dial.
  */
 interface Palette {
-  tight: Rgb;
-  early: Rgb;
-  late: Rgb;
+  hit: Rgb;
   missed: Rgb;
   wrongVoice: Rgb;
   extra: Rgb;
 }
 
 const LIGHT: Palette = {
-  tight: [32, 140, 78],
-  early: [40, 110, 190],
-  late: [200, 120, 20],
+  hit: [32, 140, 78],
   missed: [200, 45, 40],
   wrongVoice: [140, 70, 180],
   extra: [200, 45, 40],
 };
 const DARK: Palette = {
-  tight: [80, 200, 130],
-  early: [110, 170, 240],
-  late: [240, 175, 80],
+  hit: [80, 200, 130],
   missed: [245, 110, 100],
   wrongVoice: [195, 140, 235],
   extra: [245, 110, 100],
@@ -78,11 +75,9 @@ export function verdictColour(verdict: NoteVerdict, palette: Palette): Rgb {
       return palette.missed;
     case 'wrong-voice':
       return palette.wrongVoice;
-    default: {
-      const d = verdict.deltaMs ?? 0;
-      if (Math.abs(d) <= TIGHT_MS) return palette.tight;
-      return d < 0 ? palette.early : palette.late;
-    }
+    default:
+      // Played, on the right drum. How close it was is the bar strip's job.
+      return palette.hit;
   }
 }
 

@@ -174,6 +174,9 @@ const cell = await page.evaluate(() => {
     label: document.getElementById('cell').textContent,
     instruments: [...new Set(notes.map((n) => n.instrument))],
     limbs: [...new Set(notes.map((n) => n.limb))],
+    referenceMs: p.referenceMs,
+    startBar: p.cell()?.startBar ?? 0,
+    endBar: p.cell()?.endBar ?? 0,
   };
 });
 // Sections but nothing to place them against: no grid.lock.json, so no bar has
@@ -260,6 +263,12 @@ const out = await page.evaluate(() => {
     fills,
     reportShown: !document.getElementById('report').hidden,
     reportText: document.getElementById('report').textContent.replace(/\s+/g, ' ').trim(),
+    dials: [...document.querySelectorAll('#report .dial .label')].map((e) => e.textContent),
+    stripBars: document.querySelectorAll('#report .strip .bar').length,
+    // Anything not green: a bar with one wrong note out of fourteen is amber,
+    // not red, so "marked" is the thing to count rather than "bad".
+    stripMarked: document.querySelectorAll('#report .strip .bar.ok, #report .strip .bar.bad').length,
+    stripGood: document.querySelectorAll('#report .strip .bar.good').length,
     extrasDrawn: document.querySelectorAll('.extras span').length,
     countInMs: (window.__startedAt ?? 0) - (window.__armedAt ?? 0),
     status: document.getElementById('status').textContent.trim(),
@@ -283,9 +292,17 @@ check(g.wrongVoice === 1, 'the tom is wrong-voice, not a miss plus an extra', `w
 check(g.flam === 1, 'the bounce is a flam, not a second note', `flam ${g.flam}`);
 check(g.hit + g.missed + g.wrongVoice === g.expected, 'every written note got exactly one verdict');
 
-// Stage 2: the lateness that went in is the lateness that comes out.
+// Stage 2: the lateness that went in is the lateness that comes out -- minus
+// the song's reference floor, which is taken off every stroke before it is
+// matched (reference.ts). Asserting the arithmetic is how we know the floor is
+// actually applied rather than merely stored.
 const mean = g.timing?.overall?.meanMs ?? 0;
-check(Math.abs(mean - LATE_MS) <= 4, 'the injected offset is recovered as the mean', `${mean} ms vs ${LATE_MS} ms`);
+const floored = LATE_MS - cell.referenceMs;
+check(
+  Math.abs(mean - floored) <= 4,
+  'the injected offset comes back with the reference floor taken off',
+  `${mean} ms vs ${floored.toFixed(1)} ms (${LATE_MS} injected - ${cell.referenceMs} floor)`
+);
 check((g.timing?.overall?.sdMs ?? 99) <= 4, 'a steady take reads as steady, not scattered', `sd ${g.timing?.overall?.sdMs} ms`);
 check(Object.keys(g.timing?.perLimb ?? {}).length >= 2, 'timing is split per limb', Object.keys(g.timing?.perLimb ?? {}).join(', '));
 
@@ -295,7 +312,23 @@ const colouredCount = coloured.reduce((a, [, n]) => a + n, 0);
 check(colouredCount >= cell.count, 'noteheads are coloured by verdict', `${colouredCount} coloured: ${coloured.map(([f, n]) => `${f}x${n}`).join(' ')}`);
 check(coloured.length >= 3, 'hit, missed and wrong-voice are all distinguishable', `${coloured.length} colours`);
 check(out.extrasDrawn === 2, 'the extra and the flam both got a marker in the lane', `${out.extrasDrawn}`);
-check(out.reportShown && /Mean|mean/.test(out.reportText), 'the timing strip is on screen');
+check(out.reportShown, 'the reading is on screen');
+check(
+  out.dials.join(' ') === 'Notes Steady Feel',
+  'three dials, each answering one question',
+  out.dials.join(' ')
+);
+check(
+  out.stripBars === cell.endBar - cell.startBar + 1,
+  'the bar strip has one block per bar of the cell',
+  `${out.stripBars} blocks for bars ${cell.startBar}-${cell.endBar}`
+);
+check(
+  out.stripMarked >= 1 && out.stripGood >= 1,
+  'it tells the bars that went wrong from the ones that did not',
+  `${out.stripMarked} marked, ${out.stripGood} clean`
+);
+check(/Mean/.test(out.reportText), 'the numbers are still there, folded away');
 
 // And the take reached the disk, with both hashes on it.
 const after = existsSync(takesDir) ? readdirSync(takesDir).filter((f) => !before.has(f)) : [];
@@ -320,6 +353,11 @@ if (after.length === 1) {
   const drift = Math.abs(take.events[0].tMs - (firstWritten + LATE_MS));
   check(drift < 25, 'timestamps are raw mix time', `first event ${Math.round(take.events[0].tMs)} ms vs written ${Math.round(firstWritten)} ms`);
   check(take.cell.id === TAKE_CELL, 'the take knows which cell of the grid it was', take.cell.id);
+  check(
+    take.referenceMs === cell.referenceMs,
+    'the reference floor it was graded against is recorded on it',
+    `${take.referenceMs} ms`
+  );
   rmSync(join(takesDir, after[0]));
   console.log(`     (removed the take it wrote: takes/${after[0]})`);
 }
@@ -403,6 +441,81 @@ check(!discarded.open && !discarded.startHidden, 'discarding closes the run and 
 check(discarded.cells === grid.cells, 'the grid itself is untouched: it belongs to the song', `${discarded.cells} cells`);
 check(newRoutines().length === 0, 'the routine file is gone', newRoutines().join(', '));
 check(existsSync(takesDir), 'takes/ is still there: discarding a run throws away the run, not the playing');
+
+// --- the history ---------------------------------------------------------------------
+// Sealing a real routine here would mean recording every cell of the grid, so
+// the runs are posted straight to the route instead. That is the honest split:
+// what this checks is the *reading* of a history -- the per-section line, and
+// the median that keeps it from lurching -- not the making of one.
+const ACCURACIES = [0.55, 0.9, 0.7, 0.95];
+await page.evaluate(
+  async ({ SLUG, ACCURACIES }) => {
+    const p = window.drums.practice;
+    const song = window.drums.songs.find((s) => s.slug === SLUG);
+    for (let i = 0; i < ACCURACIES.length; i++) {
+      const at = `2026-08-0${i + 1}T10:00:00.000Z`;
+      const fill = {
+        take: 'synthetic.json',
+        startedAt: at,
+        accuracy: ACCURACIES[i],
+        hit: 9,
+        expected: 10,
+        chartHash: 'sha256:synthetic',
+      };
+      await fetch('/practice/routine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slug: SLUG,
+          version: 1,
+          openedAt: at,
+          lastPlayedAt: at,
+          sealedAt: at,
+          chartHash: 'sha256:synthetic',
+          sectionsHash: song.sectionsHash,
+          cells: p.cells.map((c) => ({ ...c, fill })),
+        }),
+      });
+    }
+  },
+  { SLUG, ACCURACIES }
+);
+check(newRoutines().length === ACCURACIES.length, 'the sealed runs are on disk', `${newRoutines().length}`);
+
+await page.reload();
+await waitForPlayer(page);
+await page.waitForTimeout(2500);
+
+const history = await page.evaluate(() => {
+  const p = window.drums.practice;
+  const rows = [...document.querySelectorAll('#routine tbody tr')];
+  return {
+    runs: p.history.length,
+    head: document.querySelector('#routine th.trend-head')?.textContent ?? '',
+    lines: document.querySelectorAll('#routine td.trend svg').length,
+    rows: rows.length,
+    firstTitle: document.querySelector('#routine td.trend')?.title ?? '',
+    open: !!p.routine,
+  };
+});
+check(history.runs === ACCURACIES.length, 'the page read them back', `${history.runs} runs`);
+check(!history.open, 'a sealed run is history, not something to resume');
+check(history.head === '4 runs', 'the trend column says how many runs are on it', history.head);
+check(
+  history.lines === history.rows,
+  'every section row has a line, the whole song included',
+  `${history.lines} lines for ${history.rows} rows`
+);
+// 0.55, 0.9, 0.7, 0.95 -> medians 0.55, 0.725, 0.7, 0.9: the dip at run 3 is
+// absorbed and the line still ends where the playing ended up.
+check(
+  /55% to 90%/.test(history.firstTitle),
+  'the line is smoothed, so one bad run is not a collapse',
+  history.firstTitle
+);
+
+for (const name of newRoutines()) rmSync(join(routinesDir, name));
+check(newRoutines().length === 0, 'the synthetic runs were cleaned up');
 
 // The reload above took the page's audio graph and its stroke source with it,
 // and the ritual below needs both. Same two gestures as at the top.

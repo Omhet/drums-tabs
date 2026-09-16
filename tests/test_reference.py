@@ -11,7 +11,8 @@ from __future__ import annotations
 import numpy as np
 
 from pipeline.grid import Grid, GridScore
-from pipeline.reference import slot_to_seconds
+from pipeline.paths import Song
+from pipeline.reference import Offsets, load, path_for, save, slot_to_seconds, summarise
 
 
 def make_grid(beats: np.ndarray, *, bar_one: int = 0) -> Grid:
@@ -74,3 +75,78 @@ def test_before_bar_one_there_is_nothing_to_place_against():
 def test_a_beat_map_too_short_to_interpolate_places_nothing():
     grid = make_grid(np.array([1.0]))
     assert slot_to_seconds(grid, 0) is None
+
+
+# --- the lock file ----------------------------------------------------------------
+# `drums reference` used to print and stop. The player now subtracts the number,
+# so it has to survive as a file -- and be readable back exactly, because every
+# take's timing is reported against it.
+
+
+def make_song(tmp_path) -> Song:
+    root = tmp_path / "a-song"
+    root.mkdir()
+    return Song(slug="a-song", root=root)
+
+
+def offsets(instrument: str, values: list[float], written: int) -> Offsets:
+    return Offsets(instrument=instrument, values=np.asarray(values), written=written)
+
+
+def test_the_floor_is_pooled_over_every_matched_note():
+    # Not the mean of the two instrument means: a kick with twice the notes
+    # should pull the floor twice as hard.
+    body = summarise([offsets("kick", [10.0, 10.0], 2), offsets("snare", [-2.0], 1)], "sha256:c")
+    assert body["matched"] == 3
+    assert body["written"] == 3
+    assert body["mean_ms"] == 6.0
+    assert body["median_ms"] == 10.0
+
+
+def test_the_split_behind_the_floor_is_kept():
+    body = summarise([offsets("kick", [10.0, 12.0], 3), offsets("snare", [-2.0], 1)], "sha256:c")
+    kick = next(i for i in body["instruments"] if i["instrument"] == "kick")
+    assert kick["matched"] == 2, "two of the three written kicks found an onset"
+    assert kick["written"] == 3
+    assert kick["mean_ms"] == 11.0
+
+
+def test_nothing_measurable_is_a_floor_of_zero_not_a_nan():
+    # An empty mean is NaN, and a NaN subtracted from every take's timing would
+    # quietly destroy it rather than failing loudly.
+    body = summarise([offsets("kick", [], 4)], "sha256:c")
+    assert body["mean_ms"] == 0.0
+    assert body["median_ms"] == 0.0
+    assert body["matched"] == 0
+    assert body["written"] == 4
+
+
+def test_it_survives_a_round_trip(tmp_path):
+    song = make_song(tmp_path)
+    written = save(song, [offsets("snare", [3.0, 5.0], 2)], "sha256:chart")
+    assert load(song) == written
+
+
+def test_the_chart_it_was_measured_against_is_on_it(tmp_path):
+    # Staleness is checked on this: move a note in Live and the floor moved too.
+    song = make_song(tmp_path)
+    save(song, [offsets("snare", [3.0], 1)], "sha256:chart")
+    assert load(song)["chart"] == "sha256:chart"
+
+
+def test_no_lock_reads_as_nothing_rather_than_failing(tmp_path):
+    assert load(make_song(tmp_path)) is None
+
+
+def test_a_lock_from_a_version_we_cannot_read_is_ignored(tmp_path):
+    song = make_song(tmp_path)
+    save(song, [offsets("snare", [3.0], 1)], "sha256:chart")
+    path = path_for(song)
+    path.write_text(path.read_text(encoding="utf-8").replace('"version": 1', '"version": 99'))
+    assert load(song) is None
+
+
+def test_a_corrupt_lock_is_ignored_rather_than_crashing_the_pipeline(tmp_path):
+    song = make_song(tmp_path)
+    path_for(song).write_text("{not json", encoding="utf-8")
+    assert load(song) is None

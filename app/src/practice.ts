@@ -22,14 +22,15 @@ import {
   type CalibrationRun,
 } from './calibrate';
 import { Click } from './click';
-import { grade, type GradeResult, type TakeEvent, type Timing } from './grade';
-import { heatmapPalette, Heatmap } from './heatmap';
+import { grade, type Grade, type GradeResult, type TakeEvent, type Timing } from './grade';
+import { Heatmap } from './heatmap';
 import type { MixClock } from './media';
 import { MidiIn, type MidiHit } from './midi-in';
 import type { Mixer } from './mixer';
 import {
   buildCells,
   cellById,
+  comparableRuns,
   describeCell,
   discardRoutine,
   fillCell,
@@ -37,14 +38,18 @@ import {
   openRoutine,
   progress,
   readRoutine,
+  readRoutines,
   resumeProblem,
+  rollingMedian,
   sealRoutine,
+  sectionSeries,
   writeRoutine,
   PASS,
   TEMPOS,
   type Routine,
   type RoutineCell,
 } from './routine';
+import { referenceMs as floorOf, referenceNote, type ReferenceLock } from './reference';
 import { chartHash, type StickingLock } from './sticking';
 import { writeTake, type Take } from './take';
 import { barStartMs, type Grid } from './syncpoints';
@@ -55,6 +60,18 @@ const COUNT_IN_BARS = 1;
 const EDGE_MS = 250;
 /** A take whose mean is further than this from the stored calibration nags. */
 const DRIFT_MS = 10;
+/**
+ * Inside this many milliseconds nobody hears it; beyond `LOOSE_MS` everybody
+ * does. Two thresholds serve both the spread and the offset, because the ear
+ * does not hold separate opinions about them -- and because a reading with two
+ * scales in it is a reading you have to decode twice.
+ */
+const TIGHT_MS = 15;
+const LOOSE_MS = 30;
+/** Where the Feel needle pegs. Past this the take is not a near miss. */
+const NEEDLE_MS = 60;
+/** The trend sparklines are SVG, which needs its namespace spelled out. */
+const SVG = 'http://www.w3.org/2000/svg';
 /** How many hits the monitor keeps on screen. */
 const MONITOR = 14;
 
@@ -72,6 +89,14 @@ export interface PracticeSong {
   hits: ChartHit[];
   chartHash: string;
   sticking: StickingLock | undefined;
+  /** The song's reference lock, for the note under the timing dial. */
+  reference: ReferenceLock | undefined;
+  /**
+   * How far behind the written grid the record itself plays, already resolved
+   * against this chart: zero when unmeasured or measured from another chart.
+   * Subtracted from every stroke, so timing reads against the record's feel.
+   */
+  referenceMs: number;
 }
 
 export interface PracticeElements {
@@ -112,7 +137,6 @@ export class Practice {
   private timer = 0;
   private countInTimer = 0;
   private recent: MidiHit[] = [];
-  private dark = false;
   /** The last graded take, for the headless check and the console. */
   result: GradeResult | undefined;
   /**
@@ -123,10 +147,20 @@ export class Practice {
   cells: RoutineCell[] = [];
   /** The run in progress, read from disk on load. At most one per song (Q10). */
   routine: Routine | undefined;
+  /** The sealed runs, oldest first: what the trend column is drawn from. */
+  history: Routine[] = [];
   /** The cell id you are on. */
   at = '';
   /** Why the open routine cannot be resumed, or why it is about to go mixed. */
   private resumeNote: { fatal: boolean; message: string } | undefined;
+  /**
+   * The bars the last graded take covered, for the strip.
+   *
+   * Kept rather than re-read from the current cell, because filling a cell
+   * walks on to the next one -- and a theme switch redraws the report, which
+   * would then draw the strip over a range the take never played.
+   */
+  private reportRange: { startBar: number; endBar: number } | undefined;
 
   constructor(
     private readonly api: alphaTab.AlphaTabApi,
@@ -157,9 +191,9 @@ export class Practice {
   }
 
   setTheme(dark: boolean) {
-    this.dark = dark;
+    // Only the notation needs telling: alphaTab paints noteheads itself, while
+    // the report is drawn from CSS variables and re-themes with the page.
     this.heatmap.setTheme(dark);
-    if (this.result) this.drawReport(this.result);
   }
 
   /** Point practice mode at the song the player just loaded. */
@@ -180,8 +214,14 @@ export class Practice {
     // the page, and a run you cannot pick up afterwards is a run you cannot
     // spread over a week (Q10).
     let open: Routine | undefined;
+    this.history = [];
     try {
-      open = await readRoutine(loaded.song.slug);
+      const [inProgress, sealed] = await Promise.all([
+        readRoutine(loaded.song.slug),
+        readRoutines(loaded.song.slug),
+      ]);
+      open = inProgress;
+      this.history = sealed;
     } catch {
       // No dev server, or a page built by `npm run build`. Recording needs the
       // server anyway, so the grid stays as something to read.
@@ -363,6 +403,17 @@ export class Practice {
     this.at = id;
     this.showCell();
     this.drawGrid();
+  }
+
+  /**
+   * How far behind the written grid this song's record plays, in ms.
+   *
+   * Taken off every stroke before matching, so a take's timing reads against
+   * the record's feel rather than against a grid nobody played to. Zero for a
+   * song `drums reference` has not been run on (reference.ts).
+   */
+  get referenceMs(): number {
+    return this.loaded?.referenceMs ?? 0;
   }
 
   /** kit.toml's `[input]`: what the module sends, for anything that asks. */
@@ -561,10 +612,16 @@ export class Practice {
     const grid = loaded.grid!;
     const written = this.expected();
     const calibrationMs = this.calibration?.offsetMs ?? 0;
-    const result = grade(written, events, { calibrationMs, sameDrum: kitInput.same_drum });
+    const referenceMs = loaded.referenceMs;
+    const result = grade(written, events, {
+      calibrationMs,
+      referenceMs,
+      sameDrum: kitInput.same_drum,
+    });
     this.result = result;
 
     this.heatmap.show(result, grid);
+    this.reportRange = { startBar: cell.startBar, endBar: cell.endBar };
     this.drawReport(result);
     this.el.report.hidden = false;
 
@@ -580,6 +637,7 @@ export class Practice {
       startedAt: window_.started,
       calibrationMs,
       calibrationNote: this.calibration?.note,
+      referenceMs,
       chartHash: loaded.chartHash,
       sectionsHash: loaded.song.sectionsHash,
       complete,
@@ -808,11 +866,27 @@ export class Practice {
     if (el.hidden) return;
 
     const table = document.createElement('table');
+    // The trend column appears only once there is something to plot: an empty
+    // column on a song you have never finished a run of is a promise, not a
+    // reading.
+    const runs = comparableRuns(this.history, this.loaded?.song.sectionsHash ?? '');
     const head = document.createElement('tr');
     head.appendChild(document.createElement('th'));
     for (const tempo of TEMPOS) {
       const th = document.createElement('th');
       th.textContent = `${Math.round(tempo * 100)}%`;
+      head.appendChild(th);
+    }
+    if (runs.length) {
+      const th = document.createElement('th');
+      th.className = 'trend-head';
+      th.textContent = runs.length === 1 ? '1 run' : `${runs.length} runs`;
+      th.title =
+        'How this section has gone across your sealed runs, oldest on the left. ' +
+        'Smoothed as a median of the last three, because the grid counts your last ' +
+        'take and not your best -- so one lucky run should not look like progress ' +
+        'and one bad one should not look like a collapse. The dotted line is ' +
+        `${Math.round(PASS * 100)}%.`;
       head.appendChild(th);
     }
     const thead = document.createElement('thead');
@@ -835,6 +909,7 @@ export class Practice {
       th.title = `bars ${cells[0]?.startBar}-${cells[0]?.endBar}`;
       tr.appendChild(th);
       for (const cell of cells) tr.appendChild(this.drawCell(cell, !!routine));
+      if (runs.length) tr.appendChild(this.drawTrend(section, runs));
       body.appendChild(tr);
     }
     table.appendChild(body);
@@ -852,6 +927,70 @@ export class Practice {
       note.textContent = message;
       el.appendChild(note);
     }
+  }
+
+  /**
+   * One section's line across the sealed runs.
+   *
+   * Accuracy, on a fixed 0-100% scale with the pass threshold drawn on it, so
+   * that two rows can be compared by eye -- a line that rescaled itself to its
+   * own range would make every section look equally close to done.
+   */
+  private drawTrend(section: string, runs: Routine[]): HTMLTableCellElement {
+    const td = document.createElement('td');
+    td.className = 'trend';
+    const smoothed = rollingMedian(sectionSeries(runs, section));
+    const points = smoothed
+      .map((value, i) => ({ value, i }))
+      .filter((p): p is { value: number; i: number } => p.value !== undefined);
+    if (points.length === 0) return td;
+
+    const W = 66;
+    const H = 18;
+    const PAD = 2;
+    const x = (i: number) => (runs.length < 2 ? W / 2 : PAD + (i / (runs.length - 1)) * (W - 2 * PAD));
+    const y = (v: number) => H - PAD - Math.max(0, Math.min(1, v)) * (H - 2 * PAD);
+
+    const svg = document.createElementNS(SVG, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('width', String(W));
+    svg.setAttribute('height', String(H));
+
+    const mark = document.createElementNS(SVG, 'line');
+    mark.setAttribute('x1', '0');
+    mark.setAttribute('x2', String(W));
+    mark.setAttribute('y1', String(y(PASS)));
+    mark.setAttribute('y2', String(y(PASS)));
+    mark.setAttribute('class', 'pass-line');
+    svg.appendChild(mark);
+
+    if (points.length > 1) {
+      const line = document.createElementNS(SVG, 'polyline');
+      line.setAttribute('points', points.map((p) => `${x(p.i)},${y(p.value)}`).join(' '));
+      line.setAttribute('class', 'line');
+      svg.appendChild(line);
+    }
+    const last = points[points.length - 1]!;
+    const dot = document.createElementNS(SVG, 'circle');
+    dot.setAttribute('cx', String(x(last.i)));
+    dot.setAttribute('cy', String(y(last.value)));
+    dot.setAttribute('r', '2.4');
+    dot.setAttribute('class', 'dot');
+    svg.appendChild(dot);
+
+    td.classList.add(last.value >= PASS ? 'pass' : 'fail');
+    const pct = (v: number) => `${Math.round(v * 100)}%`;
+    const first = points[0]!;
+    td.title =
+      `${section}: ${pct(first.value)} to ${pct(last.value)} over ` +
+      `${runs.length} run${runs.length > 1 ? 's' : ''}` +
+      (points.length > 1 && last.value > first.value
+        ? ', going the right way.'
+        : points.length > 1 && last.value < first.value
+          ? ', going the wrong way.'
+          : '.');
+    td.appendChild(svg);
+    return td;
   }
 
   private drawCell(cell: RoutineCell, open: boolean): HTMLTableCellElement {
@@ -877,89 +1016,249 @@ export class Practice {
     return td;
   }
 
-  // --- the timing strip -------------------------------------------------------------
+  // --- the reading --------------------------------------------------------------------
 
   /**
-   * Mean and spread per limb, and the bars worth playing again.
+   * What the take says, in the order you want to know it.
    *
-   * Kept apart on purpose: a mean of +20 ms is the audio path and a spread of
-   * ±20 ms is the playing, and one number that averaged them would send you to
-   * practise a problem you do not have (practice-plan Q7).
+   * Three dials, then a map of the bars, then the numbers folded away. What
+   * this replaced put twenty-four numbers on the screen and never said whether
+   * the take was good or what to go and play again -- all true, and unreadable.
+   *
+   * The rule: **each dial answers exactly one question, and they are never
+   * blended into a single score.**
+   *
+   *   Notes   did you play the right things?   accuracy
+   *   Steady  were you consistent?             spread
+   *   Feel    where do you sit?                mean, against the record
+   *
+   * Mean and spread stay apart for the reason practice-plan Q7 gives:
+   * consistently late is the audio path or the feel of the song, randomly late
+   * is the playing, and one number averaging them would send you off to
+   * practise a problem you do not have.
    */
   private drawReport(result: GradeResult) {
     const g = result.grade;
-    const palette = heatmapPalette(this.dark);
     const el = this.el.report;
     el.replaceChildren();
 
-    const totals = document.createElement('p');
-    totals.className = 'totals';
-    totals.innerHTML =
-      `<b>${g.hit}/${g.expected}</b> notes · ` +
-      `${g.missed} missed · ${g.extra} extra · ${g.wrongVoice} wrong voice · ${g.flam} flam · ` +
-      `mean <b>${signed(g.timing.overall.meanMs)} ms</b> ± ${g.timing.overall.sdMs}`;
-    el.appendChild(totals);
-
-    // Not a mistake, but not nothing either: a groove full of these usually
-    // means the module's hi-hat threshold is not where your foot thinks it is.
-    if (g.sameDrum > 0) {
-      const shades = document.createElement('p');
-      shades.className = 'worst';
-      shades.style.margin = '0 0 6px';
-      shades.textContent =
-        `${g.sameDrum} of those hits landed on the same drum in its other state ` +
-        '(an open hat where closed is written). Counted as hits.';
-      el.appendChild(shades);
-    }
-
-    const legend = document.createElement('p');
-    legend.className = 'heads';
-    for (const [label, colour] of [
-      ['on time', palette.tight],
-      ['early', palette.early],
-      ['late', palette.late],
-      ['missed', palette.missed],
-      ['wrong voice', palette.wrongVoice],
-    ] as const) {
-      const swatch = document.createElement('span');
-      swatch.className = 'swatch';
-      swatch.style.background = `rgb(${colour.join(',')})`;
-      legend.append(swatch, `${label} `);
-    }
-    el.appendChild(legend);
-
-    const table = document.createElement('table');
-    table.appendChild(
-      row('th', ['Limb', 'Notes', 'Mean', 'Spread', 'Median', 'Worst'])
+    const dials = document.createElement('div');
+    dials.className = 'dials';
+    dials.append(
+      dial({
+        label: 'Notes',
+        big: `${Math.round(g.accuracy * 100)}%`,
+        sub: `${g.hit} of ${g.expected}`,
+        tone: g.accuracy >= PASS ? 'good' : 'bad',
+        title:
+          `${g.hit} of ${g.expected} written notes landed on the right drum. ` +
+          `${g.missed} missed, ${g.wrongVoice} on the wrong drum, ${g.extra} nobody wrote` +
+          (g.flam ? `, ${g.flam} bounce${g.flam > 1 ? 's' : ''}` : '') +
+          '. Extras are counted but never taken off this number.',
+      }),
+      dial({
+        label: 'Steady',
+        big: `±${g.timing.overall.sdMs} ms`,
+        sub: steadiness(g.timing.overall.sdMs),
+        tone: toneOf(g.timing.overall.sdMs),
+        title:
+          'How much your timing wandered over the take. This is the dial that is ' +
+          'the playing: it is what practice actually moves, and no calibration can ' +
+          'flatter it.',
+      }),
+      this.feelDial(g.timing.overall.meanMs)
     );
-    const limbs = Object.entries(g.timing.perLimb) as [Limb, Timing][];
-    for (const [limb, t] of limbs.sort((a, b) => b[1].n - a[1].n)) {
-      table.appendChild(
-        row('td', [
-          LIMB_NAMES[limb] ?? limb,
-          String(t.n),
-          `${signed(t.meanMs)} ms`,
-          `± ${t.sdMs} ms`,
-          `${signed(t.medianMs)} ms`,
-          `${t.maxAbsMs} ms`,
-        ])
-      );
-    }
-    el.appendChild(table);
+    el.appendChild(dials);
 
-    const worst = g.worstBars.filter((b) => b.wrong > 0 || b.rmsMs > 0).slice(0, 4);
+    const range = this.reportRange;
+    if (range) el.appendChild(this.drawStrip(g, range));
+
+    // The one actionable sentence, in words rather than as a ranked table.
+    const worst = g.worstBars.filter((b) => b.wrong > 0 || b.rmsMs > LOOSE_MS).slice(0, 3);
     if (worst.length) {
       const p = document.createElement('p');
-      p.className = 'worst';
-      p.textContent =
-        'Worst bars: ' +
-        worst
-          .map((b) => `${b.bar} (${b.wrong ? `${b.wrong} wrong, ` : ''}±${b.rmsMs} ms)`)
-          .join(' · ');
+      p.className = 'again';
+      const bars = worst.map((b) => String(b.bar));
+      p.textContent = `Go again at bar${bars.length > 1 ? 's' : ''} ${list(bars)}.`;
       el.appendChild(p);
     }
+
+    el.appendChild(drawDetails(g));
+  }
+
+  /** Where you sit, as a needle rather than a number you have to interpret. */
+  private feelDial(meanMs: number): HTMLElement {
+    const floor = this.loaded?.referenceMs ?? 0;
+    const against = floor === 0 ? 'the written grid' : "the record's own feel";
+    const node = dial({
+      label: 'Feel',
+      big: placement(meanMs),
+      sub: `${signed(meanMs)} ms`,
+      tone: toneOf(meanMs),
+      title:
+        `Where you sat against ${against}. ` +
+        referenceNote(this.loaded?.reference, this.loaded?.chartHash ?? '') +
+        ' A steady offset is the audio path or your feel, not your accuracy -- ' +
+        'Steady is the dial to practise against.',
+    });
+    // A track with a centre mark and a marker on it. Clamped, because a wild
+    // take should peg the needle rather than quietly rescale the dial.
+    const track = document.createElement('span');
+    track.className = 'needle';
+    const mark = document.createElement('i');
+    const at = Math.max(-1, Math.min(1, meanMs / NEEDLE_MS));
+    mark.style.left = `${50 + at * 50}%`;
+    track.appendChild(mark);
+    node.insertBefore(track, node.querySelector('.sub'));
+    return node;
+  }
+
+  /**
+   * One block per bar of the cell: a map of where the take went wrong.
+   *
+   * Colour is accuracy, the same question the noteheads answer, because a strip
+   * speaking a second colour vocabulary would be a second thing to learn. How
+   * tight each bar was is in its tooltip, and clicking a block puts the cursor
+   * on that bar so you can play it again straight away.
+   */
+  private drawStrip(g: Grade, range: { startBar: number; endBar: number }): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'strip';
+    const byBar = new Map(g.bars.map((b) => [b.bar, b]));
+    for (let bar = range.startBar; bar <= range.endBar; bar++) {
+      const b = byBar.get(bar);
+      // A bar with nothing written in it is neither good nor bad. Silent bars
+      // are real here: a fill's cell starts with the empty bar before it.
+      const empty = !b || (b.expected === 0 && b.wrong === 0);
+      const accuracy = b && b.expected > 0 ? b.hit / b.expected : 1;
+      const block = document.createElement('button');
+      block.className = `bar ${
+        empty ? 'none' : accuracy >= PASS && b.wrong === 0 ? 'good' : accuracy >= 0.5 ? 'ok' : 'bad'
+      }`;
+      block.textContent = String(bar);
+      block.title = empty
+        ? `Bar ${bar} -- nothing written here`
+        : `Bar ${bar} -- ${b.hit}/${b.expected} notes` +
+          (b.wrong ? `, ${b.wrong} wrong` : '') +
+          (b.rmsMs ? ` · ±${b.rmsMs} ms` : '');
+      block.addEventListener('click', () => this.seekToBar(bar));
+      wrap.appendChild(block);
+    }
+    return wrap;
+  }
+
+  /** Put the cursor on a bar, the way the player's own arrow keys do. */
+  private seekToBar(bar: number) {
+    const bars = this.api.score?.masterBars ?? [];
+    const target = bars[Math.max(0, Math.min(bars.length - 1, bar - 1))];
+    if (target) this.api.tickPosition = target.start;
   }
 }
+
+/** The label, the number, and a word saying what the number means. */
+function dial(spec: {
+  label: string;
+  big: string;
+  sub: string;
+  tone: Tone;
+  title: string;
+}): HTMLElement {
+  const box = document.createElement('div');
+  box.className = `dial ${spec.tone}`;
+  box.title = spec.title;
+  const label = document.createElement('span');
+  label.className = 'label';
+  label.textContent = spec.label;
+  const big = document.createElement('b');
+  big.className = 'big';
+  big.textContent = spec.big;
+  const sub = document.createElement('span');
+  sub.className = 'sub';
+  sub.textContent = spec.sub;
+  box.append(label, big, sub);
+  return box;
+}
+
+/** The numbers the dials summarise, for the days you want them. Shut by default. */
+function drawDetails(g: Grade): HTMLElement {
+  const details = document.createElement('details');
+  const summary = document.createElement('summary');
+  summary.textContent = 'the numbers';
+  details.appendChild(summary);
+
+  const table = document.createElement('table');
+  table.appendChild(row('th', ['Limb', 'Notes', 'Mean', 'Spread', 'Median', 'Worst']));
+  const limbs = Object.entries(g.timing.perLimb) as [Limb, Timing][];
+  for (const [limb, t] of limbs.sort((a, b) => b[1].n - a[1].n)) {
+    table.appendChild(
+      row('td', [
+        LIMB_NAMES[limb] ?? limb,
+        String(t.n),
+        `${signed(t.meanMs)} ms`,
+        `± ${t.sdMs} ms`,
+        `${signed(t.medianMs)} ms`,
+        `${t.maxAbsMs} ms`,
+      ])
+    );
+  }
+  details.appendChild(table);
+
+  const notes: string[] = [];
+  // Not a mistake, but not nothing either: a groove full of these usually means
+  // the module's hi-hat threshold is not where your foot thinks it is.
+  if (g.sameDrum > 0) {
+    notes.push(
+      `${g.sameDrum} hit${g.sameDrum > 1 ? 's' : ''} landed on the same drum in its other ` +
+        'state (an open hat where a closed one is written). Counted as hits.'
+    );
+  }
+  if (g.unmappedNotes.length) {
+    notes.push(
+      `Unmapped module notes: ${g.unmappedNotes.join(', ')} (add them to kit.toml [input.note]).`
+    );
+  }
+  for (const text of notes) {
+    const p = document.createElement('p');
+    p.className = 'note';
+    p.textContent = text;
+    details.appendChild(p);
+  }
+  return details;
+}
+
+type Tone = 'good' | 'ok' | 'bad';
+
+/**
+ * Milliseconds to a verdict.
+ *
+ * Two thresholds, used for both spread and offset, because the ear does not
+ * have separate opinions about them: inside `TIGHT_MS` nobody hears it, beyond
+ * `LOOSE_MS` everybody does.
+ */
+const toneOf = (ms: number): Tone =>
+  Math.abs(ms) <= TIGHT_MS ? 'good' : Math.abs(ms) <= LOOSE_MS ? 'ok' : 'bad';
+
+/** A word for a spread, so the dial reads without knowing what 14 ms means. */
+function steadiness(sdMs: number): string {
+  if (sdMs <= 8) return 'rock solid';
+  if (sdMs <= TIGHT_MS) return 'tight';
+  if (sdMs <= LOOSE_MS) return 'a bit loose';
+  return 'all over';
+}
+
+/** A word for an offset. Sign matters, so it is never dropped or abs()ed away. */
+function placement(meanMs: number): string {
+  if (Math.abs(meanMs) <= TIGHT_MS) return 'right on it';
+  const late = meanMs > 0;
+  if (Math.abs(meanMs) <= LOOSE_MS) return late ? 'a touch behind' : 'a touch ahead';
+  return late ? 'dragging' : 'rushing';
+}
+
+/** `18`, `18 and 20`, `18, 20 and 22`. */
+const list = (items: string[]): string =>
+  items.length <= 1
+    ? (items[0] ?? '')
+    : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 
 function row(cell: 'th' | 'td', values: string[]): HTMLTableRowElement {
   const tr = document.createElement('tr');
@@ -989,7 +1288,8 @@ export async function readPracticeSong(
   song: SongMeta,
   bytes: Uint8Array,
   grid: Grid | undefined,
-  sticking: StickingLock | undefined
+  sticking: StickingLock | undefined,
+  reference: ReferenceLock | undefined
 ): Promise<PracticeSong> {
   const hash = await chartHash(bytes);
   return {
@@ -1000,6 +1300,10 @@ export async function readPracticeSong(
     // Letters solved against a different chart would put the wrong limb on
     // every note in the report, which is worse than not naming the limb.
     sticking: sticking && sticking.chart === hash ? sticking : undefined,
+    reference,
+    // Same rule, same reason: a floor measured against notation you have since
+    // edited is not this song's floor any more (reference.ts).
+    referenceMs: floorOf(reference, hash),
   };
 }
 

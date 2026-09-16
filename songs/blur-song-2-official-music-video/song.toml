@@ -1,0 +1,115 @@
+[source]
+url = "https://www.youtube.com/watch?v=SSbBvKaM6sk"
+video_id = "SSbBvKaM6sk"
+title = "Blur - Song 2 (Official Music Video)"
+uploader = "Blur"
+duration = 123.0
+
+[models]
+separation = ""
+
+[grid]
+meter = ""
+tempo_multiplier = ""
+downbeat_rotation = -1
+
+# Where the notation is authored. Saving the Live set regenerates tab.mid.
+#
+# The set lives in the Kill Me project folder rather than one of its own --
+# it was saved there and moving a .als out of its Ableton project by hand
+# breaks the sample links, so the path points at where it actually is. Each
+# song watches its own file by name, so two sets in one folder is fine.
+[author]
+als = "C:/Users/omhet/Music/Ableton/Projects/Drum Tabs/Hayley Williams - Kill Me (midi for tabs) Project/Blur - Song 2 (midi for tabs).als"
+track = "1-Sticks Kit"
+
+# MIDI key -> instrument, as laid out on the drum rack in that set. The same
+# layout as the Kill Me set, so the same rack can be reused as it stands.
+[midi_map]
+36 = "kick"
+37 = "snare"
+38 = "hihat_closed"
+39 = "hihat_open"
+40 = "hihat_pedal"
+41 = "crash"
+42 = "tom_high"
+43 = "tom_mid"
+44 = "tom_floor"
+
+# The sections a routine is built from, proposed by `drums sections` from
+# the repeats in tab.mid and then yours: rename them, nudge the bar
+# numbers, merge or split. Bars are 1-based and inclusive, and together
+# they cover the song in order.
+#
+# Two blocks with the same name are one section the song plays twice --
+# name both choruses `chorus` and you practise it once, against the first
+# of them, instead of learning the same music twice in a run.
+#
+# Once you have played a routine these are frozen: a boundary that moves
+# changes the shape of every routine, and old runs stop being comparable
+# to new ones.
+
+[[section]]
+name = "verse"
+start_bar = 1
+end_bar = 7
+
+[[section]]
+name = "into chorus"
+start_bar = 8
+end_bar = 8
+
+[[section]]
+name = "chorus"
+start_bar = 9
+end_bar = 16
+
+[[section]]
+name = "into verse"
+start_bar = 17
+end_bar = 17
+
+[[section]]
+name = "verse"
+start_bar = 18
+end_bar = 24
+
+[[section]]
+name = "chorus to break"
+start_bar = 25
+end_bar = 33
+
+[[section]]
+name = "break"
+start_bar = 34
+end_bar = 34
+
+[[section]]
+name = "chorus"
+start_bar = 35
+end_bar = 38
+
+[[section]]
+name = "into verse"
+start_bar = 39
+end_bar = 39
+
+[[section]]
+name = "verse"
+start_bar = 40
+end_bar = 46
+
+[[section]]
+name = "chorus to break"
+start_bar = 47
+end_bar = 55
+
+[[section]]
+name = "break"
+start_bar = 56
+end_bar = 56
+
+[[section]]
+name = "last chorus"
+start_bar = 57
+end_bar = 64

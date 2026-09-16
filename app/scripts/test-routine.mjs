@@ -12,13 +12,17 @@ import {
   buildCells,
   cellId,
   chartsUsed,
+  comparableRuns,
   describeCell,
   fillCell,
   nextCell,
   openRoutine,
   progress,
   resumeProblem,
+  rollingMedian,
   sealRoutine,
+  sectionScore,
+  sectionSeries,
   PASS,
   TEMPOS,
 } from '../src/routine.ts';
@@ -231,4 +235,90 @@ test('editing the chart mid-routine warns but is allowed', () => {
   const problem = resumeProblem(open(), song(), 'sha256:edited');
   assert.equal(problem.fatal, false);
   assert.match(problem.message, /mixed/);
+});
+
+
+// --- the history --------------------------------------------------------------------
+// One line per section across sealed runs. What is asserted here is the shape of
+// the question -- "am I getting better" -- rather than any particular arithmetic.
+
+const sealed = (accuracyBySection, at, extra = {}) => {
+  let r = open();
+  for (const cell of r.cells) {
+    const a = accuracyBySection[cell.section];
+    if (a !== undefined) r = fillCell(r, cell.id, fill(a, at));
+  }
+  return { ...r, sealedAt: at, ...extra };
+};
+
+test('a section scores as the mean over its cells, all four tempos together', () => {
+  // A section is only learned when it is learned at speed, so the 100% cell
+  // dragging the mean down is the line telling the truth.
+  let r = open();
+  r = fillCell(r, 'A@70', fill(1));
+  r = fillCell(r, 'A@80', fill(1));
+  r = fillCell(r, 'A@90', fill(1));
+  r = fillCell(r, 'A@100', fill(0.6));
+  assert.equal(sectionScore(r, 'A'), 0.9);
+});
+
+test('a section nobody has played has no score, rather than a zero', () => {
+  assert.equal(sectionScore(open(), 'A'), undefined);
+});
+
+test('the series is one point per run, oldest first', () => {
+  const runs = [
+    sealed({ A: 0.6 }, '2026-09-01T10:00:00.000Z'),
+    sealed({ A: 0.8 }, '2026-09-08T10:00:00.000Z'),
+  ];
+  assert.deepEqual(sectionSeries(runs, 'A'), [0.6, 0.8]);
+});
+
+test('a run that skipped a section leaves a gap in its line, not a zero', () => {
+  const runs = [sealed({ A: 0.9 }, '2026-09-01T10:00:00.000Z'), sealed({ B: 0.9 }, '2026-09-08T10:00:00.000Z')];
+  assert.deepEqual(sectionSeries(runs, 'A'), [0.9, undefined]);
+});
+
+test('the rolling median keeps the trend and drops a single outlier', () => {
+  // The grid counts your last take, not your best, so one lucky run must not
+  // read as progress and one bad one must not read as a collapse.
+  assert.deepEqual(rollingMedian([0.5, 0.6, 0.9, 0.6, 0.7]), [0.5, 0.55, 0.6, 0.6, 0.7]);
+});
+
+test('it smooths over three, so the fourth run cannot see the first', () => {
+  assert.deepEqual(rollingMedian([0, 1, 1, 1]), [0, 0.5, 1, 1]);
+});
+
+test('early runs are smoothed against what exists rather than held back', () => {
+  const smoothed = rollingMedian([0.4]);
+  assert.deepEqual(smoothed, [0.4], 'the first run plots as itself');
+});
+
+test('a gap stays a gap after smoothing', () => {
+  assert.deepEqual(rollingMedian([0.4, undefined, 0.8]), [0.4, undefined, 0.6]);
+});
+
+test('only sealed runs are on the line', () => {
+  const runs = [sealed({ A: 0.9 }, '2026-09-01T10:00:00.000Z'), open()];
+  assert.equal(comparableRuns(runs, 'sha256:sections').length, 1);
+});
+
+test('a mixed run is readable but is not a point on the line', () => {
+  // Q10: it was graded against two different charts, so it is not comparable
+  // with the runs either side of it.
+  const runs = [sealed({ A: 0.9 }, '2026-09-01T10:00:00.000Z', { mixed: true })];
+  assert.deepEqual(comparableRuns(runs, 'sha256:sections'), []);
+});
+
+test('a run from a previous epoch is not on the line either', () => {
+  const runs = [sealed({ A: 0.9 }, '2026-09-01T10:00:00.000Z')];
+  assert.deepEqual(comparableRuns(runs, 'sha256:moved'), [], 'the sections were a different shape');
+});
+
+test('the line is drawn oldest first however the files arrived', () => {
+  const runs = [
+    sealed({ A: 0.8 }, '2026-09-08T10:00:00.000Z'),
+    sealed({ A: 0.6 }, '2026-09-01T10:00:00.000Z'),
+  ];
+  assert.deepEqual(sectionSeries(comparableRuns(runs, 'sha256:sections'), 'A'), [0.6, 0.8]);
 });

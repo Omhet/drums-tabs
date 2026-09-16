@@ -1,0 +1,796 @@
+{
+ "version": 1,
+ "cell": {
+  "id": "verse@70",
+  "section": "verse",
+  "tempo": 0.7,
+  "startBar": 1,
+  "endBar": 7
+ },
+ "startedAt": "2026-09-16T18:27:58.574Z",
+ "calibrationMs": 29.1,
+ "calibrationNote": 38,
+ "referenceMs": 6.17,
+ "chartHash": "sha256:0e270e693ebdd525",
+ "sectionsHash": "sha256:21c740e2894034a8",
+ "complete": true,
+ "events": [
+  {
+   "tMs": 2042,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 2056,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 2268,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 2489,
+   "note": 37,
+   "velocity": 90,
+   "instrument": "snare"
+  },
+  {
+   "tMs": 2509,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 2971.9999999999995,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 2973.0000000000005,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 3218,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 3224,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 3429.0000000000005,
+   "note": 37,
+   "velocity": 90,
+   "instrument": "snare"
+  },
+  {
+   "tMs": 3439.999999999999,
+   "note": 48,
+   "velocity": 90,
+   "instrument": "tom_high"
+  },
+  {
+   "tMs": 3670,
+   "note": 48,
+   "velocity": 90,
+   "instrument": "tom_high"
+  },
+  {
+   "tMs": 3686,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 3888.0000000000005,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 3907.0000000000005,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 4123.999999999999,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 4143.999999999999,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 4352,
+   "note": 37,
+   "velocity": 90,
+   "instrument": "snare"
+  },
+  {
+   "tMs": 4373,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 4579,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 4599,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 5063,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 5076,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 5288,
+   "note": 37,
+   "velocity": 90,
+   "instrument": "snare"
+  },
+  {
+   "tMs": 5305,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 5515.999999999999,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 5534.999999999999,
+   "note": 37,
+   "velocity": 90,
+   "instrument": "snare"
+  },
+  {
+   "tMs": 5730,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 5751,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 5991,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 6210,
+   "note": 37,
+   "velocity": 90,
+   "instrument": "snare"
+  },
+  {
+   "tMs": 6216,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 6464.999999999999,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 6668,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 6685,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 6913.000000000001,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 6926,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 7129,
+   "note": 48,
+   "velocity": 90,
+   "instrument": "tom_high"
+  },
+  {
+   "tMs": 7380,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 7383,
+   "note": 48,
+   "velocity": 90,
+   "instrument": "tom_high"
+  },
+  {
+   "tMs": 7592,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 7594,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 7837,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 7844,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 8048,
+   "note": 37,
+   "velocity": 90,
+   "instrument": "snare"
+  },
+  {
+   "tMs": 8060.999999999999,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 8290,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 8306,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 8508.999999999998,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 8757.999999999998,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 8764,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 8971.999999999998,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 8973,
+   "note": 37,
+   "velocity": 90,
+   "instrument": "snare"
+  },
+  {
+   "tMs": 9219.000000000002,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 9429.000000000002,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 9439,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 9696.000000000002,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 9908,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 9922,
+   "note": 37,
+   "velocity": 90,
+   "instrument": "snare"
+  },
+  {
+   "tMs": 10155.999999999998,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 10375,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 10395,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 10600.999999999998,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 10622,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 10830.000000000002,
+   "note": 48,
+   "velocity": 90,
+   "instrument": "tom_high"
+  },
+  {
+   "tMs": 10850,
+   "note": 37,
+   "velocity": 90,
+   "instrument": "snare"
+  },
+  {
+   "tMs": 11067,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 11085.999999999998,
+   "note": 48,
+   "velocity": 90,
+   "instrument": "tom_high"
+  },
+  {
+   "tMs": 11303.999999999998,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 11534,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 11545.999999999996,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 11750,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 11757,
+   "note": 37,
+   "velocity": 90,
+   "instrument": "snare"
+  },
+  {
+   "tMs": 12001,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 12001.999999999998,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 12211,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 12455,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 12474.999999999998,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 12687.999999999998,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 12706,
+   "note": 37,
+   "velocity": 90,
+   "instrument": "snare"
+  },
+  {
+   "tMs": 12921.999999999998,
+   "note": 37,
+   "velocity": 90,
+   "instrument": "snare"
+  },
+  {
+   "tMs": 12935.999999999998,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 13129.000000000002,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 13139,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 13389,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 13612.000000000002,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 13843,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 14087.999999999998,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 14094,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 14298.999999999998,
+   "note": 35,
+   "velocity": 90,
+   "instrument": "kick"
+  },
+  {
+   "tMs": 14310,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 14540.999999999998,
+   "note": 48,
+   "velocity": 90,
+   "instrument": "tom_high"
+  },
+  {
+   "tMs": 14555.999999999998,
+   "note": 37,
+   "velocity": 90,
+   "instrument": "snare"
+  },
+  {
+   "tMs": 14758,
+   "note": 43,
+   "velocity": 90,
+   "instrument": "tom_floor"
+  },
+  {
+   "tMs": 14777,
+   "note": 48,
+   "velocity": 90,
+   "instrument": "tom_high"
+  }
+ ],
+ "grade": {
+  "expected": 101,
+  "hit": 91,
+  "missed": 6,
+  "wrongVoice": 4,
+  "sameDrum": 0,
+  "extra": 0,
+  "flam": 0,
+  "accuracy": 0.901,
+  "perVoice": {
+   "kick": {
+    "expected": 24,
+    "hit": 24,
+    "missed": 0,
+    "wrongVoice": 0,
+    "extra": 0,
+    "flam": 0,
+    "timing": {
+     "n": 24,
+     "meanMs": -12.2,
+     "sdMs": 9.9,
+     "medianMs": -11.3,
+     "maxAbsMs": 27.3
+    }
+   },
+   "tom_floor": {
+    "expected": 56,
+    "hit": 49,
+    "missed": 4,
+    "wrongVoice": 3,
+    "extra": 0,
+    "flam": 0,
+    "timing": {
+     "n": 49,
+     "meanMs": -12.8,
+     "sdMs": 9.8,
+     "medianMs": -12.3,
+     "maxAbsMs": 27.3
+    }
+   },
+   "snare": {
+    "expected": 17,
+    "hit": 14,
+    "missed": 2,
+    "wrongVoice": 1,
+    "extra": 0,
+    "flam": 0,
+    "timing": {
+     "n": 14,
+     "meanMs": -16.9,
+     "sdMs": 9.8,
+     "medianMs": -20.3,
+     "maxAbsMs": 27.3
+    }
+   },
+   "tom_high": {
+    "expected": 4,
+    "hit": 4,
+    "missed": 0,
+    "wrongVoice": 0,
+    "extra": 0,
+    "flam": 0,
+    "timing": {
+     "n": 4,
+     "meanMs": -6.3,
+     "sdMs": 6.1,
+     "medianMs": -5.3,
+     "maxAbsMs": 15.3
+    }
+   }
+  },
+  "timing": {
+   "overall": {
+    "n": 91,
+    "meanMs": -13,
+    "sdMs": 9.9,
+    "medianMs": -12.3,
+    "maxAbsMs": 27.3
+   },
+   "perLimb": {
+    "right_foot": {
+     "n": 24,
+     "meanMs": -12.2,
+     "sdMs": 9.9,
+     "medianMs": -11.3,
+     "maxAbsMs": 27.3
+    },
+    "left_hand": {
+     "n": 25,
+     "meanMs": -15.6,
+     "sdMs": 10.2,
+     "medianMs": -18.3,
+     "maxAbsMs": 27.3
+    },
+    "right_hand": {
+     "n": 42,
+     "meanMs": -11.9,
+     "sdMs": 9.5,
+     "medianMs": -9.8,
+     "maxAbsMs": 27.3
+    }
+   }
+  },
+  "bars": [
+   {
+    "bar": 1,
+    "expected": 14,
+    "hit": 12,
+    "wrong": 2,
+    "rmsMs": 16.4
+   },
+   {
+    "bar": 2,
+    "expected": 15,
+    "hit": 14,
+    "wrong": 1,
+    "rmsMs": 16.7
+   },
+   {
+    "bar": 3,
+    "expected": 14,
+    "hit": 12,
+    "wrong": 2,
+    "rmsMs": 15.1
+   },
+   {
+    "bar": 4,
+    "expected": 15,
+    "hit": 14,
+    "wrong": 1,
+    "rmsMs": 17
+   },
+   {
+    "bar": 5,
+    "expected": 14,
+    "hit": 13,
+    "wrong": 1,
+    "rmsMs": 16
+   },
+   {
+    "bar": 6,
+    "expected": 15,
+    "hit": 14,
+    "wrong": 1,
+    "rmsMs": 15.3
+   },
+   {
+    "bar": 7,
+    "expected": 14,
+    "hit": 12,
+    "wrong": 2,
+    "rmsMs": 17.8
+   }
+  ],
+  "worstBars": [
+   {
+    "bar": 7,
+    "expected": 14,
+    "hit": 12,
+    "wrong": 2,
+    "rmsMs": 17.8
+   },
+   {
+    "bar": 1,
+    "expected": 14,
+    "hit": 12,
+    "wrong": 2,
+    "rmsMs": 16.4
+   },
+   {
+    "bar": 3,
+    "expected": 14,
+    "hit": 12,
+    "wrong": 2,
+    "rmsMs": 15.1
+   },
+   {
+    "bar": 4,
+    "expected": 15,
+    "hit": 14,
+    "wrong": 1,
+    "rmsMs": 17
+   },
+   {
+    "bar": 2,
+    "expected": 15,
+    "hit": 14,
+    "wrong": 1,
+    "rmsMs": 16.7
+   },
+   {
+    "bar": 5,
+    "expected": 14,
+    "hit": 13,
+    "wrong": 1,
+    "rmsMs": 16
+   },
+   {
+    "bar": 6,
+    "expected": 15,
+    "hit": 14,
+    "wrong": 1,
+    "rmsMs": 15.3
+   }
+  ],
+  "unmappedNotes": []
+ }
+}

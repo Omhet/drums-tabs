@@ -12,14 +12,20 @@ onset in the original's drum stem and reports the signed distance. **Positive
 means the record's hit is later than where the chart puts it**, which is the
 amount a perfectly faithful take would be marked down by.
 
-It is a diagnostic, not a correction. Whether "in time" means the chart's grid or
-the record's feel is a decision for whoever is practising, and the honest thing
-is to be able to see the difference rather than to quietly remove it.
+It used to be a diagnostic only -- a number printed once that you then had to
+remember and apply in your head to every take you ever played. That decision was
+taken deliberately and has now been taken the other way: the measurement is
+written to ``reference.lock.json`` and the player subtracts it, so **zero means
+"sitting where the record sits"** rather than "sitting on a grid nobody played
+to". The split is still printed, because whether the floor is the whole kit or
+just the kick is worth seeing.
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 
@@ -27,6 +33,9 @@ from pipeline import onsets, paths
 from pipeline.chart import SLOTS_PER_BEAT, read_hits
 from pipeline.grid import Grid
 from pipeline.proc import StageError
+
+#: Bumped when the shape of ``reference.lock.json`` changes.
+VERSION = 1
 
 #: Beyond this the nearest onset is a different note, not this one played late.
 MATCH_MS = 90.0
@@ -116,3 +125,67 @@ def measure(song: paths.Song, grid: Grid, midi_map: dict[int, str]) -> list[Offs
             Offsets(instrument=instrument, values=np.asarray(values), written=len(written))
         )
     return out
+
+
+# --- the lock file ----------------------------------------------------------------
+#
+# Pinned to the chart hash, like ``sticking.lock.json``: the measurement is of
+# the record *against this notation*, so moving a note in Live moves the floor
+# with it and a lock solved from the old chart must be able to say so.
+
+
+def path_for(song: paths.Song) -> Path:
+    return song.root / "reference.lock.json"
+
+
+def summarise(measured: list[Offsets], chart: str) -> dict:
+    """The lock's contents: the floor the player subtracts, and the split behind it.
+
+    ``mean_ms`` is one number for the whole kit, and that is a simplification
+    worth stating: only kick and snare can be measured (:data:`BANDS`), and on
+    some records they do not sit together -- a kick well behind the grid and a
+    snare on top of it average to a floor that is right for neither. One number
+    is still the honest default, because it is the one that can be explained in
+    a sentence; the per-instrument split is kept here so that a later version
+    can refine it without re-measuring anything.
+    """
+    values = [o.values for o in measured if o.values.size]
+    every = np.concatenate(values) if values else np.empty(0)
+    return {
+        "version": VERSION,
+        "chart": chart,
+        "mean_ms": round(float(every.mean()), 2) if every.size else 0.0,
+        "median_ms": round(float(np.median(every)), 2) if every.size else 0.0,
+        "matched": int(every.size),
+        "written": sum(o.written for o in measured),
+        "instruments": [
+            {
+                "instrument": o.instrument,
+                "matched": int(o.values.size),
+                "written": o.written,
+                "mean_ms": round(o.mean_ms, 2),
+                "median_ms": round(o.median_ms, 2),
+                "sd_ms": round(o.sd_ms, 2),
+            }
+            for o in measured
+        ],
+    }
+
+
+def save(song: paths.Song, measured: list[Offsets], chart: str) -> dict:
+    """Write ``reference.lock.json`` and return what was written."""
+    body = summarise(measured, chart)
+    path_for(song).write_text(json.dumps(body, indent=1) + "\n", encoding="utf-8")
+    return body
+
+
+def load(song: paths.Song) -> dict | None:
+    """The lock, or nothing if it is absent or written by a version we cannot read."""
+    path = path_for(song)
+    if not path.exists():
+        return None
+    try:
+        body = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    return body if int(body.get("version", 0)) == VERSION else None

@@ -280,6 +280,72 @@ export function describeCell(cell: RoutineCell): string {
   return `${cell.section} · bars ${cell.startBar}-${cell.endBar} · ${Math.round(cell.tempo * 100)}%`;
 }
 
+// --- the history ------------------------------------------------------------------
+//
+// One line per section, across sealed runs. The unit is the section rather than
+// the cell because a cell is one square of a 44-square grid and forty-four
+// sparklines is not a thing anyone reads -- a section is the thing you think of
+// yourself as working on ("the chorus is coming along").
+
+/**
+ * How a section went in one run: the mean accuracy over its cells.
+ *
+ * All four tempos together, deliberately. A section is only learned when it is
+ * learned at speed, so the 100% cell dragging the average down is the line
+ * telling the truth rather than a flaw in it.
+ */
+export function sectionScore(routine: Routine, section: string): number | undefined {
+  const filled = routine.cells.filter((cell) => cell.section === section && cell.fill);
+  if (filled.length === 0) return undefined;
+  return filled.reduce((sum, cell) => sum + cell.fill!.accuracy, 0) / filled.length;
+}
+
+/** A section's score in each run, oldest first. `undefined` where it was not played. */
+export function sectionSeries(runs: Routine[], section: string): (number | undefined)[] {
+  return runs.map((run) => sectionScore(run, section));
+}
+
+/**
+ * Rolling median of the last three, which is what makes a progress line honest.
+ *
+ * The routine counts your *last* complete take, not your best (Q5), so that a
+ * lucky take cannot be farmed -- and the price of that is a jumpy series, where
+ * one good run makes the next look like a regression. A median of three keeps
+ * the trend and drops the single outlier in either direction, which is the
+ * shape of the question being asked: "am I getting better", not "what did I do
+ * on Tuesday". Runs with no score are skipped rather than treated as zero.
+ */
+export function rollingMedian(series: (number | undefined)[], window = 3): (number | undefined)[] {
+  return series.map((value, i) => {
+    if (value === undefined) return undefined;
+    const recent = series
+      .slice(Math.max(0, i - window + 1), i + 1)
+      .filter((v): v is number => v !== undefined)
+      .sort((a, b) => a - b);
+    if (recent.length === 0) return undefined;
+    const mid = recent.length >> 1;
+    const median =
+      recent.length % 2 ? recent[mid]! : (recent[mid - 1]! + recent[mid]!) / 2;
+    // Rounded to the same three places `accuracy` itself carries: averaging two
+    // of them otherwise produces 0.6000000000000001, which is not a different
+    // reading, only a noisier one.
+    return Math.round(median * 1000) / 1000;
+  });
+}
+
+/**
+ * Which runs belong on one line with today's grid.
+ *
+ * A run whose sections were a different shape is measuring different music, and
+ * a run sealed `mixed` was graded against two charts (Q10). Both stay readable
+ * on disk; neither is a point on this line.
+ */
+export function comparableRuns(runs: Routine[], sectionsHash: string): Routine[] {
+  return runs
+    .filter((run) => run.sealedAt && !run.mixed && run.sectionsHash === sectionsHash)
+    .sort((a, b) => a.sealedAt!.localeCompare(b.sealedAt!));
+}
+
 /**
  * Read a routine written by an older build, or reject it.
  *
@@ -303,6 +369,21 @@ export function parseRoutine(value: unknown): Routine | undefined {
 // ordinary act of editing the chart (Q10).
 
 const ROUTE = '/practice/routine';
+
+/**
+ * The sealed runs of a song, oldest first: the history.
+ *
+ * Empty for a song with nothing finished yet, and empty without a dev server,
+ * which is the same answer the grid gives -- there is nothing to plot.
+ */
+export async function readRoutines(slug: string): Promise<Routine[]> {
+  const res = await fetch(`${ROUTE}s?slug=${encodeURIComponent(slug)}`);
+  if (!res.ok) return [];
+  const body = (await res.json()) as { routines?: unknown[] };
+  return (body.routines ?? [])
+    .map((r) => parseRoutine(r))
+    .filter((r): r is Routine => r !== undefined);
+}
 
 /** The open routine for a song, or nothing. At most one can exist (the route enforces it). */
 export async function readRoutine(slug: string): Promise<Routine | undefined> {

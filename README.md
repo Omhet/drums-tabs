@@ -7,8 +7,10 @@ cover to learn from now, your own cover later -- and then the notation sits over
 the bottom of it.
 
 It also marks you. With an electronic kit on a MIDI port, `Record` plays a
-section and scores what you played against what is written -- every note
-coloured by verdict, mean and spread per limb, and the whole attempt kept as
+section and scores what you played against what is written. The reading is three
+dials -- did you play the right notes, were you steady, where do you sit against
+the record's own feel -- plus coloured noteheads and a map of the bars that went
+wrong, with the numbers behind them folded away. The whole attempt is kept as
 JSON so the history is readable by you and by an agent. A **routine** is the
 fixed grid those attempts fill: every section at 70/80/90/100% and then the
 whole song, the same set of cells every run so that two runs can be compared,
@@ -39,6 +41,7 @@ songs/<slug>/
   grid.lock.json            the real time of every beat the drummer played
   tab.mid                   your notation: constant-tempo MIDI, bar 1 = song bar 1
   sticking.lock.json        which hand plays what, and the hi-hat foot
+  reference.lock.json       how far behind the chart the record itself plays
   takes/<when>-<cell>.json  every attempt you have recorded, and its grade
   routines/<when>.json      every run of the grid: the open one has sealedAt null
   audio/mix.wav             (untracked) the song, and the clock
@@ -106,10 +109,11 @@ songs/<slug>/
    by a person, and if that person sits behind the grid then copying the feel
    you hear is scored as playing late. It finds the nearest onset in the drum
    stem for every written kick and snare and reports the gap. On the original of
-   *Kill Me* it is +12.7 ms, so a faithful take starts 13 ms in the red. It is a
-   diagnostic and changes nothing: whether "in time" means the chart's grid or
-   the record's feel is your decision, and the point is to be able to see which
-   number you are looking at.
+   *Kill Me* it is +12.7 ms, so a faithful take would start 13 ms in the red; on
+   *Song 2* it is +6.2 ms. It writes `reference.lock.json` and **the player
+   subtracts it**, so zero means "sitting where the record sits" rather than
+   "sitting on a grid nobody played to". Pinned to the chart hash like the
+   sticking lock, so editing the notation means running it again.
 
 3. **Play** with `cd app && npm run dev`. With a video the notation sits over
    the bottom of it, two lines of four bars; with none it fills the stage
@@ -417,6 +421,81 @@ bars each, so a full run is about 47 bars per tempo rather than 62, and a
 sitting works out shorter, not longer. Renaming **starts a new epoch**, which is
 why it was done before any take worth keeping was recorded.
 
+**Blur - Song 2 was added as a second song (2026-09-16).** Two minutes, 64 bars
+of 4/4 at 130.4 BPM, video bound at +36.28 ms -- exactly the same offset as the
+other song, across all five correlation windows, so that number is a constant of
+the fetch path rather than a per-song measurement. 886 notes authored in Live,
+thirteen blocks under seven names, 32 cells. Its reference floor is **+6.2 ms**
+against Kill Me's +12.7: this record was played close to a click, so a take on it
+is very nearly all yours. One authoring detail worth knowing: the chart is 65
+bars and the beat map is 64, because the last crash sits on the downbeat of 65
+and the detector found no beats past it, so the sections stop at 64 and playing
+that final crash logs two extras. Extras never touch accuracy, so it costs
+nothing but a line in the report.
+
+**Then the reading was rebuilt, because it was not being read (2026-09-16).**
+Played against the real kit, the take report turned out to be a measurement dump:
+five notehead colours plus a legend, a totals line, and a six-by-four table --
+twenty-four numbers, none of which said whether the take was good or what to go
+and play again. This is a deliberate departure from practice-plan Q11 and Q14,
+which specified the heatmap-plus-timing-strip and two lines per cell. Those
+answers were right about *what is measurable* and wrong about *what is legible*.
+
+What replaced it:
+
+- **Three dials, never blended into a score.** `Notes` is accuracy, `Steady` is
+  the spread, `Feel` is where you sit -- drawn as a needle rather than a signed
+  number, because a position reads at a glance and a sign has to be decoded.
+  Each one answers a single question, and mean and spread stay apart for the
+  reason Q7 gave in the first place: consistently late is the audio path or the
+  song's feel, randomly late is the playing.
+- **A bar strip.** One block per bar of the cell, coloured by whether the notes
+  landed, click one to put the cursor there. Drummers think in bars, and this is
+  the half of "what went wrong" that a per-limb table cannot show.
+- **Three notehead colours instead of five.** Colour now answers one question --
+  did the note happen -- and the early/late split is gone from it. Hue has no
+  natural direction, so "is orange early or late?" was a question asked on every
+  take; *when* a note landed is a quantity and is shown as one.
+- **The old table is still there**, folded into a `the numbers` toggle.
+
+**The reference floor is now subtracted automatically.** `drums reference` used
+to print a number and stop, which made it something you had to remember and
+apply in your head to every take forever. It now writes `reference.lock.json`,
+pinned to the chart hash the way the sticking lock is, and the player takes it
+off every stroke before matching -- so **zero on the Feel dial means "sitting
+where the record sits"** instead of "sitting on a grid nobody played to". Takes
+record the floor they were graded against beside the calibration, so a floor
+later found wrong is a re-grade, not a lost take. It is one number for the whole
+kit, which is a simplification worth stating: only kick and snare are
+measurable, and Song 2's kick is +10.7 ms behind the grid while its snare is
+-1.3, so the pooled +6.2 is exactly right for neither. The split is in the lock
+for a later version to use.
+
+**And the history: one line per section.** A trend column appears in the routine
+grid once a run has been sealed -- one sparkline per section row, oldest run on
+the left, on a fixed 0-100% scale with the pass threshold dotted across it so
+two rows can be compared by eye. The unit is the *section*, not the cell: a cell
+is one square of a 44-square grid and nobody reads 44 sparklines, while a section
+is the thing you think of yourself as working on. Three things learned:
+
+- **What makes the grid honest makes the history jumpy.** The routine counts
+  your last complete take, not your best, so a lucky run cannot be farmed -- and
+  the price is a series where one good run makes the next look like a
+  regression. The line is a **rolling median of the last three**, which keeps the
+  trend and drops a single outlier in either direction. That matches the question
+  being asked: "am I getting better", not "what did I do on Tuesday".
+- **A section's score is the mean over all four of its tempos.** A section is
+  only learned when it is learned at speed, so the 100% cell dragging the mean
+  down is the line telling the truth rather than a flaw in it.
+- **Epochs are breaks, not points.** A run whose sections were a different shape,
+  or one sealed `mixed`, stays readable on disk and is simply not on the line --
+  otherwise the history lies exactly when you have been most active.
+
+Sealing a routine means recording every cell, so the headless check posts
+synthetic sealed runs to the route instead and asserts the *reading* of a
+history -- the per-section line and the median that steadies it -- which is the
+part that can be wrong without anyone noticing.
+
 Older candidates, still unstarted: a loop (two keys marking the start and end
 bar), bigger notes (`display.scale` and a Zoom control next to Lines), and a
 count-in on a paused start. Next is M3 in `practice-plan.md`: the history --
@@ -450,6 +529,5 @@ cannot decode the H.264 video. Each checks the first song in the list unless
 
 Tests that need no browser: `.venv/Scripts/python -m pytest -q tests` for the
 pipeline, and `npm test` in `app/` for the scorer, the chart reader and the
-routine grid -- Node runs the TypeScript
-source directly, with `scripts/ts-resolve.mjs` supplying the file extensions a
-bundler would.
+routine grid -- Node runs the TypeScript source directly, with
+`scripts/ts-resolve.mjs` supplying the file extensions a bundler would.

@@ -29,6 +29,7 @@
         /* The routine grid's two verdicts, matching the heatmap's `tight` and
            `missed` so a green cell and a green notehead mean the same thing. */
         --pass: #208c4e;
+        --warn: #c87814;
         --fail: #c82d28;
       }
       :root[data-theme="dark"] {
@@ -40,6 +41,7 @@
         --glass: rgba(23, 23, 26, 0.84);
         --border: #303038;
         --pass: #50c882;
+        --warn: #f0af50;
         --fail: #f56e64;
       }
       @media (prefers-color-scheme: dark) {
@@ -52,6 +54,7 @@
           --glass: rgba(23, 23, 26, 0.84);
           --border: #303038;
           --pass: #50c882;
+          --warn: #f0af50;
           --fail: #f56e64;
         }
       }
@@ -62,11 +65,15 @@
         color: var(--fg);
         font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
       }
-      /* One screen, no page scroll: the header and controls take what they
-         need and the stage (video + notation) gets the rest. */
+      /* One screen: the header and controls take what they need and the stage
+         (video + notation) gets the rest. `overflow-y: auto` is a safety valve,
+         not the normal case -- on a short window the routine grid, the stage
+         and a take's reading together want more than there is, and something
+         being unreachable is worse than a scrollbar that is usually absent. */
       main {
         box-sizing: border-box; height: 100%; max-width: 1400px; margin: 0 auto;
         padding: 14px 20px 10px; display: flex; flex-direction: column;
+        overflow-y: auto;
       }
       .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
       h1 { font-size: 18px; margin: 0 0 2px; }
@@ -192,26 +199,88 @@
       #routine tr.whole td { padding-top: 5px; }
       #routine tr.whole th { padding-top: 5px; color: var(--fg); }
       #routine .note { margin: 6px 0 0; color: var(--muted); max-width: 70ch; }
+      /* The trend column: one line per section across the sealed runs, oldest
+         on the left, smoothed as a median of the last three (routine.ts). The
+         scale is a fixed 0-100% with the pass threshold dotted on it, so two
+         rows can be compared by eye -- a line that rescaled to its own range
+         would make every section look equally close to done. */
+      #routine th.trend-head { text-align: center; color: var(--muted); font-size: 11px; }
+      #routine td.trend { padding-left: 10px; line-height: 0; }
+      #routine td.trend svg { overflow: visible; }
+      #routine td.trend .pass-line {
+        stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 2;
+      }
+      #routine td.trend .line { fill: none; stroke-width: 1.5; stroke-linejoin: round; }
+      #routine td.trend.pass .line, #routine td.trend.pass .dot { stroke: var(--pass); fill: var(--pass); }
+      #routine td.trend.fail .line, #routine td.trend.fail .dot { stroke: var(--fail); fill: var(--fail); }
+      #routine td.trend .line { fill: none; }
       #routine .note.warn { color: var(--fail); }
-      /* The timing strip: mean +- spread per limb, then the worst bars. Mean
-         and spread are kept apart on purpose -- consistently late is the
-         calibration, randomly late is the playing (practice-plan Q7). */
+      /* The reading after a take (practice.ts drawReport): three dials, a map
+         of the bars, then the numbers folded away. Each dial answers exactly
+         one question and they are never blended into a score -- consistently
+         late is the audio path or the song's feel, randomly late is the
+         playing, and averaging them sends you to practise the wrong thing
+         (practice-plan Q7). */
       #report {
-        margin: 10px 0 0; padding: 10px 14px; font-size: 12px;
+        margin: 10px 0 0; padding: 12px 14px; font-size: 12px;
         background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
       }
-      #report table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+      #report .dials { display: flex; gap: 30px; flex-wrap: wrap; }
+      .dial { display: flex; flex-direction: column; gap: 1px; min-width: 118px; cursor: help; }
+      .dial .label {
+        font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted);
+      }
+      .dial .big {
+        font-size: 21px; line-height: 1.2; font-weight: 600; font-variant-numeric: tabular-nums;
+      }
+      .dial .sub { color: var(--muted); }
+      .dial.good .big { color: var(--pass); }
+      .dial.ok .big { color: var(--warn); }
+      .dial.bad .big { color: var(--fail); }
+      /* The Feel needle: rushing to the left, dragging to the right, and the
+         centre mark is where the record's own drummer sits -- not where the
+         written grid is (reference.ts). A position reads at a glance; the
+         signed number underneath is for when you want it. */
+      .dial .needle {
+        position: relative; display: block; height: 4px; margin: 5px 0 3px;
+        border-radius: 2px; background: var(--border);
+      }
+      .dial .needle::before {
+        content: ""; position: absolute; left: 50%; top: -2px;
+        width: 1px; height: 8px; background: var(--muted);
+      }
+      .dial .needle i {
+        position: absolute; top: -3px; width: 3px; height: 10px;
+        border-radius: 2px; transform: translateX(-50%); background: var(--muted);
+      }
+      .dial.good .needle i { background: var(--pass); }
+      .dial.ok .needle i { background: var(--warn); }
+      .dial.bad .needle i { background: var(--fail); }
+      /* The bar strip: one block per bar of the cell, coloured by whether the
+         notes landed -- the same question the noteheads answer. A bad bar is
+         filled rather than outlined so it is the thing you see first. Click a
+         block to put the cursor on that bar. */
+      #report .strip { display: flex; flex-wrap: wrap; gap: 3px; margin: 13px 0 0; }
+      #report .bar {
+        min-width: 27px; padding: 2px 3px; font: inherit; font-size: 11px;
+        font-variant-numeric: tabular-nums; text-align: center; border-radius: 4px;
+        border: 1px solid var(--border); background: var(--panel);
+        color: var(--muted); cursor: pointer;
+      }
+      #report .bar.good { border-color: var(--pass); color: var(--pass); }
+      #report .bar.ok { border-color: var(--warn); color: var(--warn); }
+      #report .bar.bad { border-color: var(--fail); background: var(--fail); color: var(--panel); }
+      #report .bar.none { opacity: 0.4; }
+      #report .again { margin: 11px 0 0; font-weight: 600; }
+      #report details { margin: 10px 0 0; }
+      #report summary { cursor: pointer; color: var(--muted); }
+      #report table {
+        border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 7px 0 0;
+      }
       #report th, #report td { padding: 1px 12px 1px 0; text-align: left; font-weight: normal; }
       #report th { color: var(--muted); }
       #report td.num { text-align: right; padding-right: 18px; }
-      #report .heads { color: var(--muted); }
-      #report .totals { margin: 0 0 6px; }
-      #report .totals b { font-weight: 600; }
-      #report .swatch {
-        display: inline-block; width: 9px; height: 9px; border-radius: 2px;
-        margin-right: 5px; vertical-align: baseline;
-      }
-      #report .worst { margin: 8px 0 0; color: var(--muted); }
+      #report .note { margin: 7px 0 0; color: var(--muted); max-width: 72ch; }
       /* Extra notes have nowhere on the staff to be coloured -- nothing was
          written where you played -- so they get a lane of their own under the
          bar, placed from alphaTab's bounds the way the sticking letters are. */

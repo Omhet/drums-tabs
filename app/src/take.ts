@@ -11,9 +11,10 @@
 //
 //  1. **`tMs` is mix time** -- the same timeline `grid.beats` and the chart use,
 //     so a take is directly comparable to both with nothing to convert.
-//  2. **Timestamps are raw.** The calibration that was in force is recorded
-//     beside them, never baked in, so a calibration later found to be wrong is
-//     a re-grade and not a lost take.
+//  2. **Timestamps are raw.** Both corrections in force are recorded beside
+//     them, never baked in -- `calibrationMs` for this machine's audio path and
+//     `referenceMs` for how far behind the chart the record itself plays -- so
+//     either one later found to be wrong is a re-grade and not a lost take.
 //  3. **Stored at the tempo it was played**, never normalised to 100%. The
 //     whole point of Q7's second stage is that 30 ms late at 70% is not the
 //     same achievement as 30 ms late at full speed.
@@ -54,6 +55,14 @@ export interface Take {
   calibrationMs: number;
   /** The pad the calibration was measured on: latency is per input path. */
   calibrationNote?: number;
+  /**
+   * The song's reference floor, also subtracted at grading time (reference.ts).
+   *
+   * Optional because the takes played before the floor was measured do not have
+   * one, and a take is never rewritten. Zero and absent mean the same thing:
+   * this take's timing is against the written grid, not against the record.
+   */
+  referenceMs?: number;
   /** sha256 of tab.mid, first 16 hex. */
   chartHash: string;
   /** The `[[section]]` blocks as one string. See plugins/ableton.ts. */

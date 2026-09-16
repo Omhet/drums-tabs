@@ -28,13 +28,19 @@
 // it matched. "Your right hand rushes the hats" is the sentence worth reading,
 // and this is the only honest way to reach it.
 //
-// ## Calibration comes off before anything else
+// ## Two corrections come off before anything else
 //
-// Every timestamp is corrected by `calibrationMs` before it is matched or
-// measured. Doing it before matching matters: 25 ms of systematic latency
-// inside a window that is only 40 ms wide would invent misses out of nothing.
-// A take stores raw timestamps and the number that was used (Q8), so a
-// calibration later found to be wrong is a re-grade rather than a lost take.
+// Every timestamp is corrected by `calibrationMs` -- your audio path -- and by
+// `referenceMs` -- how far behind the written grid the record's own drummer
+// sits (reference.ts). Doing it before matching matters: 25 ms of systematic
+// offset inside a window that is only 40 ms wide would invent misses out of
+// nothing. A take stores raw timestamps and both numbers that were used (Q8),
+// so either one later found to be wrong is a re-grade rather than a lost take.
+//
+// They are different kinds of thing and are kept apart everywhere but here:
+// calibration is a property of this machine and is measured by the Calibrate
+// button, while the reference is a property of this song and is measured by
+// `drums reference`. Only their effect on a stroke's timestamp is the same.
 import type { ExpectedNote, Limb } from './chart';
 
 /** One stroke as it was recorded. `tMs` is raw mix time: uncorrected. */
@@ -122,15 +128,37 @@ export interface Grade {
   accuracy: number;
   perVoice: Record<string, VoiceGrade>;
   timing: { overall: Timing; perLimb: Partial<Record<Limb, Timing>> };
-  /** Worst first: the bars to go and play again. */
-  worstBars: { bar: number; wrong: number; rmsMs: number }[];
+  /** Every bar that had anything in it, in bar order: what the bar strip draws. */
+  bars: BarGrade[];
+  /** The same bars, worst first: the ones to go and play again. */
+  worstBars: BarGrade[];
   /** Notes the module sent that kit.toml `[input]` has no name for. */
   unmappedNotes: number[];
+}
+
+/** One bar of the cell, as it went. */
+export interface BarGrade {
+  bar: number;
+  /** Written notes in this bar, and how many landed on the right drum. */
+  expected: number;
+  hit: number;
+  /** Missed, wrong-voice and unwritten strokes together. */
+  wrong: number;
+  /** Root-mean-square of how far off the notes that did land were. */
+  rmsMs: number;
 }
 
 export interface GradeOptions {
   /** Subtracted from every played timestamp before anything else. */
   calibrationMs?: number;
+  /**
+   * Also subtracted: how far behind the chart's grid the record itself plays.
+   *
+   * With it, zero means "you sat where the record sits"; without it, zero means
+   * "you sat on a grid nobody played to" and a faithful take reads as late by
+   * the whole floor. See `reference.ts`.
+   */
+  referenceMs?: number;
   /** The widest a stage-1 window may get, however sparse the notes. */
   capMs?: number;
   /** An unwritten stroke this close to one you played is a bounce, not a note. */
@@ -145,7 +173,13 @@ export interface GradeOptions {
   sameDrum?: string[][];
 }
 
-const DEFAULTS = { calibrationMs: 0, capMs: 200, flamMs: 60, sameDrum: [] as string[][] };
+const DEFAULTS = {
+  calibrationMs: 0,
+  referenceMs: 0,
+  capMs: 200,
+  flamMs: 60,
+  sameDrum: [] as string[][],
+};
 
 export interface GradeResult {
   notes: NoteVerdict[];
@@ -175,7 +209,7 @@ export function grade(
   events: TakeEvent[],
   options: GradeOptions = {}
 ): GradeResult {
-  const { calibrationMs, capMs, flamMs, sameDrum } = { ...DEFAULTS, ...options };
+  const { calibrationMs, referenceMs, capMs, flamMs, sameDrum } = { ...DEFAULTS, ...options };
 
   // Which drum an instrument belongs to. Everything not named in `sameDrum` is
   // a drum of its own, so this is the identity map for most kits.
@@ -187,7 +221,7 @@ export function grade(
 
   const written = [...expected].sort((a, b) => a.tMs - b.tMs);
   const played = events
-    .map((e) => ({ ...e, tMs: e.tMs - calibrationMs }))
+    .map((e) => ({ ...e, tMs: e.tMs - calibrationMs - referenceMs }))
     .sort((a, b) => a.tMs - b.tMs);
 
   // --- stage 1: which written note did each stroke mean? ----------------------
@@ -355,6 +389,13 @@ function summarise(notes: NoteVerdict[], extras: ExtraVerdict[], played: TakeEve
   const all: number[] = [];
   const wrongPerBar = new Map<number, number>();
   const deltasPerBar = new Map<number, number[]>();
+  // Written and landed, per bar: what the bar strip colours itself from. Kept
+  // separately from `wrongPerBar` because a bar with two written notes and one
+  // wrong is a worse bar than one with twenty written and one wrong, and a
+  // count alone cannot say that.
+  const expectedPerBar = new Map<number, number>();
+  const hitPerBar = new Map<number, number>();
+  const bump = (m: Map<number, number>, bar: number) => m.set(bar, (m.get(bar) ?? 0) + 1);
 
   const voice = (name: string): VoiceGrade =>
     (perVoice[name] ??= {
@@ -370,8 +411,10 @@ function summarise(notes: NoteVerdict[], extras: ExtraVerdict[], played: TakeEve
   for (const v of notes) {
     const g = voice(v.note.instrument);
     g.expected++;
+    bump(expectedPerBar, v.note.bar);
     if (v.verdict === 'hit') {
       g.hit++;
+      bump(hitPerBar, v.note.bar);
       const d = v.deltaMs!;
       (voiceDeltas[v.note.instrument] ??= []).push(d);
       (limbDeltas[v.note.limb] ??= []).push(d);
@@ -395,14 +438,23 @@ function summarise(notes: NoteVerdict[], extras: ExtraVerdict[], played: TakeEve
   // wrong but everything was loose belongs on this list too -- that is half of
   // what it is for -- so it is ranked by wrong notes and then by how far off
   // the notes that did land were.
-  const bars = new Set([...wrongPerBar.keys(), ...deltasPerBar.keys()]);
-  const worstBars = [...bars]
+  const touched = new Set([
+    ...expectedPerBar.keys(),
+    ...wrongPerBar.keys(),
+    ...deltasPerBar.keys(),
+  ]);
+  const bars: BarGrade[] = [...touched]
+    .sort((a, b) => a - b)
     .map((bar) => ({
       bar,
+      expected: expectedPerBar.get(bar) ?? 0,
+      hit: hitPerBar.get(bar) ?? 0,
       wrong: wrongPerBar.get(bar) ?? 0,
       rmsMs: rms(deltasPerBar.get(bar) ?? []),
-    }))
-    .sort((a, b) => b.wrong - a.wrong || b.rmsMs - a.rmsMs || a.bar - b.bar);
+    }));
+  const worstBars = [...bars].sort(
+    (a, b) => b.wrong - a.wrong || b.rmsMs - a.rmsMs || a.bar - b.bar
+  );
 
   const hit = notes.filter((v) => v.verdict === 'hit').length;
   return {
@@ -421,6 +473,7 @@ function summarise(notes: NoteVerdict[], extras: ExtraVerdict[], played: TakeEve
         Object.entries(limbDeltas).map(([limb, deltas]) => [limb, stats(deltas)])
       ) as Partial<Record<Limb, Timing>>,
     },
+    bars,
     worstBars,
     unmappedNotes: [...new Set(played.filter((e) => !e.instrument).map((e) => e.note))].sort(
       (a, b) => a - b

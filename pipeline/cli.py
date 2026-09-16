@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from typing import NoReturn
 
-import numpy as np
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -21,6 +20,7 @@ from rich.table import Table
 from pipeline import align as align_mod
 from pipeline import audit as audit_mod
 from pipeline import beats as beats_mod
+from pipeline import chart as chart_mod
 from pipeline import doctor as doctor_mod
 from pipeline import fetch as fetch_mod
 from pipeline import grid as grid_mod
@@ -373,8 +373,12 @@ def reference(
     The record is played by a person, who sits wherever the music wants them to.
     If that is behind the grid, a perfectly faithful take -- one that copies the
     feel in your ears -- is marked late by the difference, and no practice will
-    move it. This says how big that difference is, so the number can be read as
-    a property of the reference rather than a fault of the player.
+    move it.
+
+    The answer is written to reference.lock.json and the player subtracts it, so
+    a take's timing reads against the record's feel instead of against a grid
+    nobody played to. Pinned to the chart hash: edit the notation and this needs
+    running again.
     """
     target = _resolve(song)
     try:
@@ -405,18 +409,20 @@ def reference(
         )
     console.print(table)
 
-    every = np.concatenate([row.values for row in measured if row.values.size])
-    mean = float(every.mean())
+    body = reference_mod.save(target, measured, chart_mod.chart_hash(target.tab_midi))
+    mean = float(body["mean_ms"])
     console.print(
-        f"Over {every.size} notes the record sits [bold]{mean:+.1f} ms[/bold] from the "
+        f"Over {body['matched']} notes the record sits [bold]{mean:+.1f} ms[/bold] from the "
         "grid the chart is written on."
     )
     console.print(
         "Positive means the record is behind the chart, so playing along with what you "
-        f"hear scores about {mean:+.0f} ms before you have done anything."
+        f"hear would score about {mean:+.0f} ms before you had done anything -- which is "
+        "why the player now takes it off."
         if mean > 0
         else "Negative means the record is ahead of the chart."
     )
+    console.print(f"written to {reference_mod.path_for(target)}")
 
 
 @app.command()

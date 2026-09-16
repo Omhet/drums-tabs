@@ -15,9 +15,8 @@ JSON so the history is readable by you and by an agent. A **routine** is the
 fixed grid those attempts fill: every section at 70/80/90/100% and then the
 whole song, the same set of cells every run so that two runs can be compared,
 open across as many sittings as it takes and sealed by hand. Two things it
-needs:
-the dev server, because writing files is a Vite plugin's job here and not a
-built page's; and a MIDI port Chrome can open **while your sampler is already
+needs: the dev server, because writing files is a Vite plugin's job here and not
+a built page's; and a MIDI port Chrome can open **while your sampler is already
 holding one** -- the kit is a controller for Superior Drummer in Ableton, so
 two applications want the same module. See `handoff.md` §1 for the test and
 the virtual-port fallback.
@@ -496,10 +495,17 @@ synthetic sealed runs to the route instead and asserts the *reading* of a
 history -- the per-section line and the median that steadies it -- which is the
 part that can be wrong without anyone noticing.
 
-Older candidates, still unstarted: a loop (two keys marking the start and end
-bar), bigger notes (`display.scale` and a Zoom control next to Lines), and a
-count-in on a paused start. Next is M3 in `practice-plan.md`: the history --
-per-cell trend lines and a take-vs-take overlay.
+What is left of M3 in `practice-plan.md` is the per-*cell* trend lines and the
+take-vs-take overlay, and both are worth building only if the per-section lines
+turn out to be too coarse in use -- check that before writing them.
+
+Against that sit the small unscheduled things, which the user has said serve the
+thing they actually value -- playing along with the notation at different tempos
+-- better than the coach milestone does: **a loop** (mark two bars, repeat them),
+a **tempo ramp** on that loop, **bigger notes** (`display.scale` and a Zoom
+control next to Lines), and a **count-in on a paused start**. Step-by-step mode
+(Q12) belongs with them rather than with M4: it needs no scoring, no take format
+and no calibration.
 
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections
@@ -517,12 +523,14 @@ within 15 ms, then plays through the count-in), `check-mix.mjs` (plays at
 picture settles within 60 ms of it, the graph is silent with every fader at 0,
 and the click is audible), and `check-practice.mjs` (opens a routine,
 records one of its cells with injected strokes -- one of each mistake -- and
-asserts the grade, the colours, the extras lane, the take on disk and the cell
-it filled; **reloads the page** the way a Ctrl+S in Live does and asserts the
-run came back with the cell still in it; then runs the calibration ritual with
-strokes placed a known lateness after each click is *heard* and asserts that
-number comes back. It deletes the take and the routine it wrote and restores the
-machine's own calibration). They
+asserts the grade, the three dials, the bar strip, the take on disk and the cell
+it filled, including that the lateness which comes back is the lateness that
+went in *minus the song's reference floor*; **reloads the page** the way a
+Ctrl+S in Live does and asserts the run came back with the cell still in it;
+posts synthetic sealed runs and asserts the trend column reads them and smooths
+them; then runs the calibration ritual with strokes placed a known lateness
+after each click is *heard* and asserts that number comes back. It deletes
+everything it wrote and restores the machine's own calibration). They
 launch the installed Chrome or Edge (`browser.mjs`): Playwright's own Chromium
 cannot decode the H.264 video. Each checks the first song in the list unless
 `SONG=<slug>` names another.

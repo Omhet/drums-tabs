@@ -6,31 +6,44 @@
     <title>drums-tabs</title>
     <!-- No icon file; without this the browser asks for /favicon.ico and logs a 404 on every load. -->
     <link rel="icon" href="data:," />
-    <!-- Apply the saved theme before first paint so the page does not flash. -->
+    <!-- Apply both saved themes before first paint so the page does not flash.
+         They are independent: the chrome and the notation each have their own,
+         and an absent tab theme means "follow the chrome". -->
     <script>
       try {
         const t = localStorage.getItem('theme');
         if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+        const b = localStorage.getItem('tabTheme');
+        if (b === 'light' || b === 'dark') document.documentElement.dataset.tabTheme = b;
       } catch {}
     </script>
     <style>
-      /* Light is the base. Dark applies when chosen with the switch, or when
-         the system prefers it and nothing was chosen. --glass is the notation
-         window's panel over the video: translucent, so the video shows
-         through, but opaque enough for the notes to read on it. */
+      /* Two palettes that do not talk to each other.
+         --* is the chrome: rails, buttons, the routine grid, the reading.
+         --tab-* is the notation pane and only the notation pane, so a dark
+         page can hold a sheet of white paper. The notes themselves are not in
+         here: alphaTab paints those from palette() in main.ts. */
       :root {
         color-scheme: light;
         --bg: #f7f7f8;
         --fg: #1a1a1c;
         --muted: #6b6b73;
         --panel: #ffffff;
-        --glass: rgba(255, 255, 255, 0.86);
         --border: #e2e2e6;
-        /* The routine grid's two verdicts, matching the heatmap's `tight` and
-           `missed` so a green cell and a green notehead mean the same thing. */
+        /* The routine grid's two verdicts. They are the heatmap's `tight` and
+           `missed` in spirit -- a green cell and a green notehead mean the same
+           thing -- but not always the same hex any more: the grid is chrome and
+           takes the interface's theme, while the noteheads are ink and take the
+           notation's (heatmap.ts). Green on a dark rail is lighter than green
+           on white paper, which is the point of having two themes at all. */
         --pass: #208c4e;
         --warn: #c87814;
         --fail: #c82d28;
+        /* How wide the rails are, and how little of the picture is left when
+           the notation is set to Fill. */
+        --rail: 232px;
+        --desk: 400px;
+        --strip: 120px;
       }
       :root[data-theme="dark"] {
         color-scheme: dark;
@@ -38,7 +51,6 @@
         --fg: #ececf0;
         --muted: #9a9aa4;
         --panel: #1f1f24;
-        --glass: rgba(23, 23, 26, 0.84);
         --border: #303038;
         --pass: #50c882;
         --warn: #f0af50;
@@ -51,133 +63,226 @@
           --fg: #ececf0;
           --muted: #9a9aa4;
           --panel: #1f1f24;
-          --glass: rgba(23, 23, 26, 0.84);
           --border: #303038;
           --pass: #50c882;
           --warn: #f0af50;
           --fail: #f56e64;
         }
       }
+      /* The notation pane's own palette. --tab-accent is the heatmap's `extra`
+         colour (heatmap.ts) written as hex, so an extra x and a missed
+         notehead are the same red. With no tab theme chosen the pane follows
+         the chrome, which is what the two blocks after these are for. */
+      :root[data-tab-theme="light"] {
+        --tab-bg: #ffffff;
+        --tab-muted: #6b6b73;
+        --tab-border: #e2e2e6;
+        --tab-accent: #c82d28;
+        --tab-cursor-bar: rgba(255, 200, 0, 0.22);
+        --tab-cursor-beat: rgba(230, 60, 60, 0.85);
+      }
+      :root:not([data-tab-theme]) {
+        --tab-bg: var(--panel);
+        --tab-muted: var(--muted);
+        --tab-border: var(--border);
+        --tab-accent: var(--fail);
+        --tab-cursor-bar: rgba(255, 200, 0, 0.22);
+        --tab-cursor-beat: rgba(230, 60, 60, 0.85);
+      }
+      :root[data-tab-theme="dark"] {
+        --tab-bg: #1f1f24;
+        --tab-muted: #9a9aa4;
+        --tab-border: #303038;
+        --tab-accent: #f56e64;
+        --tab-cursor-bar: rgba(255, 200, 0, 0.16);
+        --tab-cursor-beat: rgba(245, 110, 100, 0.9);
+      }
       html, body { height: 100%; }
       body {
         margin: 0;
         background: var(--bg);
         color: var(--fg);
-        font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+        font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
       }
-      /* One screen: the header and controls take what they need and the stage
-         (video + notation) gets the rest. `overflow-y: auto` is a safety valve,
-         not the normal case -- on a short window the routine grid, the stage
-         and a take's reading together want more than there is, and something
-         being unreachable is worse than a scrollbar that is usually absent. */
-      main {
-        box-sizing: border-box; height: 100%; max-width: 1400px; margin: 0 auto;
-        padding: 14px 20px 10px; display: flex; flex-direction: column;
-        overflow-y: auto;
+      /* Desktop only, and one screen: the controls are a rail down the left,
+         what practice measures is a rail down the right, and everything
+         between is the stage. Only the rails scroll -- the stage is sized to
+         fit and never is. */
+      /* Fixed tracks, not content-sized ones: a rail that grew when a reading
+         arrived would narrow the middle, and alphaTab re-engraves the score
+         whenever its width moves -- at the exact moment you want to read it. */
+      #app {
+        box-sizing: border-box; height: 100%;
+        display: grid; grid-template-columns: var(--rail) minmax(0, 1fr) var(--desk);
+        gap: 12px; padding: 12px;
       }
-      .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-      h1 { font-size: 18px; margin: 0 0 2px; }
-      .sub { color: var(--muted); margin: 0 0 12px; }
-      .sub kbd {
-        font: inherit; padding: 0 5px; border: 1px solid var(--border); border-radius: 4px;
-        background: var(--panel); color: var(--fg);
+      main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+
+      /* --- the rails ----------------------------------------------------- */
+      aside {
+        display: flex; flex-direction: column; gap: 8px;
+        min-height: 0; overflow-y: auto; overscroll-behavior: contain;
       }
-      #theme { padding: 4px 10px; font-size: 16px; line-height: 1; }
-      .controls {
-        display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-        padding: 10px 14px; margin-bottom: 12px;
+      aside::-webkit-scrollbar { width: 8px; }
+      aside::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+      h1 { font-size: 15px; margin: 0 0 2px; padding: 0 2px; letter-spacing: -0.01em; }
+      /* The two switches, side by side: what each one changes on the left, the
+         switch on the right. Together, because the useful thing about having
+         two is setting them against each other -- a dark room and a light
+         score -- and that is a comparison you make in one place. */
+      #theme, #tab-theme { padding: 3px 10px; font-size: 14px; line-height: 1.2; }
+      .row > .name { flex: 1; min-width: 0; color: var(--muted); }
+      .group {
+        display: flex; flex-direction: column; gap: 7px;
+        padding: 8px 11px 10px;
         background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
       }
+      .group > h2 {
+        margin: 0; font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+        text-transform: uppercase; color: var(--muted);
+      }
+      /* Controls side by side on one line of the group. */
+      .row { display: flex; align-items: center; gap: 8px; }
+      /* The right rail is wide enough to hold the routine grid, which leaves a
+         lone button stretched across it looking like a banner. Buttons there
+         are their own width; the outputs beside them still take the slack. */
+      #desk .group > button { align-self: flex-start; }
+      #desk select { max-width: 260px; }
+      .row > .grow { flex: 1; min-width: 0; }
+      select, button, input[type="range"] { font: inherit; }
       select {
-        font: inherit; padding: 5px 8px; border-radius: 6px;
+        width: 100%; padding: 4px 7px; border-radius: 6px;
         border: 1px solid var(--border); background: var(--panel); color: var(--fg);
-        max-width: 22em;
       }
       button {
-        font: inherit; padding: 6px 14px; border-radius: 6px;
+        padding: 5px 12px; border-radius: 6px;
         border: 1px solid var(--border); background: var(--panel); color: var(--fg);
-        cursor: pointer;
+        cursor: pointer; white-space: nowrap;
       }
       button:hover:not(:disabled) { border-color: var(--muted); }
       button:disabled { opacity: 0.5; cursor: default; }
-      label { display: flex; align-items: center; gap: 8px; color: var(--muted); }
-      output { color: var(--fg); font-variant-numeric: tabular-nums; min-width: 3.5em; }
-      .mixer {
-        display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-        padding-left: 16px; border-left: 1px solid var(--border);
-      }
-      .mixer input[type="range"] { width: 90px; }
-      /* The stage: the picture fills it, the notation window sits over the
-         bottom of it. A song with no video bound to its timeline has no
-         picture, and then the notation is the stage (#stage.no-video). */
+      label { display: flex; align-items: center; gap: 7px; color: var(--muted); }
+      output { color: var(--fg); font-variant-numeric: tabular-nums; }
+      /* A fader: name on the left, value on the right, slider under both. */
+      .fader { display: grid; grid-template-columns: 1fr auto; gap: 1px 8px; color: var(--muted); }
+      .fader input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 0; }
+      .fader output { text-align: right; font-size: 12px; }
+
+      /* --- the stage ----------------------------------------------------- */
+      /* The picture on top, the notation under it, neither on top of the
+         other. The Lines control sets how many rows of notation there are and
+         the picture takes what is left; Fill turns that round. */
       #stage {
-        position: relative; flex: 1; min-height: 240px;
+        display: flex; flex-direction: column; gap: 10px;
+        flex: 1; min-height: 0;
+      }
+      #picture {
+        position: relative; flex: 1 1 auto; min-height: 0;
         background: #000; border-radius: 8px; overflow: hidden;
       }
       #video {
         position: absolute; inset: 0; width: 100%; height: 100%;
         object-fit: contain; cursor: pointer;
       }
-      #stage.no-video { background: var(--panel); border: 1px solid var(--border); }
-      #stage.no-video #video { display: none; }
-      /* Nothing behind it to see through, so no glass and no blur -- and no
-         picture to sit over, so the notation starts at the top of the stage
-         instead of hanging off the bottom of it. */
-      #stage.no-video #score-box {
-        top: 0; bottom: auto;
-        background: none; backdrop-filter: none; -webkit-backdrop-filter: none;
+      /* Fill: the notation takes what is left and the picture keeps a strip.
+         min-height: 0 is load-bearing on both -- a flex child's default
+         min-height: auto refuses to shrink below its content, and the split
+         would overflow the stage instead of dividing it. */
+      #stage.fill #picture { flex: 0 0 var(--strip); }
+      #stage.fill #tabs { flex: 1 1 auto; min-height: 0; }
+      /* No picture bound to the timeline: the notation is the stage. */
+      #stage.no-video #picture { display: none; }
+
+      /* The notation pane: solid, themed on its own, and a sibling of the
+         picture rather than a panel over it. */
+      #tabs {
+        display: flex; flex-direction: column;
+        flex: 0 1 auto; min-height: 0; padding: 0 8px;
+        background: var(--tab-bg); border: 1px solid var(--tab-border);
+        border-radius: 8px;
       }
-      /* The Lines control set to Fill: the notation takes the whole stage
-         instead of N rows over the bottom of it (score-window.ts). */
-      #stage.no-video #score-box.fit,
-      #score-box.fit { top: 0; bottom: 0; height: auto; }
       /* The notation window: N lines of the score (score-window.ts sets the
          height), scrolled a whole line at a time so the line being played is
          the top one. It wraps alphaTab's element rather than being it: the
          element keeps its full height and the box clips it. */
-      #score-box {
-        position: absolute; left: 0; right: 0; bottom: 0; height: 260px;
-        padding: 0 8px; overflow: hidden;
-        background: var(--glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-      }
+      /* The 260px only ever applies before the first measure(): with
+         `height: auto` a clipping box is as tall as the whole engraved score,
+         and the notation would swallow the stage on load. score-window.ts
+         overrides it with an inline height a moment later. `0 1 auto` rather
+         than `0 0 auto` so a window too short for four lines clips the bottom
+         row instead of pushing the picture off the top. */
+      #score-box { flex: 0 1 auto; min-height: 0; height: 260px; overflow: hidden; }
+      #score-box.fit { flex: 1 1 auto; height: auto; }
       #status {
-        margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4;
+        margin: 8px 2px 0; color: var(--muted); font-size: 12px; line-height: 1.4;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
+      #status.err { color: var(--fail); }
       /* The sticking letters (sticking.ts): one per beat the hands play,
          placed under the staff from alphaTab's own bounds. The overlay is
          inside alphaTab's element so it scrolls with the score; each letter is
-         centred on the beat it belongs to. */
+         centred on the beat it belongs to. It is ink on the page, so it takes
+         the pane's theme and not the chrome's. */
       #score { position: relative; }
       .sticking span {
         position: absolute; transform: translateX(-50%);
         font: 600 11px/1 ui-monospace, "Cascadia Mono", Consolas, monospace;
-        color: var(--muted); pointer-events: none; white-space: nowrap;
+        color: var(--tab-muted); pointer-events: none; white-space: nowrap;
       }
-      /* --- practice mode ------------------------------------------------ */
-      .practice { margin-top: -6px; }
-      .grow { flex: 1; }
-      #record[data-armed="1"] { border-color: #d33; color: #d33; font-weight: 600; }
-      /* The monitor: the last few hits as they arrive, newest on the right.
-         It is the fastest way to find out what a pad actually sends, so an
-         unmapped note is the thing it shows loudest. */
+      /* Extra notes have nowhere on the staff to be coloured -- nothing was
+         written where you played -- so they get a lane of their own under the
+         bar, placed from alphaTab's bounds the way the sticking letters are. */
+      .extras span {
+        position: absolute; transform: translateX(-50%);
+        font: 700 12px/1 ui-monospace, "Cascadia Mono", Consolas, monospace;
+        color: var(--tab-accent); pointer-events: none; white-space: nowrap;
+      }
+      /* alphaTab creates the cursor elements but leaves them unstyled. */
+      .at-cursor-bar { background: var(--tab-cursor-bar); }
+      .at-cursor-beat { background: var(--tab-cursor-beat); width: 3px; }
+      .at-highlight * { fill: var(--tab-accent); stroke: var(--tab-accent); }
+
+      /* --- the keyboard legend ------------------------------------------- */
+      .keys { margin-top: auto; padding-bottom: 2px; color: var(--muted); font-size: 12px; }
+      .keys summary { cursor: pointer; }
+      .keys p { margin: 7px 0 0; line-height: 1.8; }
+      .keys kbd {
+        font: inherit; padding: 0 5px; border: 1px solid var(--border); border-radius: 4px;
+        background: var(--panel); color: var(--fg);
+      }
+
+      /* --- practice mode ------------------------------------------------- */
+      #record[data-armed="1"] { border-color: var(--fail); color: var(--fail); font-weight: 600; }
+      /* The monitor: the last few hits as they arrive, newest first. It is the
+         fastest way to find out what a pad actually sends, so an unmapped note
+         is the thing it shows loudest. */
       #monitor {
-        display: flex; gap: 6px; overflow: hidden; margin: 0 0 10px;
+        display: flex; flex-wrap: wrap; gap: 5px; margin: 2px 0 0;
         font: 11px/1.6 ui-monospace, "Cascadia Mono", Consolas, monospace;
       }
+      #monitor[hidden] { display: none; }
       #monitor span {
         padding: 1px 7px; border-radius: 4px; white-space: nowrap;
         background: var(--panel); border: 1px solid var(--border); color: var(--muted);
       }
       #monitor span b { color: var(--fg); font-weight: 600; }
-      #monitor span.unmapped { border-color: #d33; color: #d33; }
-      #monitor span.unmapped b { color: #d33; }
+      #monitor span.unmapped { border-color: var(--fail); color: var(--fail); }
+      #monitor span.unmapped b { color: var(--fail); }
+      /* The reading names itself, so the heading cannot outlive the panel it
+         names: both go with the same `hidden` flag. The grid and the monitor
+         need no heading -- they sit inside the group whose buttons made them. */
+      #report::before {
+        display: block; margin: 0 0 8px;
+        font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+        text-transform: uppercase; color: var(--muted);
+        content: "The reading";
+      }
       /* The routine grid (routine.ts): rows are sections, columns the tempo
          ladder, and the last row is the whole song. The same shape every run,
          forever -- that is what makes two runs comparable at all. A filled cell
          shows its accuracy and goes green or red; red is a signal and not a
          gate, so it is not in the way of anything. */
-      #routine { margin: -4px 0 10px; font-size: 12px; }
+      #routine { font-size: 12px; }
       #routine table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
       #routine th {
         padding: 0 10px 0 0; text-align: left; font-weight: normal; color: var(--muted);
@@ -198,7 +303,7 @@
       #routine tr.whole th, #routine tr.whole .cell { font-weight: 600; }
       #routine tr.whole td { padding-top: 5px; }
       #routine tr.whole th { padding-top: 5px; color: var(--fg); }
-      #routine .note { margin: 6px 0 0; color: var(--muted); max-width: 70ch; }
+      #routine .note { margin: 6px 0 0; color: var(--muted); }
       /* The trend column: one line per section across the sealed runs, oldest
          on the left, smoothed as a median of the last three (routine.ts). The
          scale is a fixed 0-100% with the pass threshold dotted on it, so two
@@ -222,11 +327,11 @@
          playing, and averaging them sends you to practise the wrong thing
          (practice-plan Q7). */
       #report {
-        margin: 10px 0 0; padding: 12px 14px; font-size: 12px;
+        padding: 9px 11px 11px; font-size: 12px;
         background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
       }
-      #report .dials { display: flex; gap: 30px; flex-wrap: wrap; }
-      .dial { display: flex; flex-direction: column; gap: 1px; min-width: 118px; cursor: help; }
+      #report .dials { display: flex; gap: 22px; flex-wrap: wrap; }
+      .dial { display: flex; flex-direction: column; gap: 1px; min-width: 104px; cursor: help; }
       .dial .label {
         font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted);
       }
@@ -280,133 +385,163 @@
       #report th, #report td { padding: 1px 12px 1px 0; text-align: left; font-weight: normal; }
       #report th { color: var(--muted); }
       #report td.num { text-align: right; padding-right: 18px; }
-      #report .note { margin: 7px 0 0; color: var(--muted); max-width: 72ch; }
-      /* Extra notes have nowhere on the staff to be coloured -- nothing was
-         written where you played -- so they get a lane of their own under the
-         bar, placed from alphaTab's bounds the way the sticking letters are. */
-      .extras span {
-        position: absolute; transform: translateX(-50%);
-        font: 700 12px/1 ui-monospace, "Cascadia Mono", Consolas, monospace;
-        color: #d33; pointer-events: none; white-space: nowrap;
-      }
-      /* alphaTab creates the cursor elements but leaves them unstyled. */
-      .at-cursor-bar { background: rgba(255, 200, 0, 0.18); }
-      .at-cursor-beat { background: rgba(230, 60, 60, 0.85); width: 3px; }
-      .at-highlight * { fill: #d33; stroke: #d33; }
+      #report .note { margin: 7px 0 0; color: var(--muted); }
     </style>
   </head>
   <body>
-    <main>
-      <div class="top">
-        <div>
-          <h1>drums-tabs</h1>
-          <p class="sub">
-            Notation from <code>songs/&lt;slug&gt;/tab.mid</code> on the song's own clock, synced to the drummer.
-            <kbd>Space</kbd> play/pause &middot; <kbd>&larr;</kbd><kbd>&rarr;</kbd> a bar &middot; <kbd>&uarr;</kbd><kbd>&darr;</kbd> a line
-            &middot; <kbd>Home</kbd> stop &middot; <kbd>[</kbd><kbd>]</kbd> tempo &middot; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> mute a fader &middot; click the score to seek.
-          </p>
-        </div>
-        <button id="theme" title="Switch theme" aria-label="Switch theme"></button>
-      </div>
-      <div class="controls">
-        <label>
-          Song
+    <div id="app">
+      <!-- The left rail: everything you set. Grouped by what it is for, and
+           narrow enough that the stage keeps the width. -->
+      <aside id="rail">
+        <h1>drums-tabs</h1>
+        <div class="group">
+          <h2>Song</h2>
           <select id="song"></select>
-        </label>
-        <button id="play" disabled>Play</button>
-        <button id="stop" disabled>Stop</button>
-        <label>
-          Tempo
-          <input id="speed" type="range" min="25" max="125" value="100" step="5" />
-          <output id="speed-out">100%</output>
-        </label>
-        <label>
-          Lines
-          <select id="lines">
-            <option>1</option>
-            <option selected>2</option>
-            <option>3</option>
-            <option>4</option>
-            <!-- As many as the stage has room for: the default with no video. -->
-            <option value="fit">Fill</option>
-          </select>
-        </label>
-        <!-- Which hand plays what, from sticking.lock.json (`drums sticking`). -->
-        <label title="R and L under the notation">
-          <input id="sticking" type="checkbox" checked />
-          Sticking
-        </label>
+          <div class="row">
+            <button id="play" class="grow" disabled>Play</button>
+            <button id="stop" disabled>Stop</button>
+          </div>
+          <div class="fader">
+            <span>Tempo</span>
+            <output id="speed-out">100%</output>
+            <input id="speed" type="range" min="25" max="125" value="100" step="5" />
+          </div>
+        </div>
         <!-- The mixer: what you hear is the two stems and the click, not the
              video's own soundtrack (that is the full mix). -->
-        <div class="mixer">
-          <label>
-            No drums
-            <input id="fader-nodrums" type="range" min="0" max="100" value="100" />
+        <div class="group">
+          <h2>Mix</h2>
+          <div class="fader">
+            <span>No drums</span>
             <output id="fader-nodrums-out">100%</output>
-          </label>
-          <label>
-            Drums
-            <input id="fader-drums" type="range" min="0" max="100" value="100" />
+            <input id="fader-nodrums" type="range" min="0" max="100" value="100" />
+          </div>
+          <div class="fader">
+            <span>Drums</span>
             <output id="fader-drums-out">100%</output>
-          </label>
-          <label>
-            Click
-            <input id="fader-click" type="range" min="0" max="100" value="0" />
+            <input id="fader-drums" type="range" min="0" max="100" value="100" />
+          </div>
+          <div class="fader">
+            <span>Click</span>
             <output id="fader-click-out">0%</output>
+            <input id="fader-click" type="range" min="0" max="100" value="0" />
+          </div>
+        </div>
+        <div class="group">
+          <h2>Notation</h2>
+          <label>
+            Lines
+            <select id="lines" class="grow">
+              <option>1</option>
+              <option selected>2</option>
+              <option>3</option>
+              <option>4</option>
+              <!-- The notation takes the stage and the picture keeps a strip:
+                   the default with no video. -->
+              <option value="fit">Fill</option>
+            </select>
+          </label>
+          <!-- Which hand plays what, from sticking.lock.json (`drums sticking`). -->
+          <label title="R and L under the notation">
+            <input id="sticking" type="checkbox" checked />
+            Sticking
           </label>
         </div>
-      </div>
-      <!-- Practice mode: what you play, measured against what is written.
-           Dev-mode only -- writing a take needs the dev server (plugins/practice.ts). -->
-      <div class="controls practice">
-        <button id="midi-enable">Enable MIDI</button>
-        <label>
-          Input
-          <select id="midi-port" disabled></select>
-        </label>
-        <button id="calibrate" disabled title="Play steady quarters to the click">Calibrate</button>
-        <output id="calibration">uncalibrated</output>
-        <span class="grow"></span>
-        <button id="record" disabled>Record</button>
-        <output id="cell"></output>
-        <label title="The last few hits, as they arrive">
-          <input id="monitor-on" type="checkbox" />
-          Monitor
-        </label>
-      </div>
-      <div id="monitor" hidden></div>
-      <!-- The routine: the fixed grid of cells one run walks (practice-plan
-           Q5), and the run you are part-way through (Q10). It is a file on
-           disk rewritten after every cell, so saving the Live set -- which
-           reloads this page -- resumes where you were instead of losing it.
-           Sealing is by hand: there is no clock on a routine. -->
-      <div class="controls practice">
-        <button id="routine-start">Start routine</button>
-        <button id="routine-seal" hidden disabled>Seal routine</button>
-        <button
-          id="routine-discard"
-          hidden
-          title="Throw the run away. The takes it filled stay on disk."
-        >
-          Discard
-        </button>
-        <output id="routine-state" class="grow">no routine open</output>
-      </div>
-      <div id="routine" hidden></div>
-      <!-- The master clock: audio/mix.wav, the timeline the beat map, the
-           stems and the notation all refer to. Everything else on the page
-           follows it. No controls: the transport is alphaTab's, and the mixer
-           holds this element's own sound at 0 whenever the stems are playing. -->
-      <audio id="mix" preload="auto"></audio>
-      <div id="stage">
-        <video id="video" playsinline preload="auto"></video>
-        <div id="score-box"><div id="score"></div></div>
-      </div>
-      <!-- The take report: per-limb mean and spread, and the worst bars. The
-           heatmap half of it is on the notation itself (heatmap.ts). -->
-      <div id="report" hidden></div>
-      <p id="status">Loading alphaTab&hellip;</p>
-    </main>
+        <div class="group">
+          <h2>Theme</h2>
+          <div class="row">
+            <span class="name">Interface</span>
+            <button id="theme" title="Switch theme" aria-label="Switch the interface theme"></button>
+          </div>
+          <!-- The notation is themed apart from the chrome: a dark room wants a
+               dark page and, usually, a light score on it. -->
+          <div class="row">
+            <span class="name">Notation</span>
+            <button
+              id="tab-theme"
+              title="Switch the notation's theme"
+              aria-label="Switch the notation's theme"
+            ></button>
+          </div>
+        </div>
+        <details class="keys">
+          <summary>Keys</summary>
+          <p>
+            <kbd>Space</kbd> play/pause &middot; <kbd>&larr;</kbd><kbd>&rarr;</kbd> a bar &middot;
+            <kbd>&uarr;</kbd><kbd>&darr;</kbd> a line &middot; <kbd>Home</kbd> stop &middot;
+            <kbd>[</kbd><kbd>]</kbd> tempo &middot; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> mute a
+            fader &middot; click the score to seek &middot; wheel over the notation to browse.
+          </p>
+        </details>
+      </aside>
+      <main>
+        <!-- The master clock: audio/mix.wav, the timeline the beat map, the
+             stems and the notation all refer to. Everything else on the page
+             follows it. No controls: the transport is alphaTab's, and the mixer
+             holds this element's own sound at 0 whenever the stems are playing. -->
+        <audio id="mix" preload="auto"></audio>
+        <div id="stage">
+          <div id="picture"><video id="video" playsinline preload="auto"></video></div>
+          <div id="tabs"><div id="score-box"><div id="score"></div></div></div>
+        </div>
+        <p id="status">Loading alphaTab&hellip;</p>
+      </main>
+      <!-- The right rail: practice mode, end to end -- what you play, measured
+           against what is written, with each thing next to the button that
+           produced it. Dev-mode only: writing a take needs the dev server
+           (plugins/practice.ts). The reading's heatmap half is not here, it is
+           on the notation itself (heatmap.ts). -->
+      <aside id="desk">
+        <div class="group">
+          <h2>MIDI</h2>
+          <button id="midi-enable">Enable MIDI</button>
+          <label>
+            Input
+            <select id="midi-port" class="grow" disabled></select>
+          </label>
+          <div class="row">
+            <button id="calibrate" disabled title="Play steady quarters to the click">
+              Calibrate
+            </button>
+            <output id="calibration" class="grow">uncalibrated</output>
+          </div>
+          <div class="row">
+            <button id="record" disabled>Record</button>
+            <output id="cell" class="grow"></output>
+          </div>
+          <label title="The last few hits, as they arrive">
+            <input id="monitor-on" type="checkbox" />
+            Monitor
+          </label>
+          <!-- The last few hits as they arrive, newest first. It is the fastest
+               way to find out what a pad actually sends, so it belongs under
+               the switch that turns it on. -->
+          <div id="monitor" hidden></div>
+        </div>
+        <!-- The routine: the fixed grid of cells one run walks (practice-plan
+             Q5), and the run you are part-way through (Q10). It is a file on
+             disk rewritten after every cell, so saving the Live set -- which
+             reloads this page -- resumes where you were instead of losing it.
+             Sealing is by hand: there is no clock on a routine. -->
+        <div class="group">
+          <h2>Routine</h2>
+          <div class="row">
+            <button id="routine-start">Start routine</button>
+            <button id="routine-seal" hidden disabled>Seal</button>
+            <button
+              id="routine-discard"
+              hidden
+              title="Throw the run away. The takes it filled stay on disk."
+            >
+              Discard
+            </button>
+          </div>
+          <output id="routine-state">no routine open</output>
+          <div id="routine" hidden></div>
+        </div>
+        <div id="report" hidden></div>
+      </aside>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

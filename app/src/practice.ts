@@ -192,8 +192,14 @@ export class Practice {
 
   setTheme(dark: boolean) {
     // Only the notation needs telling: alphaTab paints noteheads itself, while
-    // the report is drawn from CSS variables and re-themes with the page.
+    // the report is drawn from CSS variables and re-themes with the interface.
     this.heatmap.setTheme(dark);
+    // The heatmap bakes its colours into a render, so a take already on the
+    // staff would keep the old palette's noteheads until the next take. That
+    // was easy to miss when the switch was up in the header; it is not now
+    // that it sits on the notation itself.
+    const grid = this.loaded?.grid;
+    if (this.result && grid) this.heatmap.show(this.result, grid);
   }
 
   /** Point practice mode at the song the player just loaded. */

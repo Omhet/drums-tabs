@@ -44,16 +44,24 @@ const speedOut = document.getElementById('speed-out') as HTMLOutputElement;
 const linesEl = document.getElementById('lines') as HTMLSelectElement;
 const stickingEl = document.getElementById('sticking') as HTMLInputElement;
 const themeBtn = document.getElementById('theme') as HTMLButtonElement;
+const tabThemeBtn = document.getElementById('tab-theme') as HTMLButtonElement;
 const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
-// --- theme --------------------------------------------------------------------
-// The page is themed by CSS variables, but alphaTab paints the notation in its
-// own colours, so a theme change also re-renders the score with a palette
-// that reads on that background.
+// --- themes -------------------------------------------------------------------
+// Two of them, and they do not have to agree: the chrome is one thing to look
+// at and the notation is another, and a dark room wants a dark page with the
+// notes still on white paper. Both are CSS variables (--* and --tab-*), but
+// alphaTab paints the notes in its own colours, so only the notation's theme
+// re-renders the score.
 
 const systemDark = matchMedia('(prefers-color-scheme: dark)');
 const chosenTheme = () => document.documentElement.dataset.theme as 'light' | 'dark' | undefined;
 const isDark = () => chosenTheme()?.startsWith('dark') ?? systemDark.matches;
+// Nothing chosen for the notation means it follows the chrome, which is what
+// the stylesheet's :root:not([data-tab-theme]) block does for the CSS half.
+const chosenTabTheme = () =>
+  document.documentElement.dataset.tabTheme as 'light' | 'dark' | undefined;
+const isTabDark = () => chosenTabTheme()?.startsWith('dark') ?? isDark();
 
 function palette(dark: boolean): Partial<alphaTab.RenderingResources> {
   const C = alphaTab.model.Color;
@@ -78,7 +86,7 @@ function setStatus(text: string, isError = false) {
   statusEl.textContent = text;
   // One line with an ellipsis; the tooltip has all of it.
   statusEl.title = text;
-  statusEl.style.color = isError ? '#c0392b' : '';
+  statusEl.classList.toggle('err', isError);
 }
 
 // Surface failures in the page, not only the devtools console -- otherwise a
@@ -158,14 +166,19 @@ const api = new alphaTab.AlphaTabApi(scoreEl, {
 });
 
 // --- the notation window ------------------------------------------------------
-// N lines of the score over the picture, or the whole stage when the song has
-// no video. A chosen number is remembered like the theme; with nothing
-// remembered each song gets the default its media implies (see `load`).
+// N lines of the score under the picture, the picture taking what is left --
+// or, on Fill, the notation taking what is left and the picture keeping a
+// strip. A chosen number is remembered like the theme; with nothing remembered
+// each song gets the default its media implies (see `load`).
 
 const scoreWindow = new ScoreWindow(api, document.getElementById('score-box') as HTMLElement);
 function applyLines(lines: Lines) {
   linesEl.value = String(lines);
   scoreWindow.lines = lines;
+  // Which of the two panes grows. ScoreWindow puts `fit` on the box itself
+  // (it stops setting a pixel height); this is the other half of the same
+  // decision, and the stage is where both panes can be reached from.
+  stageEl.classList.toggle('fill', lines === 'fit');
 }
 /** The remembered choice, if there is one that still means something. */
 function savedLines(): Lines | undefined {
@@ -219,32 +232,58 @@ stickingEl.addEventListener('change', () => {
 // the first applyTheme call.
 let onThemeChange: ((dark: boolean) => void) | undefined;
 
-function applyTheme(theme: 'light' | 'dark' | undefined) {
+const glyph = (dark: boolean) => (dark ? '☀' : '☾');
+
+/** The chrome. Cheap: nothing here touches alphaTab. */
+function applyUiTheme(theme: 'light' | 'dark' | undefined) {
   if (theme) document.documentElement.dataset.theme = theme;
   else delete document.documentElement.dataset.theme;
-  const dark = isDark();
-  themeBtn.textContent = dark ? '☀' : '☾';
-  themeBtn.title = dark ? 'Switch to light' : 'Switch to dark';
+  themeBtn.textContent = glyph(isDark());
+  themeBtn.title = isDark() ? 'Switch to light' : 'Switch to dark';
+  // The notation follows the chrome until it is given a theme of its own, so
+  // a change here is a change there too.
+  if (!chosenTabTheme()) applyTabTheme(undefined);
+}
+
+/** The notation. Costs a full re-render: alphaTab bakes the colours in. */
+function applyTabTheme(theme: 'light' | 'dark' | undefined) {
+  if (theme) document.documentElement.dataset.tabTheme = theme;
+  else delete document.documentElement.dataset.tabTheme;
+  const dark = isTabDark();
+  tabThemeBtn.textContent = glyph(dark);
+  tabThemeBtn.title = dark ? 'Light notation' : 'Dark notation';
   Object.assign(api.settings.display.resources, palette(dark));
   onThemeChange?.(dark);
   api.updateSettings();
   if (api.score) api.render();
 }
-themeBtn.addEventListener('click', () => {
-  const next = isDark() ? 'light' : 'dark';
+
+/** Remember a choice, or forget it in private mode. */
+function remember(key: string, value: string) {
   try {
-    localStorage.setItem('theme', next);
+    localStorage.setItem(key, value);
   } catch {
     /* private mode: the choice lasts for this page */
   }
-  applyTheme(next);
+}
+themeBtn.addEventListener('click', () => {
+  const next = isDark() ? 'light' : 'dark';
+  remember('theme', next);
+  applyUiTheme(next);
   themeBtn.blur();
+});
+tabThemeBtn.addEventListener('click', () => {
+  const next = isTabDark() ? 'light' : 'dark';
+  remember('tabTheme', next);
+  applyTabTheme(next);
+  tabThemeBtn.blur();
 });
 // Nothing chosen: follow the system as it changes.
 systemDark.addEventListener('change', () => {
-  if (!chosenTheme()) applyTheme(undefined);
+  if (!chosenTheme()) applyUiTheme(undefined);
 });
-applyTheme(chosenTheme());
+applyUiTheme(chosenTheme());
+applyTabTheme(chosenTabTheme());
 
 // alphaTab's external-media output has no idea what the media is; it calls
 // play/pause/seek on whatever handler it is given and waits for positions to
@@ -395,7 +434,7 @@ const practice = new Practice(
   }
 );
 onThemeChange = (dark) => practice.setTheme(dark);
-practice.setTheme(isDark());
+practice.setTheme(isTabDark());
 
 // Handlers must be attached *before* api.tex(), which fires renderStarted
 // synchronously -- otherwise the first event is missed.
@@ -595,8 +634,8 @@ async function load(slug: string) {
     beats: grid?.beats ?? [],
     accent: (beat) => (beat - barOne) % perBar === 0,
   });
-  // With no picture the notation has the stage to itself, and fills it unless
-  // a number of lines was chosen by hand.
+  // With no picture there is nothing to make room for, so the notation has the
+  // stage to itself unless a number of lines was chosen by hand.
   stageEl.classList.toggle('no-video', !hasVideo);
   applyLines(savedLines() ?? (hasVideo ? 2 : 'fit'));
   api.renderScore(score);

@@ -114,19 +114,30 @@ songs/<slug>/
    "sitting on a grid nobody played to". Pinned to the chart hash like the
    sticking lock, so editing the notation means running it again.
 
-3. **Play** with `cd app && npm run dev`. With a video the notation sits over
-   the bottom of it, two lines of four bars; with none it fills the stage
-   (the Lines control is one to four lines or Fill, and Fill is the default
-   when there is no picture to make room for). The line being played is the
-   top one, and the window moves down a line as soon as the cursor enters the
-   next. Space plays and pauses, the arrow keys go a bar or a line back and
-   forward, Home stops (rewinds to the start of the song), `[` and `]` step
-   the tempo, `1` `2` `3` mute and unmute the faders, a click on the score
-   seeks there, and the mouse wheel over the notation browses it while
-   paused. The faders mix the no-drums stem, the drums stem and a click on
-   the beat map (the clock's own sound is muted: it is the full mix, and with
-   no stem to play it is unmuted instead). Tempo slows all of it, pitch kept.
-   Faders, lines and theme are remembered per browser.
+3. **Play** with `cd app && npm run dev`. The window is three columns: the
+   rail down the left for playing along -- song, transport, tempo, the mixer,
+   the notation settings and the themes -- a rail down the right for practice
+   mode end to end, and between them the stage: the picture on top and the
+   notation under it, never over it. The Lines control is one to four lines of
+   four bars or Fill; on Fill the notation takes the stage and the picture
+   keeps a strip, which is the default when there is no picture to make room
+   for. The line being played is the top one, and the window moves down a line
+   as soon as the cursor enters the next. Space plays and pauses, the arrow
+   keys go a bar or a line back and forward, Home stops (rewinds to the start
+   of the song), `[` and `]` step the tempo, `1` `2` `3` mute and unmute the
+   faders, a click on the score seeks there, and the mouse wheel over the
+   notation browses it while paused. The faders mix the no-drums stem, the
+   drums stem and a click on the beat map (the clock's own sound is muted: it
+   is the full mix, and with no stem to play it is unmuted instead). Tempo
+   slows all of it, pitch kept.
+
+   There are **two themes**, side by side in the rail's Theme group: one for
+   the interface and one for the notation -- its paper, alphaTab's ink, the
+   heatmap's noteheads, the sticking letters and the cursor. They do not have
+   to agree, and the useful thing about having two is setting them against
+   each other: a dark room usually wants a dark interface and a light score.
+   The notation follows the interface until it is given a theme of its own. Faders, lines, sticking and both themes are
+   remembered per browser.
 
 ## Where things stand
 
@@ -174,11 +185,15 @@ things learned:
   clicks too), and forgets booked blips on seek and pause.
 
 And the notation window (step 5, 2026-09-12, `app/src/score-window.ts`):
-the score sits over the bottom of the stage, N lines of four bars, the line
-being played on top. The page is one screen (a flex column: header,
-controls, then the stage takes the rest, the picture filling it), the window
-is a clipped box positioned over the stage with a translucent panel and a
-backdrop blur, and alphaTab's element keeps its full height inside it.
+N lines of four bars, the line being played on top. The page is one screen
+(a grid: a rail, the stage, a rail; only the rails ever scroll), and the
+stage is a vertical split -- the picture takes whatever the notation does
+not want, and on Fill that reverses and the picture keeps a strip. The
+window is a clipped box, solid and themed on its own rather than a
+translucent panel over the picture, and alphaTab's element keeps its full
+height inside it. One line of the window is the *tallest* row, not the
+first: a section name over the staff makes a row taller than its neighbours,
+and a height taken from the first gap clips every row above it.
 alphaTab's own follow-cursor is off (`ScrollMode.Off`); the window reads the
 row geometry from `api.boundsLookup.staffSystems` after `postRenderFinished`
 (each row's top and the bars on it, so the height is `lines` times the row
@@ -515,8 +530,10 @@ Headless checks in `app/scripts/`, all needing `npm run dev`: `smoke.mjs`
 (render + playback), `shot.mjs <png>` (screenshot + sample alphaTex),
 `check-ui.mjs <png>` (drives Space, every shortcut, the Lines control and the
 Sticking switch, asserts the window follows the cursor a line at a time playing
-and paused, and screenshots line 2 in both themes: `<png>` and
-`<png minus .png>-dark.png`), and
+and paused, asserts the notation never overlaps the picture and that Fill
+leaves the picture the strip `--strip` sets, and screenshots line 2 three
+times: `<png>`, `<png minus .png>-dark.png`, and `-dark-light-tabs.png`, the
+dark interface with light notation the two themes are for), and
 `check-sync.mjs` (seeks every bar both ways and asserts clock and cursor agree
 within 15 ms, then plays through the count-in), `check-mix.mjs` (plays at
 100% and 50% and asserts the stems stay within 20 ms of the clock and the
@@ -525,7 +542,9 @@ and the click is audible), and `check-practice.mjs` (opens a routine,
 records one of its cells with injected strokes -- one of each mistake -- and
 asserts the grade, the three dials, the bar strip, the take on disk and the cell
 it filled, including that the lateness which comes back is the lateness that
-went in *minus the song's reference floor*; **reloads the page** the way a
+went in *minus the song's reference floor*; screenshots the reading in its rail
+to `app/shots/practice.png`, because whether it fits is not a thing a count can
+answer; **reloads the page** the way a
 Ctrl+S in Live does and asserts the run came back with the cell still in it;
 posts synthetic sealed runs and asserts the trend column reads them and smooths
 them; then runs the calibration ritual with strokes placed a known lateness

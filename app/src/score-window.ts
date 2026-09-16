@@ -41,7 +41,7 @@ const WHEEL_STEP = 40;
 export class ScoreWindow {
   private rows: Row[] = [];
   private rowOfBar: number[] = [];
-  /** Distance from one row's top to the next, in px. */
+  /** The tallest row, in px: what one line of the window has to make room for. */
   private pitch = 0;
   private topRow = 0;
   private wheelAcc = 0;
@@ -75,6 +75,12 @@ export class ScoreWindow {
       },
       { passive: false }
     );
+    // The box's height now changes without a re-render: the stage is a
+    // vertical split and alphaTab only re-engraves when its *width* moves. A
+    // taller or shorter box clamps scrollTop against a different maximum, so
+    // near the end of the score the top row would drift half a line. No loop:
+    // show() writes scrollTop, which resizes nothing.
+    new ResizeObserver(() => this.show(this.topRow)).observe(box);
   }
 
   /** How many rows the window shows, or 'fit' for as many as there is room for. */
@@ -131,10 +137,16 @@ export class ScoreWindow {
     this.rows.forEach((r, i) => {
       for (const b of r.bars) this.rowOfBar[b] = i;
     });
-    // Rows are equally spaced; a one-row score is as tall as that row.
-    const first = this.rows[0];
-    const second = this.rows[1];
-    this.pitch = second && first ? second.top - first.top : (systems[0]?.realBounds.h ?? 0);
+    // Rows are *not* equally spaced: a section name over the staff, or a note
+    // reaching far above or below it, makes a row taller than its neighbours.
+    // The window takes the tallest, so whichever N rows it lands on they fit
+    // whole -- a height computed from the rows currently shown would be right
+    // more often but would move the picture above it on every line.
+    let pitch = systems[systems.length - 1]?.realBounds.h ?? 0;
+    for (let i = 1; i < this.rows.length; i++) {
+      pitch = Math.max(pitch, this.rows[i]!.top - this.rows[i - 1]!.top);
+    }
+    this.pitch = pitch;
     this.resize();
     this.show(this.topRow);
   }

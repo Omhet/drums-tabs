@@ -1,14 +1,15 @@
 // Drive the player headless: press Space, look at the cursor and the chrome,
 // then check the notation window follows the cursor a line at a time and the
 // keyboard shortcuts do what the legend says. Writes a screenshot of the
-// window on its second line in the light theme, and one in the dark theme
-// next to it (<out>-dark.png).
+// window on its second line in the light theme, one in the dark theme next to
+// it (<out>-dark.png), and one of the pairing the second theme is for: a dark
+// interface with light notation (<out>-dark-light-tabs.png).
 //
 // Usage: node scripts/check-ui.mjs <out.png>
 import { launch, pageUrl, waitForPlayer } from './browser.mjs';
 const out = process.argv[2];
 const browser = await launch();
-const page = await browser.newPage({ viewport: { width: 1200, height: 700 } });
+const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 await page.goto(pageUrl());
@@ -31,6 +32,8 @@ const snapshot = () =>
     };
     const c = rect(beat);
     const b = rect(box);
+    const picture = rect(document.getElementById('picture'));
+    const tabs = rect(document.getElementById('tabs'));
     const inside = !!(c && b && c.y >= b.y && c.y + c.h <= b.y + b.h && c.x >= b.x && c.x + c.w <= b.x + b.w);
     const ticksPerBar = 960 * (d.current?.grid?.meter.beats_per_bar ?? 4);
     const texts = [...document.querySelectorAll('#score text')];
@@ -42,6 +45,11 @@ const snapshot = () =>
       mix: { time: Math.round(d.mix.currentTime * 1000) / 1000, paused: d.mix.paused, rate: d.mix.playbackRate },
       cursor: c,
       box: b,
+      picture,
+      tabs,
+      // The point of the split: the notation is under the picture, never on
+      // top of it. A song with no video has no picture to compare against.
+      overlap: !!(picture && tabs) && picture.y + picture.h > tabs.y,
       cursorInside: inside,
       speed: document.getElementById('speed').value,
       faders: Object.fromEntries(['nodrums', 'drums', 'click'].map((f) => [f, document.getElementById(`fader-${f}`).value])),
@@ -123,21 +131,33 @@ console.log('home:', JSON.stringify({ mix: s.mix, row: s.row, bar: s.bar }));
 check(s.mix.paused && s.mix.time === 0, `Home left the clock at ${s.mix.time}s paused=${s.mix.paused}`);
 check(s.row === 0, `Home left the window on row ${s.row}`);
 
-// 7. Lines: 3 makes the window a line taller than 2, and Fill takes the whole
-// stage (which is the default for a song with no video, so start from 2
-// rather than from whatever this song loaded with).
+// 7. The stage is a split, not an overlay: the notation sits under the
+// picture at every setting. 3 lines makes the window a line taller than 2, and
+// Fill turns the split round -- the notation takes what is left and the
+// picture keeps the strip --strip sets. (Fill is the default for a song with
+// no video, so start from 2 rather than from whatever this song loaded with.)
 await page.selectOption('#lines', '2');
 await page.waitForTimeout(200);
-const h2 = (await snapshot()).box.h;
+s = await snapshot();
+const h2 = s.box.h;
+check(!s.overlap, `the notation overlaps the picture at 2 lines: ${JSON.stringify({ picture: s.picture, tabs: s.tabs })}`);
 await page.selectOption('#lines', '3');
 await page.waitForTimeout(200);
 s = await snapshot();
-check(s.lines === 3 && s.box.h > h2 + 100, `3 lines made the window ${s.box.h}px (2 lines was ${h2}px)`);
+check(s.lines === 3 && s.box.h > h2 + 60, `3 lines made the window ${s.box.h}px (2 lines was ${h2}px)`);
 await page.selectOption('#lines', 'fit');
-await page.waitForTimeout(200);
+await page.waitForTimeout(300);
 s = await snapshot();
-const stage = await page.evaluate(() => Math.round(document.getElementById('stage').getBoundingClientRect().height));
-check(s.lines === 'fit' && Math.abs(s.box.h - stage) <= 2, `Fill made the window ${s.box.h}px of a ${stage}px stage`);
+const strip = await page.evaluate(() =>
+  Math.round(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--strip')))
+);
+console.log('fill:', JSON.stringify({ picture: s.picture, tabs: s.tabs, box: s.box, strip }));
+check(s.lines === 'fit' && s.box.h > h2, `Fill made the window ${s.box.h}px (2 lines was ${h2}px)`);
+check(!s.overlap, `the notation overlaps the picture on Fill: ${JSON.stringify({ picture: s.picture, tabs: s.tabs })}`);
+check(
+  !s.picture || Math.abs(s.picture.h - strip) <= 2,
+  `Fill left the picture ${s.picture?.h}px, expected the ${strip}px strip`
+);
 await page.selectOption('#lines', '2');
 
 // 8. Sticking: R and L under the notation, and the switch turns them off. A
@@ -155,7 +175,9 @@ if (hasSticking) {
 }
 console.log('sticking:', hasSticking ? `${s.sticking} letters` : 'none for this song');
 
-// 9. Dark theme screenshot of line 2 (a seek while paused moves the window too).
+// 9. Dark theme screenshot of line 2 (a seek while paused moves the window
+// too). The interface switch takes the notation with it while the notation has
+// no theme of its own, so this is both of them going dark.
 await page.evaluate(() => window.drums.seekToBar(4));
 await page.waitForTimeout(400);
 const dark = await page.evaluate(() => {
@@ -169,9 +191,28 @@ s = await snapshot();
 check(dark === 'dark', `theme switch left data-theme=${dark}`);
 check(s.row === 1 && s.cursorInside, `after the theme re-render the window is on row ${s.row}, cursor inside ${s.cursorInside}`);
 await page.screenshot({ path: out.replace(/\.png$/, '-dark.png') });
+
+// 10. The notation's own switch: light paper on a dark page, with the
+// interface left where it was. This is the pairing the second theme is for.
+const themes = await page.evaluate(() => {
+  document.getElementById('tab-theme').click();
+  const d = document.documentElement.dataset;
+  return { ui: d.theme, tabs: d.tabTheme };
+});
+await page.waitForTimeout(1500);
+s = await snapshot();
+check(themes.tabs === 'light', `the notation switch left data-tab-theme=${themes.tabs}`);
+check(themes.ui === 'dark', `the notation switch changed the interface to ${themes.ui}`);
+check(
+  s.row === 1 && s.cursorInside,
+  `after the notation re-render the window is on row ${s.row}, cursor inside ${s.cursorInside}`
+);
+console.log('themes:', JSON.stringify(themes));
+await page.screenshot({ path: out.replace(/\.png$/, '-dark-light-tabs.png') });
 await page.evaluate(() => {
   document.getElementById('theme').click();
   localStorage.removeItem('theme');
+  localStorage.removeItem('tabTheme');
   localStorage.removeItem('lines');
   localStorage.removeItem('sticking');
 });

@@ -20,6 +20,10 @@ songs/*/debug/
 # recreated by `npm run build` / `npm run dev`.
 app/public/
 
+# Screenshots the headless checks write. Regenerable, and a binary that
+# changes on every run is not worth a diff.
+app/shots/
+
 # The latency calibration: a property of this machine's audio path, not of the
 # project. Every take stamps the value it used, so takes stay comparable
 # across machines without this being shared (practice-plan Q9).

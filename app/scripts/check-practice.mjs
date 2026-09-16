@@ -21,8 +21,10 @@
 // reason a routine is a file rather than a variable.
 //
 // It cleans up the take and the routine it writes: both directories are tracked
-// in git and a check should not leave anything behind.
-import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+// in git and a check should not leave anything behind. It also writes
+// shots/practice.png once the reading is up: the reading lives in a rail of a
+// fixed width now, and whether it fits is not something a count can answer.
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launch, pageUrl, waitForPlayer } from './browser.mjs';
@@ -55,7 +57,9 @@ const check = (ok, label, detail = '') => {
 };
 
 const browser = await launch();
-const context = await browser.newContext();
+// The same desktop the UI check shoots, so the two screenshots are comparable
+// and the rails are the width they are meant to be.
+const context = await browser.newContext({ viewport: { width: 1600, height: 900 } });
 const page = await context.newPage();
 const pageErrors = [];
 page.on('pageerror', (e) => pageErrors.push(String(e)));
@@ -274,6 +278,11 @@ const out = await page.evaluate(() => {
     status: document.getElementById('status').textContent.trim(),
   };
 });
+
+// Next to the UI check's screenshots, wherever the script was run from.
+const shot = join(fileURLToPath(new URL('../shots', import.meta.url)), 'practice.png');
+mkdirSync(fileURLToPath(new URL('../shots', import.meta.url)), { recursive: true });
+await page.screenshot({ path: shot });
 
 const g = out.grade ?? {};
 check(!!out.grade, 'the take was graded');

@@ -1,5 +1,6 @@
 import * as alphaTab from '@coderline/alphatab';
 import songs from 'virtual:songs';
+import { say } from './icons';
 import { MixClock } from './media';
 import { midiToAlphaTex, type TabResult } from './midi-tab';
 import { FADERS, Mixer, type Fader } from './mixer';
@@ -285,6 +286,42 @@ systemDark.addEventListener('change', () => {
 applyUiTheme(chosenTheme());
 applyTabTheme(chosenTabTheme());
 
+// --- the rails ----------------------------------------------------------------
+// Either rail folds down to one icon wide (the [data-rail="icons"] rules in
+// index.html do the work). Remembered like the themes, and applied before
+// first paint by the same script in the head: the middle column's width is
+// what alphaTab engraves against, so the page has to start at the width it
+// means to keep. Collapsing later costs one re-engrave, which is what a
+// deliberate click is allowed to cost -- but nothing here may be animated.
+
+type Side = 'rail' | 'desk';
+const SIDES: readonly Side[] = ['rail', 'desk'];
+const sideToggle: Record<Side, HTMLButtonElement> = {
+  rail: byId('rail-toggle'),
+  desk: byId('desk-toggle'),
+};
+
+function applyRail(side: Side, icons: boolean) {
+  const root = document.documentElement;
+  if (icons) root.dataset[side] = 'icons';
+  else delete root.dataset[side];
+  sideToggle[side].setAttribute('aria-expanded', String(!icons));
+  sideToggle[side].title = icons ? 'Show the labels' : 'Collapse to icons';
+}
+
+for (const side of SIDES) {
+  // The attribute is already set (or not) by the head script; this only
+  // catches the button up with it, so there is one source of truth for the
+  // width the score is first engraved against.
+  applyRail(side, document.documentElement.dataset[side] === 'icons');
+  sideToggle[side].addEventListener('click', () => {
+    const icons = document.documentElement.dataset[side] !== 'icons';
+    applyRail(side, icons);
+    remember(side, icons ? 'icons' : 'wide');
+    sideToggle[side].blur();
+  });
+}
+
 // alphaTab's external-media output has no idea what the media is; it calls
 // play/pause/seek on whatever handler it is given and waits for positions to
 // be pushed back. The video element plays that part.
@@ -463,7 +500,11 @@ api.playerReady.on(() => {
 });
 
 api.playerStateChanged.on((e) => {
-  playBtn.textContent = e.state === alphaTab.synth.PlayerState.Playing ? 'Pause' : 'Play';
+  const playing = e.state === alphaTab.synth.PlayerState.Playing;
+  // The word and the glyph that stands in for it when the rail is collapsed,
+  // written together so they cannot disagree (icons.ts).
+  if (playing) say(playBtn, 'Pause', '⏸');
+  else say(playBtn, 'Play', '▶');
 });
 
 // Blur after a click so a following Space toggles playback once, not twice
@@ -696,10 +737,67 @@ function seekLines(delta: number) {
   if (bar !== undefined) seekToBar(bar);
 }
 
+// --- zen --------------------------------------------------------------------
+// The picture and the notation, nothing else, and the browser's own fullscreen
+// under them. Two states that have to agree and only one of them is ours: the
+// browser can leave fullscreen without asking (Esc, F11, a policy, the OS). So
+// zen is only ever *entered* deliberately here, and fullscreenchange is the
+// one thing allowed to end it.
+
+const zenExitBtn = byId<HTMLButtonElement>('zen-exit');
+let zen = false;
+
+/** The page's half of it: the chrome goes, the stage takes the window. */
+function paintZen(on: boolean) {
+  zen = on;
+  // A value, not the bare attribute: the CSS only asks whether it is there,
+  // but an empty string reads back as false to anything checking dataset.zen.
+  if (on) document.documentElement.dataset.zen = 'on';
+  else delete document.documentElement.dataset.zen;
+}
+
+function setZen(on: boolean) {
+  if (on === zen) return;
+  paintZen(on);
+  if (on) {
+    // Nothing awaited before this: requestFullscreen is only allowed while the
+    // gesture that led here is still live, and an await would spend it.
+    void document.documentElement.requestFullscreen().catch((err: Error) => {
+      // Refused -- no gesture, a kiosk policy, an OS that says no. Stay in zen
+      // rather than snapping back: the page is still the page, and this
+      // message is visible because an error is the one thing zen keeps.
+      setStatus(`Fullscreen refused: ${err.message}. Z or Esc leaves zen.`, true);
+    });
+  } else if (document.fullscreenElement) {
+    void document.exitFullscreen().catch(() => {
+      /* already out: fullscreenchange has the last word either way */
+    });
+  }
+}
+
+// Whatever caused it, the browser leaving fullscreen is the end of zen. Never
+// the reverse: F11 is browser fullscreen, which sets no fullscreenElement and
+// is not zen.
+document.addEventListener('fullscreenchange', () => {
+  if (zen && !document.fullscreenElement) paintZen(false);
+});
+// Esc while fullscreen is eaten by the browser and never reaches the page, so
+// the listener above is what Esc is really wired to. This covers the one case
+// it cannot: zen that never got fullscreen. Its own listener rather than an
+// entry in `keys`, which preventDefaults everything in it -- Escape belongs to
+// the browser.
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Escape' && zen && !document.fullscreenElement) paintZen(false);
+});
+zenExitBtn.addEventListener('click', () => {
+  setZen(false);
+  zenExitBtn.blur();
+});
+
 // --- keyboard -------------------------------------------------------------------
 // From anywhere except a control that uses the key itself (a select, a
 // slider being dragged). Space is play/pause; Home is Stop; arrows seek by a
-// bar or a line; brackets step the tempo; 1/2/3 mute a fader.
+// bar or a line; brackets step the tempo; 1/2/3 mute a fader; Z is zen.
 const keys: Record<string, () => void> = {
   Space: () => {
     if (!playBtn.disabled) api.playPause();
@@ -714,6 +812,7 @@ const keys: Record<string, () => void> = {
   Digit1: () => toggleFader('nodrums'),
   Digit2: () => toggleFader('drums'),
   Digit3: () => toggleFader('click'),
+  KeyZ: () => setZen(!zen),
 };
 document.addEventListener('keydown', (e) => {
   const action = keys[e.code];

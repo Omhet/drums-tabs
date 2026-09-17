@@ -15,6 +15,13 @@
         if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
         const b = localStorage.getItem('tabTheme');
         if (b === 'light' || b === 'dark') document.documentElement.dataset.tabTheme = b;
+        // The rails, before first paint for a stronger reason than the flash:
+        // the middle column's width is what alphaTab engraves the score
+        // against, so a rail that collapsed a moment after load would cost a
+        // full re-engrave on every single load.
+        for (const side of ['rail', 'desk']) {
+          if (localStorage.getItem(side) === 'icons') document.documentElement.dataset[side] = 'icons';
+        }
       } catch {}
     </script>
     <style>
@@ -39,11 +46,13 @@
         --pass: #208c4e;
         --warn: #c87814;
         --fail: #c82d28;
-        /* How wide the rails are, and how little of the picture is left when
-           the notation is set to Fill. */
+        /* How wide the rails are, collapsed and open, and how much of the
+           screen the picture keeps when the notation is set to Fill. A third:
+           Fill is the mode you read the notation in, and the picture is still
+           there to be watched rather than glanced at. */
         --rail: 232px;
         --desk: 400px;
-        --strip: 120px;
+        --fill-picture: 33.333vh;
       }
       :root[data-theme="dark"] {
         color-scheme: dark;
@@ -167,6 +176,85 @@
       .fader { display: grid; grid-template-columns: 1fr auto; gap: 1px 8px; color: var(--muted); }
       .fader input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 0; }
       .fader output { text-align: right; font-size: 12px; }
+      /* The rail's own heading line: the title, and the button that folds the
+         rail away. The right rail has no title, so its button stands alone. */
+      .rail-head { display: flex; align-items: center; gap: 8px; }
+      .rail-head h1 { flex: 1; min-width: 0; }
+      #desk-toggle { align-self: flex-end; }
+
+      /* --- the rails, one icon wide --------------------------------------- */
+      /* The same controls, not a second set of them: a button keeps its word
+         for the tooltip and the screen reader and grows a glyph in place of
+         it, a select keeps its native arrow and its native popup, a checkbox
+         is already icon-sized. What has no icon -- a fader, a reading, the
+         routine grid -- is not there until the rail is opened again.
+         46 = 34 (the icon) + 2x5 (the group's padding) + 2x1 (its border).
+         Nothing here may be animated: the width of the middle column is what
+         alphaTab engraves against, and a transition would re-engrave the whole
+         score once a frame for the length of it. */
+      :root[data-rail="icons"] { --rail: 46px; }
+      :root[data-desk="icons"] { --desk: 46px; }
+      :root[data-rail="icons"] #rail :is(h1, h2, .fader, .keys, output, label > span, .row > .name),
+      :root[data-desk="icons"] #desk
+        :is(h1, h2, .fader, .keys, output, label > span, .row > .name, #monitor, #routine, #report) {
+        display: none;
+      }
+      :root[data-rail="icons"] #rail .group,
+      :root[data-desk="icons"] #desk .group { padding: 7px 5px 8px; gap: 6px; }
+      /* A fader has no icon -- it is a position, not a state -- so the Mix
+         group comes out of the collapse as an empty panel. Asked as "a group
+         with nothing left in it" rather than by name, so the next group made
+         of faders does not need this rule written again. (The faders are still
+         on 1/2/3, and the tempo on [ and ].) */
+      :root[data-rail="icons"] #rail .group:not(:has(button, select, input[type="checkbox"])),
+      :root[data-desk="icons"] #desk .group:not(:has(button, select, input[type="checkbox"])) {
+        display: none;
+      }
+      /* Two buttons do not fit side by side across 34px. */
+      :root[data-rail="icons"] #rail .row,
+      :root[data-desk="icons"] #desk .row { flex-direction: column; align-items: flex-start; gap: 6px; }
+      /* Width and padding only, never display: [hidden] on Seal and Discard is
+         a rule of the same specificity and would lose to one set here. */
+      :root[data-rail="icons"] #rail button,
+      :root[data-desk="icons"] #desk button {
+        width: 34px; padding: 5px 0; text-align: center; flex: none; align-self: flex-start;
+      }
+      /* The word goes to nothing and the glyph is drawn in its place. ::before
+         inherits the 0, so its own size has to be absolute -- em and % resolve
+         against 0 and draw nothing. Only buttons carrying a data-icon: the two
+         theme switches already *are* their glyph (applyUiTheme writes it as
+         their text) and would be blanked by this. */
+      :root[data-rail="icons"] #rail button[data-icon],
+      :root[data-desk="icons"] #desk button[data-icon] { font-size: 0; }
+      :root[data-rail="icons"] #rail button[data-icon]::before,
+      :root[data-desk="icons"] #desk button[data-icon]::before {
+        content: attr(data-icon);
+        font-size: 15px; font-weight: 600; line-height: 1.3; display: inline-block;
+      }
+      /* A select the width of its own arrow, still a real select: font-size: 0
+         hides the chosen option's text and leaves the arrow, which the browser
+         draws at a fixed size. It also collapses the control's height, hence
+         the explicit one, and it is inherited by the popup, hence the size put
+         back on the options. `color: transparent` is not the alternative it
+         looks like -- the arrow is painted in the element's own colour. */
+      :root[data-rail="icons"] #rail select,
+      :root[data-desk="icons"] #desk select {
+        width: 34px; max-width: 34px; height: 27px; padding: 4px 0; font-size: 0;
+      }
+      :root[data-rail="icons"] #rail select option,
+      :root[data-desk="icons"] #desk select option { font-size: 13px; }
+      /* A scrollbar would eat 8 of the 46, and the icons fit without one. */
+      :root[data-rail="icons"] #rail, :root[data-desk="icons"] #desk { scrollbar-width: none; }
+      :root[data-rail="icons"] #rail::-webkit-scrollbar,
+      :root[data-desk="icons"] #desk::-webkit-scrollbar { width: 0; }
+      /* Two switches, the same glyph, and collapsed there is no "Interface" or
+         "Notation" beside them to say which is which. The notation's is the
+         one with the note on it. */
+      :root[data-rail="icons"] #tab-theme { position: relative; }
+      :root[data-rail="icons"] #tab-theme::after {
+        content: "\266A"; position: absolute; right: 2px; bottom: 0;
+        font-size: 9px; line-height: 1; color: var(--muted);
+      }
 
       /* --- the stage ----------------------------------------------------- */
       /* The picture on top, the notation under it, neither on top of the
@@ -176,19 +264,22 @@
         display: flex; flex-direction: column; gap: 10px;
         flex: 1; min-height: 0;
       }
-      #picture {
-        position: relative; flex: 1 1 auto; min-height: 0;
-        background: #000; border-radius: 8px; overflow: hidden;
-      }
+      /* The picture is a region, not a panel: no background of its own, and
+         the video sized to its own shape inside it. A fixed box with the video
+         letterboxed in it would be black bars either side at every setting,
+         and most of the frame on Fill. width/height: auto against max-*: 100%
+         is the scale-to-fit a replaced element does for itself, aspect ratio
+         kept, and margin: auto centres what comes out. */
+      #picture { flex: 1 1 auto; min-height: 0; display: flex; }
       #video {
-        position: absolute; inset: 0; width: 100%; height: 100%;
-        object-fit: contain; cursor: pointer;
+        margin: auto; width: auto; height: auto; max-width: 100%; max-height: 100%;
+        object-fit: contain; border-radius: 8px; background: #000; cursor: pointer;
       }
-      /* Fill: the notation takes what is left and the picture keeps a strip.
-         min-height: 0 is load-bearing on both -- a flex child's default
-         min-height: auto refuses to shrink below its content, and the split
-         would overflow the stage instead of dividing it. */
-      #stage.fill #picture { flex: 0 0 var(--strip); }
+      /* Fill: the notation takes what is left and the picture keeps its third
+         of the screen. min-height: 0 is load-bearing on both -- a flex child's
+         default min-height: auto refuses to shrink below its content, and the
+         split would overflow the stage instead of dividing it. */
+      #stage.fill #picture { flex: 0 0 var(--fill-picture); }
       #stage.fill #tabs { flex: 1 1 auto; min-height: 0; }
       /* No picture bound to the timeline: the notation is the stage. */
       #stage.no-video #picture { display: none; }
@@ -250,6 +341,39 @@
         font: inherit; padding: 0 5px; border: 1px solid var(--border); border-radius: 4px;
         background: var(--panel); color: var(--fg);
       }
+
+      /* --- zen ------------------------------------------------------------ */
+      /* The picture and the notation, and the browser's own fullscreen under
+         them. The grid is collapsed to a single track rather than just having
+         its rails hidden: with display: none the asides stop being grid items
+         and <main> would place itself in the 232px first column. */
+      :root[data-zen] #app { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0; }
+      :root[data-zen] :is(#rail, #desk) { display: none; }
+      :root[data-zen] #stage { gap: 0; }
+      /* Edge to edge: a rounded corner against the side of the screen reads as
+         a gap rather than as a detail. */
+      :root[data-zen] #tabs { border-radius: 0; border-width: 1px 0 0; }
+      :root[data-zen] #video { border-radius: 0; }
+      /* Chrome paints a black backdrop behind the fullscreen element, and the
+         page's own background is what covers it. */
+      :root:fullscreen { background: var(--bg); }
+      /* Zen hides the reading, not the alarms. An error is the one thing you
+         cannot act on if you cannot see it -- including "the browser refused
+         fullscreen", which is what makes a zen that never got fullscreen
+         something you can find your way out of. */
+      :root[data-zen] #status { display: none; }
+      :root[data-zen] #status.err { display: block; margin: 0; padding: 6px 10px; }
+      /* The way out for the mouse: a corner that is not there until you go
+         looking for it. A real button, so it is the way out for Tab as well.
+         It lives outside #app so it never becomes a grid item, and opacity is
+         safe to animate where a width would not be -- it resizes nothing. */
+      #zen-exit { display: none; }
+      :root[data-zen] #zen-exit {
+        display: block; position: fixed; top: 0; right: 0; z-index: 2;
+        width: 44px; height: 44px; padding: 0; border-radius: 0 0 0 8px;
+        opacity: 0; transition: opacity 120ms;
+      }
+      :root[data-zen] #zen-exit:is(:hover, :focus-visible) { opacity: 1; }
 
       /* --- practice mode ------------------------------------------------- */
       #record[data-armed="1"] { border-color: var(--fail); color: var(--fail); font-weight: 600; }
@@ -393,13 +517,31 @@
       <!-- The left rail: everything you set. Grouped by what it is for, and
            narrow enough that the stage keeps the width. -->
       <aside id="rail">
-        <h1>drums-tabs</h1>
+        <div class="rail-head">
+          <h1>drums-tabs</h1>
+          <!-- Open it says «, collapsed the font-size: 0 rule swaps in
+               data-icon's ». The glyph is a function of the state and the
+               state is CSS, so there is nothing for the script to keep up. -->
+          <button
+            id="rail-toggle"
+            data-icon="»"
+            aria-controls="rail"
+            aria-expanded="true"
+            aria-label="The controls"
+          >
+            «
+          </button>
+        </div>
         <div class="group">
           <h2>Song</h2>
-          <select id="song"></select>
+          <select id="song" title="Song" aria-label="Song"></select>
           <div class="row">
-            <button id="play" class="grow" disabled>Play</button>
-            <button id="stop" disabled>Stop</button>
+            <button id="play" class="grow" data-icon="▶" title="Play or pause" aria-label="Play or pause" disabled>
+              Play
+            </button>
+            <button id="stop" data-icon="⏹" title="Stop and rewind" aria-label="Stop and rewind" disabled>
+              Stop
+            </button>
           </div>
           <div class="fader">
             <span>Tempo</span>
@@ -430,21 +572,21 @@
         <div class="group">
           <h2>Notation</h2>
           <label>
-            Lines
-            <select id="lines" class="grow">
+            <span>Lines</span>
+            <select id="lines" class="grow" title="How many lines of notation" aria-label="Lines of notation">
               <option>1</option>
               <option selected>2</option>
               <option>3</option>
               <option>4</option>
-              <!-- The notation takes the stage and the picture keeps a strip:
-                   the default with no video. -->
+              <!-- The notation takes the stage and the picture keeps a third
+                   of the screen: the default with no video. -->
               <option value="fit">Fill</option>
             </select>
           </label>
           <!-- Which hand plays what, from sticking.lock.json (`drums sticking`). -->
           <label title="R and L under the notation">
             <input id="sticking" type="checkbox" checked />
-            Sticking
+            <span>Sticking</span>
           </label>
         </div>
         <div class="group">
@@ -470,7 +612,8 @@
             <kbd>Space</kbd> play/pause &middot; <kbd>&larr;</kbd><kbd>&rarr;</kbd> a bar &middot;
             <kbd>&uarr;</kbd><kbd>&darr;</kbd> a line &middot; <kbd>Home</kbd> stop &middot;
             <kbd>[</kbd><kbd>]</kbd> tempo &middot; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> mute a
-            fader &middot; click the score to seek &middot; wheel over the notation to browse.
+            fader &middot; <kbd>Z</kbd> zen (<kbd>Esc</kbd> leaves) &middot; click the score to seek
+            &middot; wheel over the notation to browse.
           </p>
         </details>
       </aside>
@@ -492,26 +635,45 @@
            (plugins/practice.ts). The reading's heatmap half is not here, it is
            on the notation itself (heatmap.ts). -->
       <aside id="desk">
+        <button
+          id="desk-toggle"
+          data-icon="«"
+          aria-controls="desk"
+          aria-expanded="true"
+          aria-label="Practice mode"
+        >
+          »
+        </button>
         <div class="group">
           <h2>MIDI</h2>
-          <button id="midi-enable">Enable MIDI</button>
+          <button id="midi-enable" data-icon="♪" title="Let the page read your kit" aria-label="Enable MIDI">
+            Enable MIDI
+          </button>
           <label>
-            Input
-            <select id="midi-port" class="grow" disabled></select>
+            <span>Input</span>
+            <select id="midi-port" class="grow" title="MIDI input" aria-label="MIDI input" disabled></select>
           </label>
           <div class="row">
-            <button id="calibrate" disabled title="Play steady quarters to the click">
+            <button
+              id="calibrate"
+              data-icon="◎"
+              disabled
+              title="Play steady quarters to the click"
+              aria-label="Calibrate"
+            >
               Calibrate
             </button>
             <output id="calibration" class="grow">uncalibrated</output>
           </div>
           <div class="row">
-            <button id="record" disabled>Record</button>
+            <button id="record" data-icon="⏺" title="Record a take" aria-label="Record a take" disabled>
+              Record
+            </button>
             <output id="cell" class="grow"></output>
           </div>
           <label title="The last few hits, as they arrive">
             <input id="monitor-on" type="checkbox" />
-            Monitor
+            <span>Monitor</span>
           </label>
           <!-- The last few hits as they arrive, newest first. It is the fastest
                way to find out what a pad actually sends, so it belongs under
@@ -526,12 +688,18 @@
         <div class="group">
           <h2>Routine</h2>
           <div class="row">
-            <button id="routine-start">Start routine</button>
-            <button id="routine-seal" hidden disabled>Seal</button>
+            <button id="routine-start" data-icon="⊞" title="Open a run" aria-label="Start routine">
+              Start routine
+            </button>
+            <button id="routine-seal" data-icon="✓" title="Close the run" aria-label="Seal the run" hidden disabled>
+              Seal
+            </button>
             <button
               id="routine-discard"
+              data-icon="✕"
               hidden
               title="Throw the run away. The takes it filled stay on disk."
+              aria-label="Discard the run"
             >
               Discard
             </button>
@@ -542,6 +710,9 @@
         <div id="report" hidden></div>
       </aside>
     </div>
+    <!-- Outside #app: in zen the grid is one column, and a grid item here
+         would be a second row under the stage. -->
+    <button id="zen-exit" title="Leave zen (Z, or Esc)" aria-label="Leave zen mode">⇲</button>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

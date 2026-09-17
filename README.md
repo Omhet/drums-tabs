@@ -120,14 +120,14 @@ songs/<slug>/
    mode end to end, and between them the stage: the picture on top and the
    notation under it, never over it. The Lines control is one to four lines of
    four bars or Fill; on Fill the notation takes the stage and the picture
-   keeps a strip, which is the default when there is no picture to make room
-   for. The line being played is the top one, and the window moves down a line
-   as soon as the cursor enters the next. Space plays and pauses, the arrow
-   keys go a bar or a line back and forward, Home stops (rewinds to the start
-   of the song), `[` and `]` step the tempo, `1` `2` `3` mute and unmute the
-   faders, a click on the score seeks there, and the mouse wheel over the
-   notation browses it while paused. The faders mix the no-drums stem, the
-   drums stem and a click on the beat map (the clock's own sound is muted: it
+   keeps a third of the screen, which is the default when there is no picture
+   to make room for. The line being played is the top one, and the window moves
+   down a line as soon as the cursor enters the next. Space plays and pauses,
+   the arrow keys go a bar or a line back and forward, Home stops (rewinds to
+   the start of the song), `[` and `]` step the tempo, `1` `2` `3` mute and
+   unmute the faders, `Z` is zen, a click on the score seeks there, and the
+   mouse wheel over the notation browses it while paused. The faders mix the
+   no-drums stem, the drums stem and a click on the beat map (the clock's own sound is muted: it
    is the full mix, and with no stem to play it is unmuted instead). Tempo
    slows all of it, pitch kept.
 
@@ -136,7 +136,26 @@ songs/<slug>/
    heatmap's noteheads, the sticking letters and the cursor. They do not have
    to agree, and the useful thing about having two is setting them against
    each other: a dark room usually wants a dark interface and a light score.
-   The notation follows the interface until it is given a theme of its own. Faders, lines, sticking and both themes are
+   The notation follows the interface until it is given a theme of its own.
+
+   **Both rails get out of the way.** Each one has a button at the top that
+   folds it down to one icon wide: the same controls, not a second set of them
+   -- a button keeps its word for the tooltip and grows a glyph in place of it,
+   a select keeps its native popup, a checkbox is already icon-sized. What has
+   no icon is hidden until the rail is opened again: the faders (they are on
+   `1` `2` `3`), the tempo (`[` and `]`), the readings and the routine grid.
+   `Z` goes further -- **zen**: the picture and the notation edge to edge,
+   everything else gone, and the browser taken fullscreen with it. `Esc` or `Z`
+   leaves, as does the corner that appears when the mouse goes looking for it.
+   An error on the status line is the one thing zen keeps.
+
+   A collapsed rail is remembered and applied before the page first paints,
+   which is not cosmetic: the width of the middle column is what alphaTab
+   engraves the score against, so a rail that folded a moment after loading
+   would re-engrave the whole score on every load. For the same reason none of
+   this is animated. Zen is deliberately *not* remembered -- a page cannot ask
+   for fullscreen without a gesture, so a remembered zen would come back
+   half-applied. Faders, lines, sticking, both themes and both rails are
    remembered per browser.
 
 ## Where things stand
@@ -188,7 +207,10 @@ And the notation window (step 5, 2026-09-12, `app/src/score-window.ts`):
 N lines of four bars, the line being played on top. The page is one screen
 (a grid: a rail, the stage, a rail; only the rails ever scroll), and the
 stage is a vertical split -- the picture takes whatever the notation does
-not want, and on Fill that reverses and the picture keeps a strip. The
+not want, and on Fill that reverses and the picture keeps a third of the
+screen. The picture is a region rather than a panel: it has no background of
+its own and the video is sized to its own shape inside it, so there are no
+black bars at any setting and none of them widen on Fill. The
 window is a clipped box, solid and themed on its own rather than a
 translucent panel over the picture, and alphaTab's element keeps its full
 height inside it. One line of the window is the *tallest* row, not the
@@ -530,10 +552,16 @@ Headless checks in `app/scripts/`, all needing `npm run dev`: `smoke.mjs`
 (render + playback), `shot.mjs <png>` (screenshot + sample alphaTex),
 `check-ui.mjs <png>` (drives Space, every shortcut, the Lines control and the
 Sticking switch, asserts the window follows the cursor a line at a time playing
-and paused, asserts the notation never overlaps the picture and that Fill
-leaves the picture the strip `--strip` sets, and screenshots line 2 three
-times: `<png>`, `<png minus .png>-dark.png`, and `-dark-light-tabs.png`, the
-dark interface with light notation the two themes are for), and
+and paused, asserts the notation never overlaps the picture, that Fill leaves
+the picture the third of the screen `--fill-picture` sets and that the video
+fills that region on one axis rather than sitting letterboxed in it, then
+collapses both rails -- asserting they reach one icon wide, that the stage
+takes the room, that the controls survive as icons and the grid does not, and
+that it is remembered across a reload -- and finally enters zen, asserting the
+rails and the status line go, the grid drops to one column and an error on the
+status line is still shown. Screenshots line 2 five times: `<png>`, `<png minus
+.png>-dark.png`, `-dark-light-tabs.png` (the dark interface with light notation
+the two themes are for), `-icons.png` and `-zen.png`), and
 `check-sync.mjs` (seeks every bar both ways and asserts clock and cursor agree
 within 15 ms, then plays through the count-in), `check-mix.mjs` (plays at
 100% and 50% and asserts the stems stay within 20 ms of the clock and the

@@ -24,6 +24,7 @@ import {
 import { Click } from './click';
 import { grade, type Grade, type GradeResult, type TakeEvent, type Timing } from './grade';
 import { Heatmap } from './heatmap';
+import { say } from './icons';
 import type { MixClock } from './media';
 import { MidiIn, type MidiHit } from './midi-in';
 import type { Mixer } from './mixer';
@@ -284,7 +285,10 @@ export class Practice {
     if (ports.length === 0) this.el.port.add(new Option('No MIDI inputs', ''));
     this.el.port.disabled = ports.length === 0;
     this.el.enable.disabled = state.kind === 'ready';
-    this.el.enable.textContent = state.kind === 'ready' ? 'MIDI on' : 'Enable MIDI';
+    // The word, and the glyph that stands in for it when the rail is collapsed
+    // to one icon wide (icons.ts).
+    if (state.kind === 'ready') say(this.el.enable, 'MIDI on', '✓');
+    else say(this.el.enable, 'Enable MIDI', '♪');
     this.showCell();
   }
 
@@ -357,7 +361,7 @@ export class Practice {
     // A ritual you cannot hear is not a ritual. The click fader starts at 0,
     // which is right for playing along and useless here.
     const raised = this.ensureClickAudible() ? 'Raised the Click fader. ' : '';
-    this.el.calibrate.textContent = 'Stop';
+    say(this.el.calibrate, 'Stop', '⏹');
     this.el.record.disabled = true;
     const run = calibrate(ctx, out, (fn) => this.midi.onHit(fn), (p) =>
       this.showCalibration(
@@ -384,7 +388,7 @@ export class Practice {
       if (message !== 'cancelled') this.onStatus(`Calibration failed: ${message}`, true);
     } finally {
       this.running = undefined;
-      this.el.calibrate.textContent = 'Calibrate';
+      say(this.el.calibrate, 'Calibrate', '◎');
       this.showCalibration();
       this.showCell();
     }
@@ -502,7 +506,7 @@ export class Practice {
     this.setSpeed(cell.tempo);
     this.clock.seekTo(startMs);
 
-    this.el.record.textContent = 'Stop';
+    say(this.el.record, 'Stop', '⏹');
     this.el.record.dataset.armed = '1';
     this.el.record.disabled = false;
     this.drawGrid();
@@ -597,7 +601,7 @@ export class Practice {
     const events = this.capture;
     this.recording = undefined;
     this.capture = undefined;
-    this.el.record.textContent = 'Record';
+    say(this.el.record, 'Record', '⏺');
     delete this.el.record.dataset.armed;
     this.drawGrid();
     if (!window_ || !events) {

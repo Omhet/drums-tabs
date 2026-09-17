@@ -34,6 +34,7 @@ const snapshot = () =>
     const b = rect(box);
     const picture = rect(document.getElementById('picture'));
     const tabs = rect(document.getElementById('tabs'));
+    const video = rect(document.getElementById('video'));
     const inside = !!(c && b && c.y >= b.y && c.y + c.h <= b.y + b.h && c.x >= b.x && c.x + c.w <= b.x + b.w);
     const ticksPerBar = 960 * (d.current?.grid?.meter.beats_per_bar ?? 4);
     const texts = [...document.querySelectorAll('#score text')];
@@ -47,6 +48,11 @@ const snapshot = () =>
       box: b,
       picture,
       tabs,
+      video,
+      rail: rect(document.getElementById('rail')),
+      desk: rect(document.getElementById('desk')),
+      zen: !!document.documentElement.dataset.zen,
+      screen: window.innerHeight,
       // The point of the split: the notation is under the picture, never on
       // top of it. A song with no video has no picture to compare against.
       overlap: !!(picture && tabs) && picture.y + picture.h > tabs.y,
@@ -134,8 +140,11 @@ check(s.row === 0, `Home left the window on row ${s.row}`);
 // 7. The stage is a split, not an overlay: the notation sits under the
 // picture at every setting. 3 lines makes the window a line taller than 2, and
 // Fill turns the split round -- the notation takes what is left and the
-// picture keeps the strip --strip sets. (Fill is the default for a song with
-// no video, so start from 2 rather than from whatever this song loaded with.)
+// picture keeps the third of the screen --fill-picture sets. The video itself
+// is sized to its own shape inside that region, so one of its two dimensions
+// fills the region exactly and neither overflows it: that is the check that
+// there are no black bars. (Fill is the default for a song with no video, so
+// start from 2 rather than from whatever this song loaded with.)
 await page.selectOption('#lines', '2');
 await page.waitForTimeout(200);
 s = await snapshot();
@@ -145,19 +154,23 @@ await page.selectOption('#lines', '3');
 await page.waitForTimeout(200);
 s = await snapshot();
 check(s.lines === 3 && s.box.h > h2 + 60, `3 lines made the window ${s.box.h}px (2 lines was ${h2}px)`);
+// The video is sized to its own shape, so it fills its region on one axis and
+// is inside it on the other. A letterboxed video would be short of it on both.
+const hugs = (v, p) =>
+  !v || !p || ((Math.abs(v.h - p.h) <= 2 || Math.abs(v.w - p.w) <= 2) && v.h <= p.h + 2 && v.w <= p.w + 2);
+check(hugs(s.video, s.picture), `at 3 lines the video ${JSON.stringify(s.video)} does not fill its region ${JSON.stringify(s.picture)}`);
 await page.selectOption('#lines', 'fit');
 await page.waitForTimeout(300);
 s = await snapshot();
-const strip = await page.evaluate(() =>
-  Math.round(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--strip')))
-);
-console.log('fill:', JSON.stringify({ picture: s.picture, tabs: s.tabs, box: s.box, strip }));
+const third = Math.round(s.screen / 3);
+console.log('fill:', JSON.stringify({ picture: s.picture, video: s.video, tabs: s.tabs, box: s.box, third }));
 check(s.lines === 'fit' && s.box.h > h2, `Fill made the window ${s.box.h}px (2 lines was ${h2}px)`);
 check(!s.overlap, `the notation overlaps the picture on Fill: ${JSON.stringify({ picture: s.picture, tabs: s.tabs })}`);
 check(
-  !s.picture || Math.abs(s.picture.h - strip) <= 2,
-  `Fill left the picture ${s.picture?.h}px, expected the ${strip}px strip`
+  !s.picture || Math.abs(s.picture.h - third) <= 2,
+  `Fill left the picture ${s.picture?.h}px, expected a third of the ${s.screen}px screen (${third}px)`
 );
+check(hugs(s.video, s.picture), `on Fill the video ${JSON.stringify(s.video)} does not fill its region ${JSON.stringify(s.picture)}`);
 await page.selectOption('#lines', '2');
 
 // 8. Sticking: R and L under the notation, and the switch turns them off. A
@@ -209,12 +222,79 @@ check(
 );
 console.log('themes:', JSON.stringify(themes));
 await page.screenshot({ path: out.replace(/\.png$/, '-dark-light-tabs.png') });
+
+// 11. Both rails fold to one icon wide, the stage takes the room they leave,
+// and the score is re-engraved for the width it lands on -- keeping the row it
+// was on, the same way it does across a theme switch. The controls are still
+// controls: what cannot be an icon is hidden, what can is still clickable.
+await page.evaluate(() => window.drums.seekToBar(4));
+await page.waitForTimeout(400);
+const wide = await snapshot();
+await page.locator('#rail-toggle').click();
+await page.locator('#desk-toggle').click();
+await page.waitForTimeout(1500);
+s = await snapshot();
+console.log('icons:', JSON.stringify({ rail: s.rail, desk: s.desk, tabs: s.tabs, row: s.row }));
+check(s.rail.w <= 48 && s.desk.w <= 48, `collapsed rails are ${s.rail.w}px / ${s.desk.w}px, expected ~46`);
+check(s.tabs.w > wide.tabs.w + 300, `collapsing did not widen the stage (${wide.tabs.w} -> ${s.tabs.w})`);
+check(s.row === 1 && s.cursorInside, `after the collapse re-render the window is on row ${s.row}, cursor inside ${s.cursorInside}`);
+check(!s.overlap, 'the notation overlaps the picture with the rails collapsed');
+check(await page.locator('#play').isVisible(), 'the Play button went with the labels');
+check(await page.locator('#lines').isVisible(), 'the Lines select went with the labels');
+check(await page.locator('#routine').isHidden(), 'the routine grid is still drawn in a collapsed rail');
+await page.screenshot({ path: out.replace(/\.png$/, '-icons.png') });
+// Remembered, and applied before first paint: the score is engraved once, for
+// the width the page is going to keep.
+await page.reload();
+await waitForPlayer(page);
+await page.waitForFunction(() => window.drums.mix.readyState >= 1, null, { timeout: 30000 });
+check((await snapshot()).rail.w <= 48, 'the collapse was not remembered across a reload');
+await page.locator('#rail-toggle').click();
+await page.locator('#desk-toggle').click();
+await page.waitForTimeout(1500);
+
+// 12. Zen: the picture and the notation, nothing else, edge to edge. Headless
+// Chromium does not do real fullscreen, so this checks the half the page owns
+// -- and leaves through the shortcut, because Esc-exits-fullscreen is the
+// browser's behaviour and headless does not have it either.
+await page.evaluate(() => window.drums.seekToBar(4));
+await page.waitForTimeout(400);
+await page.keyboard.press('KeyZ');
+await page.waitForTimeout(1500);
+const z = await page.evaluate(() => ({
+  rail: getComputedStyle(document.getElementById('rail')).display,
+  desk: getComputedStyle(document.getElementById('desk')).display,
+  status: getComputedStyle(document.getElementById('status')).display,
+  columns: getComputedStyle(document.getElementById('app')).gridTemplateColumns.split(' ').length,
+  // An error is the one thing zen keeps: it is how a refused fullscreen is
+  // escapable at all.
+  errShown: (() => {
+    const el = document.getElementById('status');
+    el.classList.add('err');
+    const shown = getComputedStyle(el).display !== 'none';
+    el.classList.remove('err');
+    return shown;
+  })(),
+}));
+s = await snapshot();
+console.log('zen:', JSON.stringify({ ...z, tabs: s.tabs }));
+check(s.zen, 'Z did not turn zen on');
+check(z.rail === 'none' && z.desk === 'none' && z.status === 'none', `zen left rail=${z.rail} desk=${z.desk} status=${z.status}`);
+check(z.columns === 1, `zen left the grid at ${z.columns} columns`);
+check(s.tabs.x <= 2, `zen left the notation ${s.tabs.x}px from the edge`);
+check(!s.overlap, 'the notation overlaps the picture in zen');
+check(z.errShown, 'zen hides the status line even when it is an error');
+await page.screenshot({ path: out.replace(/\.png$/, '-zen.png') });
+await page.keyboard.press('KeyZ');
+await page.waitForTimeout(1500);
+s = await snapshot();
+check(!s.zen, 'Z did not turn zen off');
+check(s.row === 1 && s.cursorInside, `after leaving zen the window is on row ${s.row}, cursor inside ${s.cursorInside}`);
+
 await page.evaluate(() => {
   document.getElementById('theme').click();
-  localStorage.removeItem('theme');
-  localStorage.removeItem('tabTheme');
-  localStorage.removeItem('lines');
-  localStorage.removeItem('sticking');
+  for (const key of ['theme', 'tabTheme', 'lines', 'sticking', 'rail', 'desk'])
+    localStorage.removeItem(key);
 });
 
 console.log(errors.length ? `page errors: ${errors.join('; ')}` : 'no page errors');

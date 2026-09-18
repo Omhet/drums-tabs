@@ -92,10 +92,14 @@ export class StickingLetters {
     this.overlay.replaceChildren();
     this.overlay.hidden = !this._visible || this.byBeat.size === 0;
     if (this.overlay.hidden) return;
+    // Zoomed, the bounds arrive already scaled but our own gap does not: a
+    // letter 1px under a staff twice the size is 1px under the wrong thing.
+    // (The letter itself grows in CSS, from --tab-zoom.)
+    const gap = GAP_PX * this.api.settings.display.scale;
     for (const system of this.api.boundsLookup?.staffSystems ?? []) {
       for (const masterBar of system.bars) {
         // Under everything the bar draws, including the feet's stems.
-        const under = masterBar.visualBounds.y + masterBar.visualBounds.h + GAP_PX;
+        const under = masterBar.visualBounds.y + masterBar.visualBounds.h + gap;
         for (const bar of masterBar.bars) {
           for (const beat of bar.beats) {
             if (beat.beat.voice.index !== HANDS_VOICE) continue;

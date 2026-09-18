@@ -124,12 +124,26 @@ songs/<slug>/
    to make room for. The line being played is the top one, and the window moves
    down a line as soon as the cursor enters the next. Space plays and pauses,
    the arrow keys go a bar or a line back and forward, Home stops (rewinds to
-   the start of the song), `[` and `]` step the tempo, `1` `2` `3` mute and
+   the start of the song), `[` and `]` step the tempo, `+` and `-` zoom the
+   notation (`0` back to 100%), `1` `2` `3` mute and
    unmute the faders, `Z` is zen, a click on the score seeks there, and the
    mouse wheel over the notation browses it while paused. The faders mix the
    no-drums stem, the drums stem and a click on the beat map (the clock's own sound is muted: it
    is the full mix, and with no stem to play it is unmuted instead). Tempo
    slows all of it, pitch kept.
+
+   **Zoom is size and room at once.** `+` and `-` step a ladder from 60% to
+   200%, `0` goes back to 100%. alphaTab scales the glyphs but not the page,
+   and a row is stretched to the width it is given either way, so scale alone
+   would give the same four bars twice the notehead and the same pixels to
+   share -- a bar of sixteenths running into itself. So the ladder drops the
+   bars on a line as it climbs (four, three, two), keeping roughly the density
+   four bars have at 100%. Under 100% the line stays at four: the phrase you
+   practise in is four bars and there is no crowding left to relieve. A chosen
+   number of lines stays that number of lines, which means a taller window and
+   a smaller picture; on Fill the picture keeps its third and you see fewer
+   lines. The sticking letters and the extras lane are drawn by the page rather
+   than engraved by alphaTab, so they grow from a CSS variable the zoom sets.
 
    There are **two themes**, side by side in the rail's Theme group: one for
    the interface and one for the notation -- its paper, alphaTab's ink, the
@@ -155,7 +169,7 @@ songs/<slug>/
    would re-engrave the whole score on every load. For the same reason none of
    this is animated. Zen is deliberately *not* remembered -- a page cannot ask
    for fullscreen without a gesture, so a remembered zen would come back
-   half-applied. Faders, lines, sticking, both themes and both rails are
+   half-applied. Faders, lines, zoom, sticking, both themes and both rails are
    remembered per browser.
 
 ## Where things stand
@@ -557,11 +571,15 @@ the picture the third of the screen `--fill-picture` sets and that the video
 fills that region on one axis rather than sitting letterboxed in it, then
 collapses both rails -- asserting they reach one icon wide, that the stage
 takes the room, that the controls survive as icons and the grid does not, and
-that it is remembered across a reload -- and finally enters zen, asserting the
+that it is remembered across a reload -- enters zen, asserting the
 rails and the status line go, the grid drops to one column and an error on the
-status line is still shown. Screenshots line 2 five times: `<png>`, `<png minus
+status line is still shown, and finally zooms, asserting `+` both enlarges the
+notation and gives it the room (fewer bars on a line), that the window grows to
+keep the lines it was asked for, that the sticking letters grow with the notes,
+and that `-`, `0` and the remembered rung agree. Screenshots line 2 six times:
+`<png>`, `<png minus
 .png>-dark.png`, `-dark-light-tabs.png` (the dark interface with light notation
-the two themes are for), `-icons.png` and `-zen.png`), and
+the two themes are for), `-icons.png`, `-zen.png` and `-zoom.png`), and
 `check-sync.mjs` (seeks every bar both ways and asserts clock and cursor agree
 within 15 ms, then plays through the count-in), `check-mix.mjs` (plays at
 100% and 50% and asserts the stems stay within 20 ms of the clock and the

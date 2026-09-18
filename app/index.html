@@ -315,9 +315,12 @@
          centred on the beat it belongs to. It is ink on the page, so it takes
          the pane's theme and not the chrome's. */
       #score { position: relative; }
+      /* --tab-zoom is the notation's zoom (main.ts sets it on #score): these
+         letters are drawn by us rather than engraved by alphaTab, so they are
+         the one thing the zoom does not grow on its own. */
       .sticking span {
         position: absolute; transform: translateX(-50%);
-        font: 600 11px/1 ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font: 600 calc(11px * var(--tab-zoom, 1))/1 ui-monospace, "Cascadia Mono", Consolas, monospace;
         color: var(--tab-muted); pointer-events: none; white-space: nowrap;
       }
       /* Extra notes have nowhere on the staff to be coloured -- nothing was
@@ -325,7 +328,7 @@
          bar, placed from alphaTab's bounds the way the sticking letters are. */
       .extras span {
         position: absolute; transform: translateX(-50%);
-        font: 700 12px/1 ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font: 700 calc(12px * var(--tab-zoom, 1))/1 ui-monospace, "Cascadia Mono", Consolas, monospace;
         color: var(--tab-accent); pointer-events: none; white-space: nowrap;
       }
       /* alphaTab creates the cursor elements but leaves them unstyled. */
@@ -611,7 +614,8 @@
           <p>
             <kbd>Space</kbd> play/pause &middot; <kbd>&larr;</kbd><kbd>&rarr;</kbd> a bar &middot;
             <kbd>&uarr;</kbd><kbd>&darr;</kbd> a line &middot; <kbd>Home</kbd> stop &middot;
-            <kbd>[</kbd><kbd>]</kbd> tempo &middot; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> mute a
+            <kbd>[</kbd><kbd>]</kbd> tempo &middot; <kbd>+</kbd><kbd>&minus;</kbd> zoom
+            (<kbd>0</kbd> resets) &middot; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> mute a
             fader &middot; <kbd>Z</kbd> zen (<kbd>Esc</kbd> leaves) &middot; click the score to seek
             &middot; wheel over the notation to browse.
           </p>

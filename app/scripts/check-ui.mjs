@@ -60,6 +60,12 @@ const snapshot = () =>
       speed: document.getElementById('speed').value,
       faders: Object.fromEntries(['nodrums', 'drums', 'click'].map((f) => [f, document.getElementById(`fader-${f}`).value])),
       sticking: document.querySelectorAll('.sticking span').length,
+      zoom: { scale: d.api.settings.display.scale, bars: d.api.settings.display.barsPerRow },
+      // The letters are ours, not alphaTab's: they grow from a CSS variable.
+      letterPx: (() => {
+        const el = document.querySelector('.sticking span');
+        return el ? Math.round(parseFloat(getComputedStyle(el).fontSize) * 10) / 10 : 0;
+      })(),
       drumsLabel: texts.some((t) => t.textContent === 'Drums'),
       clefsVisible: texts.filter((t) => t.textContent === '' && t.style.display !== 'none').length,
       clefsHidden: texts.filter((t) => t.textContent === '' && t.style.display === 'none').length,
@@ -291,9 +297,51 @@ s = await snapshot();
 check(!s.zen, 'Z did not turn zen off');
 check(s.row === 1 && s.cursorInside, `after leaving zen the window is on row ${s.row}, cursor inside ${s.cursorInside}`);
 
+// 13. Zoom: + makes the notes bigger and gives them the room to be bigger in
+// (alphaTab scales the glyphs but not the page, so the same four bars would
+// have to share the same pixels), the window still holds the lines it was
+// asked for so its box grows, the letters we draw ourselves grow with the
+// notes, - comes back, 0 goes home, and the rung is remembered.
+await page.evaluate(() => window.drums.seekToBar(4));
+await page.waitForTimeout(400);
+const at100 = await snapshot();
+check(at100.zoom.scale === 1 && at100.zoom.bars === 4, `not at 100%/4 bars to start: ${JSON.stringify(at100.zoom)}`);
+await page.keyboard.press('Equal');
+await page.waitForTimeout(1500);
+s = await snapshot();
+console.log('zoom in:', JSON.stringify({ zoom: s.zoom, box: s.box.h, letterPx: s.letterPx, was: { box: at100.box.h, letterPx: at100.letterPx } }));
+check(s.zoom.scale > 1, `+ left the notation at ${s.zoom.scale}x`);
+check(s.zoom.bars < at100.zoom.bars, `+ left ${s.zoom.bars} bars a line, the same as at 100%`);
+check(s.box.h > at100.box.h + 10, `+ did not make the window taller (${at100.box.h} -> ${s.box.h}px)`);
+check(!s.overlap, 'the notation overlaps the picture when zoomed in');
+check(s.cursorInside, 'cursor not inside the window after zooming in');
+if (hasSticking) check(s.letterPx > at100.letterPx, `the sticking letters stayed ${s.letterPx}px through the zoom`);
+await page.screenshot({ path: out.replace(/\.png$/, '-zoom.png') });
+await page.keyboard.press('Minus');
+await page.waitForTimeout(1500);
+s = await snapshot();
+check(s.zoom.scale === 1 && s.zoom.bars === 4, `- did not come back to 100%/4 bars: ${JSON.stringify(s.zoom)}`);
+check(Math.abs(s.box.h - at100.box.h) <= 2, `- left the window at ${s.box.h}px (was ${at100.box.h}px)`);
+await page.keyboard.press('Minus');
+await page.keyboard.press('Minus');
+await page.waitForTimeout(1500);
+s = await snapshot();
+console.log('zoom out:', JSON.stringify({ zoom: s.zoom, box: s.box.h }));
+check(s.zoom.scale < 1, `two - left the notation at ${s.zoom.scale}x`);
+check(s.zoom.bars === 4, `zooming out changed the line to ${s.zoom.bars} bars`);
+check(s.box.h < at100.box.h, `zooming out did not make the window shorter (${at100.box.h} -> ${s.box.h}px)`);
+const remembered = await page.evaluate(() => localStorage.getItem('zoom'));
+check(remembered === String(s.zoom.scale), `the zoom remembered ${remembered}, but is engraving at ${s.zoom.scale}x`);
+await page.keyboard.press('Digit0');
+await page.waitForTimeout(1500);
+s = await snapshot();
+console.log('zoom home:', JSON.stringify({ zoom: s.zoom, box: s.box.h, remembered }));
+check(s.zoom.scale === 1 && s.zoom.bars === 4, `0 did not go back to 100%/4 bars: ${JSON.stringify(s.zoom)}`);
+check(s.cursorInside, 'cursor not inside the window after the zoom went home');
+
 await page.evaluate(() => {
   document.getElementById('theme').click();
-  for (const key of ['theme', 'tabTheme', 'lines', 'sticking', 'rail', 'desk'])
+  for (const key of ['theme', 'tabTheme', 'lines', 'sticking', 'rail', 'desk', 'zoom'])
     localStorage.removeItem(key);
 });
 

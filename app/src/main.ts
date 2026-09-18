@@ -119,6 +119,66 @@ const fromHash = playable.find((s) => s.slug === decodeURIComponent(location.has
 songEl.value = fromHash?.slug ?? playable[0]?.slug ?? '';
 if (songEl.value) location.hash = encodeURIComponent(songEl.value);
 
+// --- zoom ---------------------------------------------------------------------
+// How big the notes are: +/- step the ladder, 0 goes back to 100%.
+//
+// Size and room are one control here, not two. alphaTab's `scale` grows the
+// glyphs but not the page, and a row is stretched to the width it is given
+// either way -- so at 2x the noteheads would be twice the size with the same
+// pixels to share, and a bar of sixteenths would run into itself. Dropping
+// bars-per-row as the scale climbs keeps roughly the density four bars have at
+// 100%, which is what "bigger notes" has to mean to be worth reading. Below
+// 100% the row stays at four: the phrase you practise in is four bars, and
+// there is no crowding left to relieve.
+const ZOOM_STEPS = [0.6, 0.7, 0.85, 1, 1.2, 1.4, 1.7, 2];
+/** Which rung is 100%. */
+const ZOOM_HOME = ZOOM_STEPS.indexOf(1);
+/** Bars on a line at 100%: the unit you practise in. */
+const BARS_PER_ROW = 4;
+const barsAtZoom = (scale: number) =>
+  Math.max(1, Math.min(BARS_PER_ROW, Math.round(BARS_PER_ROW / scale)));
+
+/** The remembered rung; anything that is not one of them is 100%. */
+function savedZoom(): number {
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem('zoom');
+  } catch {
+    /* private mode: there is nothing remembered */
+  }
+  const step = ZOOM_STEPS.indexOf(Number(raw));
+  return step < 0 ? ZOOM_HOME : step;
+}
+let zoomStep = savedZoom();
+
+/**
+ * Engrave at rung `step`.
+ *
+ * Costs a full re-render, like a theme change, and like a theme change it
+ * leaves the transport alone. The notation window re-measures itself
+ * afterwards (postRenderFinished), so N lines stays N lines -- taller ones,
+ * which the picture above them gives up the room for.
+ */
+function applyZoom(step: number) {
+  zoomStep = Math.max(0, Math.min(ZOOM_STEPS.length - 1, step));
+  const scale = ZOOM_STEPS[zoomStep]!;
+  // The overlays are our own pixels, not alphaTab's: the sticking letters and
+  // the extras lane read this to grow with the notes they belong to.
+  scoreEl.style.setProperty('--tab-zoom', String(scale));
+  const bars = barsAtZoom(scale);
+  if (scale === api.settings.display.scale && bars === api.settings.display.barsPerRow) return;
+  api.settings.display.scale = scale;
+  api.settings.display.barsPerRow = bars;
+  api.updateSettings();
+  if (api.score) api.render();
+}
+
+/** Step the ladder from the keyboard, and remember where it lands. */
+function setZoom(step: number) {
+  applyZoom(step);
+  remember('zoom', String(ZOOM_STEPS[zoomStep]));
+}
+
 const api = new alphaTab.AlphaTabApi(scoreEl, {
   core: {
     tex: true,
@@ -136,9 +196,12 @@ const api = new alphaTab.AlphaTabApi(scoreEl, {
     enableLazyLoading: false,
   },
   display: {
-    // Four bars per line: the unit you practise in, and what the window over
-    // the video shows N lines of.
-    barsPerRow: 4,
+    // Four bars per line at 100%, and what the window over the video shows N
+    // lines of. Both of these are the zoom's to move; they are set here rather
+    // than after construction so that a remembered zoom is engraved once, the
+    // same way a remembered rail width is.
+    barsPerRow: barsAtZoom(ZOOM_STEPS[zoomStep]!),
+    scale: ZOOM_STEPS[zoomStep]!,
     resources: palette(isDark()),
   },
   notation: {
@@ -165,6 +228,10 @@ const api = new alphaTab.AlphaTabApi(scoreEl, {
     scrollMode: alphaTab.ScrollMode.Off,
   },
 });
+
+// The settings above were already built at the remembered zoom; this only
+// publishes it to the overlays, and re-renders nothing.
+applyZoom(zoomStep);
 
 // --- the notation window ------------------------------------------------------
 // N lines of the score under the picture, the picture taking what is left --
@@ -797,7 +864,8 @@ zenExitBtn.addEventListener('click', () => {
 // --- keyboard -------------------------------------------------------------------
 // From anywhere except a control that uses the key itself (a select, a
 // slider being dragged). Space is play/pause; Home is Stop; arrows seek by a
-// bar or a line; brackets step the tempo; 1/2/3 mute a fader; Z is zen.
+// bar or a line; brackets step the tempo; +/- zoom the notation and 0 puts it
+// back at 100%; 1/2/3 mute a fader; Z is zen.
 const keys: Record<string, () => void> = {
   Space: () => {
     if (!playBtn.disabled) api.playPause();
@@ -809,6 +877,14 @@ const keys: Record<string, () => void> = {
   ArrowDown: () => seekLines(1),
   BracketLeft: () => applySpeed(Number(speedEl.value) - Number(speedEl.step)),
   BracketRight: () => applySpeed(Number(speedEl.value) + Number(speedEl.step)),
+  // `+` is Shift and the `=` key on most layouts, and the handler below lets
+  // Shift through, so both spellings of the same key arrive as Equal.
+  Equal: () => setZoom(zoomStep + 1),
+  Minus: () => setZoom(zoomStep - 1),
+  NumpadAdd: () => setZoom(zoomStep + 1),
+  NumpadSubtract: () => setZoom(zoomStep - 1),
+  Digit0: () => setZoom(ZOOM_HOME),
+  Numpad0: () => setZoom(ZOOM_HOME),
   Digit1: () => toggleFader('nodrums'),
   Digit2: () => toggleFader('drums'),
   Digit3: () => toggleFader('click'),

@@ -203,6 +203,9 @@ export class Heatmap {
     if (this.lane.hidden || !this.grid) return;
 
     this.ruler = [];
+    // The bounds come back already scaled by the zoom; the gap under them is
+    // ours, and has to be scaled with them to stay clear of the letters.
+    const gap = GAP_PX * this.api.settings.display.scale;
     const perBar = (this.api.score?.masterBars[0]?.timeSignatureNumerator ?? 4) * SLOTS_PER_BEAT;
     for (const system of this.api.boundsLookup?.staffSystems ?? []) {
       for (const masterBar of system.bars) {
@@ -212,7 +215,7 @@ export class Heatmap {
             const slot = Math.round(beat.beat.playbackStart / TICKS_PER_SLOT);
             const tMs = slotToMixMs(this.grid, masterBar.index * perBar + (slot % perBar));
             if (tMs === undefined) continue;
-            this.ruler.push({ tMs, x: beat.onNotesX, top: top + GAP_PX });
+            this.ruler.push({ tMs, x: beat.onNotesX, top: top + gap });
           }
         }
       }

@@ -416,12 +416,13 @@ def test_halving_keeps_the_surrounding_phase():
     repaired, log = grid_mod.repair_local_octave(np.concatenate([head, fast, tail]))
     intervals = np.diff(repaired)
     off_grid = np.flatnonzero(~np.isclose(intervals, step, atol=1e-6))
-    # An odd number of half-beats leaves exactly one 1.5x interval, at the run's
-    # trailing edge. Everything else must land back on the surrounding pulse.
-    assert off_grid.size <= 1
-    if off_grid.size:
-        assert intervals[off_grid[0]] == pytest.approx(step * 1.5)
-        assert log["runs"][0]["end_seam_ratio"] == 1.5
+    # An odd number of half-beats puts the run's trailing edge at 1.5x, and the
+    # run's own record still says so -- but the grid that comes out is back on
+    # the pulse, because the seam is closed rather than carried.
+    assert log["runs"][0]["end_seam_ratio"] == 1.5
+    assert off_grid.size == 0, f"{off_grid.size} intervals still off the pulse"
+    assert log["seams_closed"], "the 1.5x seam was left open"
+    assert log["seams_closed"][0]["pulled_back_ms"] == pytest.approx(step * 500, rel=0.02)
 
 
 def test_a_mostly_fast_song_cannot_be_locally_halved():
@@ -437,3 +438,82 @@ def test_a_mostly_fast_song_cannot_be_locally_halved():
     repaired, log = grid_mod.repair_local_octave(beats)
     assert log["dropped"] == 0 and log["runs"] == []
     np.testing.assert_allclose(repaired, beats)
+
+
+# --------------------------------------------------------------------------
+# seam realignment
+# --------------------------------------------------------------------------
+#
+# Halving a run keeps every other beat, and a run spanning an odd number of
+# half-beats leaves the beats after it half a beat out of phase. The seam used
+# to be left in place as "the boundary's own uncertainty". It is not local: the
+# lateness rides to the end of the song, and a second seam doubles it. Found on
+# One For The Road, where four seams had the last beat 1.3 s late -- audible as
+# the straightened render lurching a fifth in pitch at each one.
+
+
+def test_a_seam_is_closed_and_the_phase_restored():
+    step = 60 / 90
+    before = np.arange(20) * step
+    # Everything after the seam is half a beat late, as a halved run leaves it.
+    after = before[-1] + step * 1.5 + np.arange(20) * step
+    fixed, closed = grid_mod.realign_seams(np.concatenate([before, after]))
+
+    np.testing.assert_allclose(np.diff(fixed), step, atol=1e-9)
+    assert len(closed) == 1
+    assert closed[0]["pulled_back_ms"] == pytest.approx(step * 500, abs=0.05)
+
+
+def test_closing_a_seam_invents_and_loses_no_beats():
+    """Bar numbering downstream depends on the count, so it must not move."""
+    step = 60 / 90
+    beats = np.concatenate([np.arange(20) * step, 19 * step + step * 1.5 + np.arange(20) * step])
+    fixed, _ = grid_mod.realign_seams(beats)
+    assert fixed.size == beats.size
+    assert fixed[0] == pytest.approx(beats[0]), "the grid is re-phased from the seam, not moved"
+
+
+def test_two_seams_both_close_and_the_lateness_does_not_accumulate():
+    """The real failure: each seam adds half a beat and the error rides to the end."""
+    step = 60 / 90
+    beats = [np.arange(15) * step]
+    for _ in range(2):
+        beats.append(beats[-1][-1] + step * 1.5 + np.arange(15) * step)
+    fixed, closed = grid_mod.realign_seams(np.concatenate(beats))
+
+    np.testing.assert_allclose(np.diff(fixed), step, atol=1e-9)
+    assert len(closed) == 2
+    # Without the fix the last beat sits a whole beat late; with it, none.
+    assert fixed[-1] == pytest.approx((fixed.size - 1) * step)
+
+
+def test_a_steady_grid_has_no_seams_to_close():
+    beats = steady_beats(bpm=120.0, count=64)
+    fixed, closed = grid_mod.realign_seams(beats)
+    assert closed == []
+    np.testing.assert_allclose(fixed, beats)
+
+
+def test_a_drummer_slowing_down_is_not_a_seam():
+    """A ritardando is a tempo, not a phase slip, and must survive untouched."""
+    step = 60 / 120
+    beats = np.cumsum(np.concatenate([[0.0], step * np.linspace(1.0, 1.2, 63)]))
+    fixed, closed = grid_mod.realign_seams(beats)
+    assert closed == [], "a 20% slowdown was mistaken for a seam"
+    np.testing.assert_allclose(fixed, beats)
+
+
+def test_a_breakdown_is_a_hole_not_a_seam():
+    """The dangerous false positive, so it is pinned.
+
+    A phase slip is half a beat. A breakdown with the drums out is a real hole
+    that `repair_intervals` deliberately leaves alone, and pulling the rest of
+    the song back across it would be silently wrong from there to the end.
+    """
+    step = 60 / 90
+    beats = np.concatenate(
+        [np.arange(20) * step, 19 * step + 8.0 + np.arange(20) * step]  # an 8 s hole
+    )
+    fixed, closed = grid_mod.realign_seams(beats)
+    assert closed == [], "a breakdown was closed as if it were a phase slip"
+    np.testing.assert_allclose(fixed, beats)

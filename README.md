@@ -82,11 +82,30 @@ songs/<slug>/
    36 = "kick"
    37 = "snare"
    38 = "hihat_closed"           # hihat_open, hihat_pedal, crash, crash2,
-   ```                           # tom_high, tom_mid, tom_floor, ride
+   ```                           # tom_high, tom_mid, tom_floor, ride, sidestick
 
    Every save of the set (Ctrl+S) rewrites `songs/<slug>/tab.mid` from the
    arrangement clips on that track and reloads the player. A `tab.mid` exported
    by hand from any DAW works the same, without the `[author]` section.
+
+   A set written the other way round -- against the record from the top of the
+   track, so its first bars are the intro -- says so with `bar_offset`:
+
+   ```toml
+   [author]
+   bar_offset = 3                # bar 4 of the set is bar 1 of the song
+   ```
+
+   Notation bar 1 is the first kick or snare and the count-in in front of it is
+   not written, so those intro bars have to come off on the way to `tab.mid`.
+   The number is measurable rather than a guess: slide the chart against the
+   drum stem and the match rate peaks at the right one (`drums reference`
+   prints `matched/written`, and 96% against 82% is not a close call). Notes
+   that end up before bar 1 are dropped, not stacked on the downbeat, and the
+   dev-server log says how many -- an offset one bar too big loses real notes.
+   The straightened stems then go at bar `1 + bar_offset` of the set rather
+   than at 1|1|1, because they start at the song's bar 1. Default 0, which is
+   every set authored the usual way.
 
    Then `drums sections <slug>` reads the repeats out of the notation and
    proposes `[[section]]` blocks -- the stretches a practice routine is built
@@ -545,6 +564,92 @@ Sealing a routine means recording every cell, so the headless check posts
 synthetic sealed runs to the route instead and asserts the *reading* of a
 history -- the per-section line and the median that steadies it -- which is the
 part that can be wrong without anyone noticing.
+
+**Arctic Monkeys - One For The Road was added as a third song (2026-09-18).**
+Three and a half minutes, 72 bars of 4/4 at 90.9 BPM, 853 notes authored in
+Live, video bound at **+36.28 ms** -- the same number as both other songs, to
+the hundredth, across all five correlation windows, which retires the question:
+it is a constant of the fetch path, not a measurement. Its reference floor is
+**+10.5 ms**, between Song 2's +6.2 and Kill Me's +12.7, and the split behind it
+is the widest of the three -- the kick sits +16.8 ms behind the grid while the
+snare is +2.6, so the pooled number is a compromise on this record more than on
+either other. Every one of its 422 written kick and snare hits lands on an onset
+in the drum stem. The chart is 73 bars against a 72-bar beat map, the same shape
+as Song 2's 65 against 64, and it costs the same nothing.
+
+Its grid drifts about **2.5%**, against Song 2's and Kill Me's fraction of a
+percent -- this is a band playing, not a band playing to a click -- and the
+straightened render absorbs all of it: the bar-to-time round trip is still
+within 0.6 ms over all 72 bars. Drift is what `straighten` is for, so a large
+number there is not a warning about the grid; `debug/straight_click.wav` is.
+It is also authored at **91 BPM**, which is what 90.91 rounds to.
+
+Three things learned:
+
+- **A half-beat seam is not a local blemish, and this one had been documented as
+  harmless.** The straightened render's pitch lurched around, which is how the
+  bug surfaced: the warp's playback speed follows the beat spacing, so an
+  interval 1.5x its neighbours is a 1.5x jump in speed -- about a fifth of pitch,
+  at one beat's notice. Four such intervals were in the beat map, all inside the
+  two stretches where the detector had run at double time and
+  `repair_local_octave` had halved them.
+
+  Halving a run keeps every other beat, and which parity survives is fixed at
+  the run's start, so a run spanning an odd number of half-beats leaves the
+  beats *after* it half a beat out of phase. The old docstring called that
+  leftover "the boundary estimate's own uncertainty" and left it, which is wrong
+  in a way that hides: the lateness does not stay at the seam, it rides to the
+  end of the song, and each further seam adds another half beat. Here four seams
+  had the last beat **1.3 s late**, and the chart had drifted off the record
+  through the back half -- the fit fell to 84% after 177 s while the front of the
+  song was at 100%, which reads like a bad outro rather than like a grid fault.
+
+  `realign_seams` closes each one by pulling everything after it back by the
+  excess. No beat is invented or lost, so bar numbering is untouched; the fit
+  went to **100% in every 20-second window of the song**, the reference floor
+  tightened from +13.1 to +10.5 ms with its spread down with it, and the pitch
+  now moves at most 26 cents from one beat to the next where it had moved 145.
+  Two guards matter. It runs again after `repair_intervals`, because that stage
+  works in whole beats and can re-open a seam it cannot itself fix. And it only
+  closes intervals *near* 1.5x: a breakdown with the drums out is a real hole in
+  the beat map, and pulling the song back across one would be silently wrong from
+  there to the end.
+- **A set can be written from the top of the track, and the offset is
+  measurable.** This one was authored before the song was prepped, so it was
+  written against the record from its beginning: its bars 1-3 are the intro and
+  the drums come in at its bar 4, where the notation's bar 1 is the first kick
+  or snare. That is `bar_offset` in `[author]` (above), and the right value is
+  not a thing to eyeball -- slide the chart against the drum stem a sixteenth at
+  a time and the fraction of written kick and snare hits that land on an onset
+  peaks at exactly -3.00 bars: on the repaired grid, 100% against 91.5% one bar
+  either way and 83.6% unshifted. The absolute numbers are not the point and
+  never can be: a busy kick-and-snare part finds *something* to match at any
+  offset, which is why the floor of that sweep is in the eighties rather than at
+  zero. The peak is the point.
+- **The cross-stick became an instrument, and it had to be added at both ends.**
+  This chart plays its backbeat as a cross-stick for four bars -- section J,
+  bars 54-57 -- on a tenth drum-rack pad the other two songs do not use. The
+  first pass folded it into `snare`, on the grounds that the project already
+  treated the two as one drum. That was wrong about what is worth practising: a
+  cross-stick is a different thing to play, and a chart that does not ask for it
+  cannot mark you on it. So `sidestick` is now an instrument of its own,
+  engraved as the cross notehead alphaTab calls `snare (side stick)`.
+
+  The half that is easy to miss is the **input** side. The staff and the module
+  are two different numberings of the same kit, and writing a cross-stick on the
+  page while `kit.toml` still read the module's cross-stick (note 37) as `snare`
+  would have marked every correctly-played one as the wrong drum -- the chart
+  asking for a drum the scorer could not receive. Both moved together, and the
+  pair is deliberately **not** in `same_drum`: that list is for one drum caught
+  in two states by a threshold you did not set, like an open or closed hat,
+  where the flicker is the module's doing. Nothing flickers here. You choose a
+  cross-stick, so an ordinary backbeat in those four bars is a wrong drum, which
+  is the whole point of writing it.
+
+The sections are still the lettered seed `drums sections` proposed -- fifteen
+blocks, A-N, 60 cells, which is half again the size of Kill Me's routine. They
+want naming from the notation the way the other two were, and that is worth
+doing before a run is sealed, because renaming starts a new epoch.
 
 What is left of M3 in `practice-plan.md` is the per-*cell* trend lines and the
 take-vs-take overlay, and both are worth building only if the per-section lines

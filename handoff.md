@@ -47,13 +47,13 @@ From `app/`, with `npm run dev` running in its own terminal:
 
 ```
 npm run smoke · check-sync · check-mix · check-ui out.png · check-practice
-npm test                                   # scorer + chart + routine, 67, no browser
-.venv/Scripts/python -m pytest -q tests    # 110, no browser
+npm test                                   # scorer + chart + routine + bar_offset, 73, no browser
+.venv/Scripts/python -m pytest -q tests    # 116, no browser
 cd app && npm run typecheck
 ```
 
-**Known-good as of 2026-09-16:** 110 pytest, 67 node tests, clean typecheck, and
-every browser check on all three songs. Run the important ones once per song
+**Known-good as of 2026-09-18:** 116 pytest, 73 node tests, clean typecheck, and
+every browser check on all four songs. Run the important ones once per song
 (`SONG=<slug>`).
 
 Gotchas, all previously bitten: the checks need **real Chrome or Edge** (bundled
@@ -67,6 +67,7 @@ backslash-heavy content through a shell heredoc** — use an editor tool.
 |---|---|---|---|---|
 | `hayley-williams-kill-me-official-visualizer` | 62 | 90.9 | 44 | +12.7 ms |
 | `blur-song-2-official-music-video` | 64 | 130.4 | 32 | +6.2 ms |
+| `arctic-monkeys-one-for-the-road-official-video` | 72 | 90.9 | 60 | +10.5 ms |
 | `hayley-williams-kill-me-drum-cover` | 62 | 90.9 | — | — |
 
 The cover is the original video-bound song and has no sections; it is kept
@@ -77,6 +78,29 @@ and moving a `.als` out of its Ableton project by hand breaks its sample links,
 so `[author]` points at where it actually is. Each song watches its own set by
 filename, so two in one folder do not collide. Moving it properly means *Save As*
 from inside Live, then updating the path.
+
+**One For The Road's set starts three bars before the notation does.** It was
+written against the record from the top of the track, so its bars 1-3 are the
+intro and its bar 4 is the song's bar 1. `bar_offset = 3` in `[author]` takes
+them off on the way to `tab.mid`; the value was measured by sliding the chart
+against the drum stem (a clean peak at -3.00 bars — on the repaired grid, 100%
+of the 422 kick and snare hits matched against 91.5% one bar either way), not
+eyeballed. Two consequences: the straightened stems go at **bar 4** of that set
+rather than at 1|1|1, and the renders are at **91 BPM**, so the Live project
+needs to be at 91 — it was written at 90. Changing a project's tempo does not
+move a note; the clips are on the bar grid.
+
+**The beat map had four half-beat seams, and they are why the grid repair
+changed** (2026-09-18). `repair_local_octave` halves a stretch the detector ran
+at double time, and a run spanning an odd number of half-beats used to leave one
+1.5x interval behind, documented as harmless. It is not: every beat after such a
+seam is half a beat late and the error rides to the end of the song. Four of them
+had this grid's last beat 1.3 s late and the chart 84% off the record through the
+back half. `realign_seams` (in `pipeline/grid.py`, 6 tests) closes them by
+pulling the remainder back; no beat is invented or lost, so bar numbering is
+untouched. The fit is now 100% in every 20-second window. **No other song has an
+octave run at all**, so the change is a no-op for them — do not regrid them
+expecting a difference.
 
 **Song 2's chart is 65 bars and its beat map is 64.** The last crash sits on the
 downbeat of 65 and the detector found no beats past it, so a cell ending at 65
@@ -96,13 +120,25 @@ whole-song take logs two extras, which never touch accuracy.
 - **Sections are named by hand from the notation** on both songs, with every
   fill and pickup cut out as a block of its own so it can be drilled. Re-running
   `drums sections --redetect` would throw the names away.
+- **A cross-stick is its own instrument, not a snare** (2026-09-18). One For The
+  Road writes one for four bars, so `sidestick` is in `ARTICULATION`
+  (`snare (side stick)`, a cross notehead), in `kit.toml` as geometry, and in
+  `[input.note]` where the module's note 37 now reads as `sidestick` rather than
+  `snare`. Both ends had to move together: a chart asking for a drum the scorer
+  cannot receive marks every correct stroke wrong. The pair is **not** in
+  `same_drum` — that is for a threshold the module sets, like an open or closed
+  hat, and nothing flickers here. The cost is that a cross-stick played on the
+  other two songs, whose charts never ask for one, is now a wrong drum instead
+  of a snare; that is the intended trade.
 
 ### What the user still owes the work
 
 1. **Play a run on Song 2 and seal it.** Nothing has been sealed yet on either
    song, so the trend column has never appeared outside a headless check. It
    needs one sealed run to show anything and three to start smoothing.
-2. **Check the section names** on both songs against how you hear the songs.
+2. **Name One For The Road's sections, and check the other two.** The new song
+   still has the lettered seed `drums sections` proposed -- fifteen blocks, A-N,
+   60 cells against Kill Me's 44 -- so it is the one that needs the pass most.
    Renaming is free until a run worth keeping is sealed: it changes
    `sectionsHash`, which starts a new epoch, and old runs then leave the line.
 3. **Check the module's hi-hat offset** (parked). Closed only registers under

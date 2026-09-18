@@ -1,0 +1,151 @@
+[source]
+url = "https://www.youtube.com/watch?v=qN7gSMPQFss"
+video_id = "qN7gSMPQFss"
+title = "Arctic Monkeys - One For The Road (Official Video)"
+uploader = "Official Arctic Monkeys"
+duration = 206.0
+
+[models]
+separation = ""
+
+[grid]
+meter = ""
+tempo_multiplier = ""
+downbeat_rotation = -1
+
+# Where the notation is authored. Saving the Live set regenerates tab.mid.
+#
+# This set has a project folder of its own, unlike Song 2's. It was written at
+# 90 BPM before the song was prepped, and the straightened stems were first
+# rendered at 90 to match it. They are now at **91**, which is what the grid's
+# 90.91 rounds to and what the record actually sits near, so **set the Live
+# project to 91 BPM**. That does not move a note: the clips are on the bar grid,
+# and changing the project tempo changes how fast they play, not where they are.
+#
+# `bar_offset` is the one thing that differs from the other two songs. This set
+# was written against the record from the top of the track, so its bars 1-3 are
+# the intro and the drums come in at its bar 4. The notation starts at the first
+# kick or snare (`bar_one_beat` in grid.lock.json, 9.50s in), which is that same
+# bar, so three bars come off the front on the way to tab.mid. Measured rather
+# than guessed: sliding the chart against the drum stem a sixteenth at a time
+# peaks at exactly -3.00 bars. On the repaired grid that peak is total -- every
+# one of the 422 written kick and snare hits lands on an onset, against 91.5%
+# one bar either way and 83.6% unshifted.
+#
+# It follows that the straightened stems go at **bar 4** of this set, not at
+# 1|1|1 -- they start at the song's bar 1, and in this set that is bar 4.
+[author]
+als = "C:/Users/omhet/Music/Ableton/Projects/Drum Tabs/Arctic Monkeys - One For The Road (midi for tabs) Project/Arctic Monkeys - One For The Road (midi for tabs).als"
+track = "1-Sticks Kit"
+bar_offset = 3
+
+# MIDI key -> instrument, as laid out on the drum rack in that set. The same
+# nine pads as the other two songs, plus a tenth: 45 is a "Rim 505" pad, used
+# for the cross-stick backbeat in bars 54-57 of the song.
+#
+# `sidestick` is its own instrument rather than a `snare`, because it is its own
+# thing to play: stick laid across the head, tip on the rim, quieter and woodier
+# than a backbeat, and you either play it or you do not. It is drawn as a cross
+# notehead and it is marked as itself -- a normal snare where one of these is
+# written is a wrong drum, which is the point of writing it. That needs both
+# ends to agree, so kit.toml reads the module's cross-stick (note 37) as
+# `sidestick` too.
+[midi_map]
+36 = "kick"
+37 = "snare"
+38 = "hihat_closed"
+39 = "hihat_open"
+40 = "hihat_pedal"
+41 = "crash"
+42 = "tom_high"
+43 = "tom_mid"
+44 = "tom_floor"
+45 = "sidestick"
+
+# The sections a routine is built from, proposed by `drums sections` from
+# the repeats in tab.mid and then yours: rename them, nudge the bar
+# numbers, merge or split. Bars are 1-based and inclusive, and together
+# they cover the song in order.
+#
+# Two blocks with the same name are one section the song plays twice --
+# name both choruses `chorus` and you practise it once, against the first
+# of them, instead of learning the same music twice in a run.
+#
+# Once you have played a routine these are frozen: a boundary that moves
+# changes the shape of every routine, and old runs stop being comparable
+# to new ones.
+
+[[section]]
+name = "A"
+start_bar = 1
+end_bar = 8
+
+[[section]]
+name = "B"
+start_bar = 9
+end_bar = 16
+
+[[section]]
+name = "C"
+start_bar = 17
+end_bar = 20
+
+[[section]]
+name = "D"
+start_bar = 21
+end_bar = 24
+
+[[section]]
+name = "E"
+start_bar = 25
+end_bar = 31
+
+[[section]]
+name = "F"
+start_bar = 32
+end_bar = 36
+
+[[section]]
+name = "D"
+start_bar = 37
+end_bar = 40
+
+[[section]]
+name = "G"
+start_bar = 41
+end_bar = 44
+
+[[section]]
+name = "H"
+start_bar = 45
+end_bar = 48
+
+[[section]]
+name = "I"
+start_bar = 49
+end_bar = 53
+
+[[section]]
+name = "J"
+start_bar = 54
+end_bar = 57
+
+[[section]]
+name = "K"
+start_bar = 58
+end_bar = 61
+
+[[section]]
+name = "L"
+start_bar = 62
+end_bar = 65
+
+[[section]]
+name = "M"
+start_bar = 66
+end_bar = 69
+
+[[section]]
+name = "N"
+start_bar = 70
+end_bar = 73

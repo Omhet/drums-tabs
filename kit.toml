@@ -28,6 +28,14 @@ limbs = ["left_foot"]
 pos = [-25, -15]
 limbs = ["left_hand", "right_hand"]
 
+# The same drum, so the same place: a hand going to a cross-stick has travelled
+# exactly as far as a hand going to the snare, which is all the solver asks.
+# It is a separate instrument because it is a separate thing to play, not
+# because it is somewhere else.
+[instrument.sidestick]
+pos = [-25, -15]
+limbs = ["left_hand", "right_hand"]
+
 [instrument.hihat_closed]
 pos = [-50, -10]
 limbs = ["left_hand", "right_hand"]
@@ -109,9 +117,15 @@ repeat_below_ms = 260
 # The numbers below are Roland's factory layout, shared by the TD-17/27/50.
 # Do not trust them -- the practice panel lists every note it receives and
 # says which are unmapped, so hit each pad once and fix whatever is wrong.
-# Several notes map to one instrument on purpose: a rim shot and a head hit
-# are both the snare as far as the chart is concerned, and the notation has no
-# way to write the difference.
+# Several notes map to one instrument on purpose: a rim shot and a head hit are
+# both the snare as far as the chart is concerned, and the notation has no way
+# to write the difference. A **cross-stick is not one of them** -- the staff has
+# a notehead for it and One For The Road is written with it, so note 37 reads as
+# `sidestick` and playing an ordinary backbeat where one is written counts as
+# the wrong drum. That is deliberate: it is a different thing to play. The two
+# are also *not* in `same_drum` below, because nothing here flickers -- you
+# choose a cross-stick and the module reports it, where an open or closed hat
+# is a threshold you did not set.
 [input]
 # Which MIDI port to open, matched as a case-insensitive substring of the
 # port name. Empty means "ask", and the choice is remembered per browser.
@@ -137,7 +151,7 @@ same_drum = [["hihat_closed", "hihat_open"]]
 
 38 = "snare"          # snare head
 40 = "snare"          # snare rim shot
-37 = "snare"          # snare cross-stick
+37 = "sidestick"      # snare cross-stick -- its own instrument, see below
 
 48 = "tom_high"       # tom 1 head
 50 = "tom_high"       # tom 1 rim

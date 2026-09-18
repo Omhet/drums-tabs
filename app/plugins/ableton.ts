@@ -40,8 +40,14 @@ export interface SongMeta {
    * Python side can compute the same string when it needs to.
    */
   sectionsHash: string;
-  /** Present when the notation is authored in a Live set. */
-  author?: { als: string; track?: string };
+  /**
+   * Present when the notation is authored in a Live set.
+   *
+   * `barOffset` is which bar of that set holds bar 1 of the song, minus one:
+   * 0 when the set starts on the first written bar, 3 when it carries three
+   * bars of intro in front of it. See `shiftBars`.
+   */
+  author?: { als: string; track?: string; barOffset: number };
   /**
    * Which media is on disk. Both are untracked and built by the pipeline, so
    * either can be absent: without `mix` the song cannot play at all (it is the
@@ -65,7 +71,9 @@ export function readSongs(songsDir: string): SongMeta[] {
     if (!existsSync(tomlPath)) continue;
     const toml = parseToml(readFileSync(tomlPath, 'utf-8')) as Record<string, unknown>;
     const source = (toml.source ?? {}) as Record<string, unknown>;
-    const author = toml.author as { als?: string; track?: string } | undefined;
+    const author = toml.author as
+      | { als?: string; track?: string; bar_offset?: number }
+      | undefined;
     const map: Record<number, string> = {};
     for (const [key, name] of Object.entries((toml.midi_map ?? {}) as Record<string, string>)) {
       map[Number(key)] = String(name);
@@ -81,7 +89,9 @@ export function readSongs(songsDir: string): SongMeta[] {
       map,
       sections,
       sectionsHash: sectionsHash(sections),
-      author: author?.als ? { als: author.als, track: author.track } : undefined,
+      author: author?.als
+        ? { als: author.als, track: author.track, barOffset: Number(author.bar_offset ?? 0) }
+        : undefined,
       media: {
         mix: existsSync(join(songsDir, slug, 'audio', 'mix.wav')),
         video: existsSync(join(songsDir, slug, 'audio', 'video.mp4')),
@@ -179,6 +189,33 @@ export function extractNotes(alsPath: string, trackName?: string): { notes: Note
 
 // --- notes -> tab.mid --------------------------------------------------------
 
+/**
+ * Move the set back so that its bar `1 + bars` becomes bar 1 of the notation.
+ *
+ * Notation bar 1 is the beat at `grid.bar_one_beat` -- the first kick or snare
+ * -- and the count-in in front of it has no place in the score. A set written
+ * against the record from the top of the track instead starts where the
+ * *music* starts, so its first bars are the intro and every note in it is that
+ * many bars late. `bar_offset` in `[author]` is how many, and this takes them
+ * off.
+ *
+ * Notes landing before bar 1 are dropped rather than clamped onto it: they are
+ * intro the score does not have, and stacking them on the downbeat would
+ * invent a hit nobody played there. The count comes back so the log can say so
+ * -- a set whose offset is one bar too big loses real notes, and silently is
+ * the wrong way to find that out.
+ */
+export function shiftBars(
+  notes: Note[],
+  bars: number,
+  beatsPerBar = 4
+): { notes: Note[]; dropped: number } {
+  if (!bars) return { notes, dropped: 0 };
+  const moved = notes.map((note) => ({ ...note, beat: note.beat - bars * beatsPerBar }));
+  const kept = moved.filter((note) => note.beat >= 0);
+  return { notes: kept, dropped: moved.length - kept.length };
+}
+
 export function notesToMidi(notes: Note[], opts: { bpm: number; name: string }): Uint8Array {
   type Timed = { tick: number; event: MidiEvent };
   const timed: Timed[] = [];
@@ -223,14 +260,20 @@ export function syncSong(songsDir: string, song: SongMeta): string {
   if (!song.author) return `${song.slug}: no [author] section, tab.mid left alone`;
   if (!existsSync(song.author.als)) return `${song.slug}: Live set not found at ${song.author.als}`;
   const songDir = join(songsDir, song.slug);
-  const { notes, track } = extractNotes(song.author.als, song.author.track);
+  const read = extractNotes(song.author.als, song.author.track);
+  const { notes, dropped } = shiftBars(read.notes, song.author.barOffset);
+  const track = read.track;
   const bytes = notesToMidi(notes, { bpm: readBpm(songDir), name: track });
   const dest = join(songDir, 'tab.mid');
   if (existsSync(dest) && Buffer.from(readFileSync(dest)).equals(Buffer.from(bytes))) {
     return `${song.slug}: ${notes.length} notes, tab.mid unchanged`;
   }
   writeFileSync(dest, bytes);
-  return `${song.slug}: ${notes.length} notes from "${track}" -> tab.mid`;
+  const moved = song.author.barOffset
+    ? `, ${song.author.barOffset} bar(s) off the front` +
+      (dropped ? ` (${dropped} note(s) before bar 1 dropped)` : '')
+    : '';
+  return `${song.slug}: ${notes.length} notes from "${track}" -> tab.mid${moved}`;
 }
 
 export function abletonTabs(songsDir: string): Plugin {

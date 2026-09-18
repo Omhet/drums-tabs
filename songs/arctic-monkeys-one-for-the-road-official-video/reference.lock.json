@@ -1,0 +1,26 @@
+{
+ "version": 1,
+ "chart": "sha256:037f304855d37ffe",
+ "mean_ms": 10.51,
+ "median_ms": 8.76,
+ "matched": 422,
+ "written": 422,
+ "instruments": [
+  {
+   "instrument": "kick",
+   "matched": 235,
+   "written": 235,
+   "mean_ms": 16.78,
+   "median_ms": 13.97,
+   "sd_ms": 14.02
+  },
+  {
+   "instrument": "snare",
+   "matched": 187,
+   "written": 187,
+   "mean_ms": 2.64,
+   "median_ms": 2.59,
+   "sd_ms": 10.0
+  }
+ ]
+}

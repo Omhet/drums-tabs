@@ -11,6 +11,13 @@ import { readChart, SLOTS_PER_BEAT } from './chart';
 export const ARTICULATION: Record<string, string> = {
   kick: 'kick (hit)',
   snare: 'snare (hit)',
+  // The same drum struck a different way: stick laid across the head, tip on
+  // the rim. It reads as a backbeat but it is a quieter, woodier sound and a
+  // different thing to play, so it gets its own notehead (a cross) rather than
+  // being folded into the snare. `kit.toml`'s [input.note] has to agree -- the
+  // module sends cross-stick as its own note, and if that is read as `snare`
+  // then playing what is written here scores as the wrong drum.
+  sidestick: 'snare (side stick)',
   hihat_closed: 'hi-hat (closed)',
   hihat_open: 'hi-hat (open)',
   hihat_pedal: 'pedal hi-hat (hit)',

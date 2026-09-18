@@ -177,6 +177,61 @@ def _local_median_interval(times: np.ndarray, index: int, window: int = 9) -> fl
     return float(np.median(diffs))
 
 
+#: An interval this far above its neighbours is a phase slip, not a tempo. The
+#: seams this closes are ~1.5x; real rubato inside a bar does not reach 1.25x.
+SEAM_RATIO = 1.25
+
+#: ...and a phase slip is *half a beat*, so anything much past 1.5x is something
+#: else and must be left alone. A breakdown with the drums out is a real hole in
+#: the beat map (``repair_intervals`` deliberately leaves it as one), and pulling
+#: the rest of the song back across it would be the worst kind of repair: silent,
+#: and wrong from there to the end.
+SEAM_RATIO_MAX = 1.75
+
+#: A song cannot plausibly have more seams than this; the loop is bounded so a
+#: pathological grid cannot spin here.
+MAX_SEAMS = 32
+
+
+def realign_seams(times: np.ndarray) -> tuple[np.ndarray, list[dict]]:
+    """Pull the grid back into phase after a halved run.
+
+    Halving a double-time run keeps every other beat, and which parity survives
+    is fixed at the run's start. When the run spans an odd number of half-beats
+    the beats *after* it are left half a beat out of phase with it, which shows
+    up as a single interval of about 1.5x.
+
+    Closing that seam is not cosmetic. The straightened render's playback speed
+    follows the beat spacing, so a 1.5x interval is a 1.5x lurch in speed --
+    about a fifth of pitch, at one beat's notice. And the error does not stay
+    put: every beat after the seam is late by the excess, so the chart drifts
+    off the record for the rest of the song.
+
+    Each seam is closed by pulling everything after it back by the excess over
+    the local interval, earliest first. That keeps the beat count -- no beat is
+    invented or lost, they are only re-phased -- so bar numbering downstream is
+    untouched.
+    """
+    out = np.array(times, dtype=np.float64)
+    closed: list[dict] = []
+    for _ in range(MAX_SEAMS):
+        diffs = np.diff(out)
+        if diffs.size < 2:
+            break
+        local = ndimage.median_filter(diffs, size=LOCAL_MEDIAN_WINDOW, mode="nearest")
+        ratio = diffs / local
+        over = np.where((ratio > SEAM_RATIO) & (ratio < SEAM_RATIO_MAX))[0]
+        if over.size == 0:
+            break
+        i = int(over[0])
+        excess = float(diffs[i] - local[i])
+        closed.append(
+            {"at": round(float(out[i]), 3), "pulled_back_ms": round(excess * 1000.0, 1)}
+        )
+        out[i + 1 :] -= excess
+    return out, closed
+
+
 def repair_local_octave(times: np.ndarray) -> tuple[np.ndarray, dict]:
     """Halve stretches where the detector switched to double time mid-song.
 
@@ -199,9 +254,14 @@ def repair_local_octave(times: np.ndarray) -> tuple[np.ndarray, dict]:
     decision falls through to :func:`choose_octave` where it belongs.
 
     A run spanning an odd number of half-beats cannot be tiled with whole ones,
-    so one interval at the run's end is left at 1.5x. That half-beat is real: it
-    is the boundary estimate's own uncertainty, and the end of a stretch the
-    detector was confused about is the right place to leave it.
+    so one interval at the run's end comes out at 1.5x. That seam used to be
+    left alone, on the reasoning that the half-beat was the boundary estimate's
+    own uncertainty. It is not: it is a phase slip, and it is not local. Every
+    beat after the seam is half a beat late, a second seam makes it a whole
+    beat, and the error rides to the end of the song -- on *One For The Road*,
+    four seams had dragged the last beat 1.3 s late, which is what sent the
+    straightened render's pitch lurching and pulled the chart off the record
+    through the back half of the song. :func:`realign_seams` closes them.
     """
     diffs = np.diff(times)
     empty = {"runs": [], "dropped": 0}
@@ -235,7 +295,8 @@ def repair_local_octave(times: np.ndarray) -> tuple[np.ndarray, dict]:
 
     if not runs:
         return times, empty
-    return times[~drop], {"runs": runs, "dropped": int(drop.sum())}
+    kept, closed = realign_seams(times[~drop])
+    return kept, {"runs": runs, "dropped": int(drop.sum()), "seams_closed": closed}
 
 
 def _runs(flags: np.ndarray) -> list[tuple[int, int]]:
@@ -617,6 +678,13 @@ def build(
     trimmed, trim_log = trim_isolated_edges(raw.times)
     unfolded, octave_log_local = repair_local_octave(trimmed)
     repaired, interval_log = repair_intervals(unfolded)
+    # Again, because `repair_intervals` works in whole beats: inserting or
+    # dropping one around a halved run can leave a fresh half-beat seam, or
+    # re-open one just closed. Only where a run was actually halved -- a song
+    # the detector never doubled has no phase to slip.
+    if octave_log_local["runs"]:
+        repaired, late_seams = realign_seams(repaired)
+        octave_log_local["seams_closed"] += late_seams
     octave_name, chosen_beats, score, octave_log = choose_octave(
         repaired, support, beats_per_bar, forced=tempo_multiplier
     )

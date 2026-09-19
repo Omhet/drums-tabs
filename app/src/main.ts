@@ -5,6 +5,7 @@ import { MixClock } from './media';
 import { midiToAlphaTex, type TabResult } from './midi-tab';
 import { FADERS, Mixer, type Fader } from './mixer';
 import { Practice, readPracticeSong } from './practice';
+import { Exercises } from './exercises';
 import type { ReferenceLock } from './reference';
 import { ScoreWindow, barAtTick, type Lines } from './score-window';
 import { StickingLetters, chartHash, type StickingLock } from './sticking';
@@ -113,11 +114,9 @@ if (playable.length === 0) {
   songEl.disabled = true;
 }
 
-// The hash is the song selector: it survives the full reload that a save in
-// Ableton triggers, and it makes a particular song a link.
-const fromHash = playable.find((s) => s.slug === decodeURIComponent(location.hash.slice(1)));
-songEl.value = fromHash?.slug ?? playable[0]?.slug ?? '';
-if (songEl.value) location.hash = encodeURIComponent(songEl.value);
+// A song to start from, so the selector is never blank while the router works
+// out where it is going (see `go`, at the bottom of this file).
+songEl.value = playable[0]?.slug ?? '';
 
 // --- zoom ---------------------------------------------------------------------
 // How big the notes are: +/- step the ladder, 0 goes back to 100%.
@@ -529,6 +528,9 @@ const practice = new Practice(
     seal: byId('routine-seal'),
     discard: byId('routine-discard'),
     routineState: byId('routine-state'),
+    reps: byId('reps'),
+    mix: byId('mix-group'),
+    stemFaders: [faderEl('nodrums'), faderEl('drums')],
   },
   scoreEl,
   (text, isError = false) => {
@@ -539,6 +541,35 @@ const practice = new Practice(
 );
 onThemeChange = (dark) => practice.setTheme(dark);
 practice.setTheme(isTabDark());
+
+// The exercises: the pool, the song's list, and the ladder of whatever is
+// armed. It renders and hands `practice` something to aim at; everything that
+// touches the kit or the clock stays over there.
+const exercises = new Exercises(
+  {
+    list: byId('exercises'),
+    form: byId('exercise-form'),
+    cut: byId('exercise-new'),
+    poolButton: byId('exercise-pool'),
+    pool: byId('pool'),
+    ladder: byId('ladder'),
+    drillState: byId('drill-state'),
+    back: byId('drill-back'),
+  },
+  practice,
+  playable,
+  (hash) => {
+    location.hash = hash;
+  },
+  (text, isError = false) => {
+    practiceNote = text;
+    practiceError = isError;
+    showStatus();
+  },
+  () => currentBar() + 1,
+  (startBar, endBar) => practice.notesIn(startBar, endBar),
+  () => practice.chartHash
+);
 
 // Handlers must be attached *before* api.tex(), which fires renderStarted
 // synchronously -- otherwise the first event is missed.
@@ -710,6 +741,9 @@ async function load(slug: string) {
   // Not awaited: it ends by reading the open routine off the dev server, and
   // the page should finish loading whether or not there is one to read.
   void practice.load(await readPracticeSong(song, bytes, grid, lock, reference));
+  // The pool, for the same reason and off the same server: which exercises name
+  // this song, and how their ladders stand.
+  void exercises.load(song);
 
   const problems = [
     tab.unmapped.length ? `unmapped MIDI keys: ${tab.unmapped.join(', ')}` : '',
@@ -900,17 +934,65 @@ document.addEventListener('keydown', (e) => {
   action();
 });
 
+// --- the router -------------------------------------------------------------------
+// The hash is the whole of it. It survives the full reload Ableton triggers on
+// every Ctrl+S, and it makes a song, the pool and a single exercise each a link
+// you can keep. The page itself goes on <html> as an attribute and the CSS does
+// the showing and hiding -- the same arrangement as zen and the rails, for the
+// same reason: there is nothing for the script to keep in step.
+//
+// `exercises` and `exercise/<id>` are matched before song slugs, so a song
+// directory called either would be shadowed. That is the trade for a hash that
+// reads, and no song is called that.
+
+type Route =
+  | { page: 'song'; slug: string }
+  | { page: 'pool' }
+  | { page: 'exercise'; id: string };
+
+function parseHash(hash: string): Route {
+  const raw = decodeURIComponent(hash.replace(/^#/, ''));
+  if (raw === 'exercises') return { page: 'pool' };
+  if (raw.startsWith('exercise/')) return { page: 'exercise', id: raw.slice('exercise/'.length) };
+  return { page: 'song', slug: raw };
+}
+
+async function go(route: Route) {
+  document.documentElement.dataset.page = route.page;
+  if (route.page === 'pool') {
+    await exercises.reload();
+    return;
+  }
+  if (route.page === 'song') {
+    practice.disarm();
+    const slug = playable.some((s) => s.slug === route.slug) ? route.slug : playable[0]?.slug ?? '';
+    if (!slug) return;
+    if (slug !== songEl.value || !current) {
+      songEl.value = slug;
+      await load(slug);
+    }
+    return;
+  }
+  // An exercise: make sure its song is the one on screen, then aim at it. One
+  // code path, so arming cannot race the load -- `load` ends by reading the
+  // open routine off the dev server, and the exercise rides along with it.
+  await exercises.reload();
+  const source = exercises.sourceOf(route.id);
+  if (!source) {
+    setStatus(`No exercise called ${route.id}.`, true);
+    return;
+  }
+  if (source.slug !== songEl.value || !current) {
+    songEl.value = source.slug;
+    await load(source.slug);
+  }
+  exercises.arm(route.id);
+}
+
 songEl.addEventListener('change', () => {
   location.hash = encodeURIComponent(songEl.value);
-  void load(songEl.value);
 });
-window.addEventListener('hashchange', () => {
-  const slug = decodeURIComponent(location.hash.slice(1));
-  if (slug !== songEl.value && playable.some((s) => s.slug === slug)) {
-    songEl.value = slug;
-    void load(slug);
-  }
-});
+window.addEventListener('hashchange', () => void go(parseHash(location.hash)));
 
 // Handle for the headless checks in scripts/ -- they drive playback and read
 // the position back, which is the only way to verify the player from outside.
@@ -928,11 +1010,16 @@ if (import.meta.env.DEV) {
     scoreWindow,
     sticking,
     practice,
+    exercises,
+    go,
     seekToBar,
+    // The bar->ms primitive, so a check can work out where a range starts and
+    // ends without reimplementing the beat map.
+    barStartMs,
     get current() {
       return current;
     },
   };
 }
 
-void load(songEl.value);
+void go(parseHash(location.hash));

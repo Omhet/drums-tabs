@@ -31,6 +31,7 @@ import type { Mixer } from './mixer';
 import {
   buildCells,
   cellById,
+  cellSeries,
   comparableRuns,
   describeCell,
   discardRoutine,
@@ -43,7 +44,7 @@ import {
   resumeProblem,
   rollingMedian,
   sealRoutine,
-  sectionSeries,
+  spanOf,
   writeRoutine,
   PASS,
   TEMPOS,
@@ -54,11 +55,31 @@ import { referenceMs as floorOf, referenceNote, type ReferenceLock } from './ref
 import { chartHash, type StickingLock } from './sticking';
 import { writeTake, type Take } from './take';
 import { barStartMs, type Grid } from './syncpoints';
+import {
+  describeDrill,
+  scoreReps,
+  writeDrill,
+  type Drill,
+  type Exercise,
+  type ExerciseSource,
+  type Rep,
+} from './exercise';
 
 /** Bars of click before the cell starts. Not recorded, not graded. */
 const COUNT_IN_BARS = 1;
-/** Hits this far outside the cell still belong to it: a late last note counts. */
+/**
+ * Hits this far outside the range still belong to it: a late last note counts.
+ *
+ * It does two jobs, deliberately as one number. Matching one: a stroke this far
+ * past the end of a cell is still that cell's. Looping one: after the transport
+ * pauses at the end of a rep, this is how long the rep stays open for a fill's
+ * last note to land in. They are the same question -- how late can a note be
+ * and still be the note that was written -- so tuning one for the other's
+ * reasons would break both.
+ */
 const EDGE_MS = 250;
+/** Reps a drill stops itself at. A file is not a place for an afternoon. */
+const MAX_REPS = 64;
 /** A take whose mean is further than this from the stored calibration nags. */
 const DRIFT_MS = 10;
 /**
@@ -83,6 +104,40 @@ const LIMB_NAMES: Record<Limb, string> = {
   left_foot: 'Left foot (hats)',
   hands: 'Hands',
 };
+
+/**
+ * A take in progress, and -- for a drill -- the loop it keeps coming back round.
+ *
+ * The loop is a seek, not a second timeline: every rep happens at the same
+ * absolute milliseconds of mix.wav, so one `expectedNotes` array serves all of
+ * them and there is nothing to re-base and nothing to convert.
+ */
+interface Recording {
+  startMs: number;
+  endMs: number;
+  started: string;
+  /** The notes the range asks for. Computed once; the same every rep. */
+  written: ExpectedNote[];
+  /** Seconds a beat lasts at this tempo, for the count-in and the rest. */
+  beatS: number;
+  beatsPerBar: number;
+  loop?: {
+    restBars: number;
+    /** Every rep closed so far. The open one is still in `capture`. */
+    reps: Rep[];
+    /**
+     * Wall-clock moment the transport really crossed `endMs` -- the poller's
+     * own moment minus its overshoot.
+     *
+     * The clock is parked from here until the next rep starts, so it cannot
+     * stamp a stroke: anything arriving in the grace window gets its mix time
+     * reconstructed from this instead (see `onHit`).
+     */
+    pausedAt: number;
+    /** Between crossing `endMs` and the next rep starting. */
+    resting: boolean;
+  };
+}
 
 export interface PracticeSong {
   song: SongMeta;
@@ -124,6 +179,12 @@ export interface PracticeElements {
   seal: HTMLButtonElement;
   discard: HTMLButtonElement;
   routineState: HTMLOutputElement;
+  /** One chip per rep of the drill in progress. */
+  reps: HTMLElement;
+  /** The Mix group, so a click-only drill can show it is holding the stems. */
+  mix: HTMLElement;
+  /** The two stem faders, disabled while a click-only drill holds them down. */
+  stemFaders: HTMLInputElement[];
 }
 
 export class Practice {
@@ -132,11 +193,37 @@ export class Practice {
   private loaded: PracticeSong | undefined;
   private calibration: Calibration | undefined;
   private running: CalibrationRun | undefined;
-  /** Armed or recording: the hits landing in the cell. */
+  /** Armed or recording: the hits landing in the open rep (a take is one rep). */
   private capture: TakeEvent[] | undefined;
-  private recording: { startMs: number; endMs: number; started: string } | undefined;
+  private recording: Recording | undefined;
   private timer = 0;
   private countInTimer = 0;
+  private graceTimer = 0;
+  /**
+   * The exercise Record is aimed at, or nothing when it is aimed at the grid.
+   *
+   * One field, because a routine cell and a drill must never both be armed:
+   * whether a take counts towards a run should not be a surprise in either
+   * direction (the same reasoning that made opening a routine a button).
+   */
+  armed: { exercise: Exercise; source: ExerciseSource; tempo: number } | undefined;
+  /** The mix levels a click-only drill pulled down, to be put back when it ends. */
+  private heldFaders: { nodrums: number; drums: number } | undefined;
+  /**
+   * The full result of every rep, for the heatmap.
+   *
+   * Kept beside `Rep`, which carries only the `Grade` that goes on disk: the
+   * noteheads need the per-note verdicts, and those are the bulk of a result
+   * and are rederivable from the take, so they are not written down.
+   */
+  private repResults: GradeResult[] = [];
+  /**
+   * Told when a drill reaches disk, so the panel can re-read the pool.
+   *
+   * A callback rather than the panel being reachable from here: this class owns
+   * the kit and the clock, and the pool is somebody else's list.
+   */
+  onDrilled: ((exerciseId: string) => void) | undefined;
   private recent: MidiHit[] = [];
   /** The last graded take, for the headless check and the console. */
   result: GradeResult | undefined;
@@ -300,12 +387,25 @@ export class Practice {
     // from, which `showPorts` cannot know before the first one lands.
     if (this.el.record.disabled) this.showCell();
     const take = this.capture;
-    const window = this.recording;
-    if (!take || !window) return;
-    if (hit.tMs < window.startMs - EDGE_MS || hit.tMs > window.endMs + EDGE_MS) return;
+    const rec = this.recording;
+    if (!take || !rec) return;
     // Raw, uncorrected, and the module's own note number: the take stores the
     // measurement, and the grade is a reading of it (practice-plan Q8).
-    take.push({ tMs: hit.tMs, note: hit.note, velocity: hit.velocity, instrument: hit.instrument });
+    const stroke = { note: hit.note, velocity: hit.velocity, instrument: hit.instrument };
+    const loop = rec.loop;
+    if (loop?.resting) {
+      // The transport is parked at the end of the range, so the clock's own
+      // stamp would read `endMs` however late the stroke is. Reconstruct it
+      // from the wall clock instead -- this is the fill's last note landing.
+      // Anything later than the grace window is rest-bar noise and is dropped
+      // rather than filed against a rep nobody played it in.
+      const since = hit.wallMs - loop.pausedAt;
+      if (since < 0 || since > EDGE_MS) return;
+      take.push({ tMs: rec.endMs + since * (this.clock.playbackRate || 1), ...stroke });
+      return;
+    }
+    if (hit.tMs < rec.startMs - EDGE_MS || hit.tMs > rec.endMs + EDGE_MS) return;
+    take.push({ tMs: hit.tMs, ...stroke });
   }
 
   private drawMonitor() {
@@ -416,6 +516,39 @@ export class Practice {
   }
 
   /**
+   * Aim Record at an exercise instead of the grid.
+   *
+   * The routine and the exercises are two separate histories, so this is the
+   * one switch between them: with something armed, Record drills it on a loop
+   * and writes a drill; with nothing armed, Record plays a cell and writes a
+   * take. Never both.
+   */
+  armExercise(exercise: Exercise, source: ExerciseSource, tempo: number) {
+    if (this.recording) return;
+    this.armed = { exercise, source, tempo };
+    this.repResults = [];
+    this.el.reps.hidden = true;
+    this.el.reps.replaceChildren();
+    this.heatmap.clear();
+    this.result = undefined;
+    this.el.report.hidden = true;
+    this.setSpeed(tempo);
+    this.showCell();
+    this.drawGrid();
+  }
+
+  /** Back to the grid. The exercise keeps its history; you are just not aimed at it. */
+  disarm() {
+    if (this.recording) return;
+    this.armed = undefined;
+    this.releaseStems();
+    this.el.reps.hidden = true;
+    this.el.reps.replaceChildren();
+    this.showCell();
+    this.drawGrid();
+  }
+
+  /**
    * How far behind the written grid this song's record plays, in ms.
    *
    * Taken off every stroke before matching, so a take's timing reads against
@@ -431,29 +564,89 @@ export class Practice {
     return kitInput;
   }
 
+  /** The loaded song's tab.mid hash, for stamping a source when bars are cut. */
+  get chartHash(): string {
+    return this.loaded?.chartHash ?? '';
+  }
+
+  /**
+   * How many notes are written in a stretch of bars.
+   *
+   * The cutting form asks before it writes: an exercise over bars with nothing
+   * in them would score 0% for ever and there is no fixing it afterwards.
+   */
+  notesIn(startBar: number, endBar: number): number {
+    const loaded = this.loaded;
+    if (!loaded?.grid) return 0;
+    return expectedNotes(loaded.hits, loaded.grid, { start: startBar, end: endBar }).length;
+  }
+
   /** The calibration ritual while it is running, or nothing. */
   get calibrating(): CalibrationRun | undefined {
     return this.running;
   }
 
-  /** The notes this cell asks for, placed in the mix. Empty if it cannot be played. */
+  /**
+   * The notes the armed range asks for, placed in the mix.
+   *
+   * The exercise if one is armed, else the routine cell. Empty when there is
+   * nothing to play or no beat map to place it against.
+   */
   expected(): ExpectedNote[] {
     const loaded = this.loaded;
-    const cell = this.cell();
-    if (!loaded?.grid || !cell) return [];
+    const at = this.aim();
+    if (!loaded?.grid || !at) return [];
     return expectedNotes(
       loaded.hits,
       loaded.grid,
-      { start: cell.startBar, end: cell.endBar },
+      { start: at.startBar, end: at.endBar },
       loaded.sticking
     );
   }
 
+  /**
+   * Pull the two stems down for a click-only drill, and remember where they were.
+   *
+   * Straight at the mixer rather than through the sliders' `input` event, which
+   * is what every other level change on this page goes through. That event
+   * writes the levels to localStorage -- and Ableton reloads this page on every
+   * Ctrl+S, so a drill interrupted half way would otherwise leave the song
+   * muted with nothing on screen to say why. The sliders are disabled instead,
+   * so the page shows it is holding them rather than lying about them.
+   */
+  private holdStems() {
+    if (this.heldFaders) return;
+    this.heldFaders = {
+      nodrums: this.mixer.level('nodrums'),
+      drums: this.mixer.level('drums'),
+    };
+    this.mixer.setLevel('nodrums', 0);
+    this.mixer.setLevel('drums', 0);
+    this.el.mix.dataset.held = '1';
+    for (const fader of this.el.stemFaders) fader.disabled = true;
+    this.ensureClickAudible();
+  }
+
+  /** Give them back. Every exit from a drill goes through here, errors included. */
+  private releaseStems() {
+    const held = this.heldFaders;
+    this.heldFaders = undefined;
+    if (!held) return;
+    this.mixer.setLevel('nodrums', held.nodrums);
+    this.mixer.setLevel('drums', held.drums);
+    delete this.el.mix.dataset.held;
+    for (const fader of this.el.stemFaders) fader.disabled = false;
+  }
+
   private showCell() {
-    const cell = this.cell();
+    const at = this.aim();
     const grid = this.loaded?.grid;
-    this.el.cell.textContent = cell ? describeCell(cell) : 'no sections in song.toml';
-    const ready = !!cell && !!grid && !this.running && this.midi.hasSource && import.meta.env.DEV;
+    this.el.cell.textContent = at?.label ?? 'no sections in song.toml';
+    // The word on the button follows what it is aimed at, which is what
+    // icons.ts exists for -- one transport, one meaning per page, rather than a
+    // second Record button that is only sometimes the right one.
+    if (!this.recording) say(this.el.record, this.armed ? 'Drill' : 'Record', '⏺');
+    const ready = !!at && !!grid && !this.running && this.midi.hasSource && import.meta.env.DEV;
     this.el.record.disabled = !ready && !this.recording;
     // Calibrating needs something sending strokes and nothing else running --
     // not a song, which is the point: the click it measures against is its own.
@@ -461,13 +654,15 @@ export class Practice {
     // A disabled button should say what would enable it.
     this.el.record.title = !import.meta.env.DEV
       ? 'Recording needs the dev server (npm run dev)'
-      : !cell
+      : !at
         ? 'No [[section]] blocks in song.toml -- run `drums sections <slug>`'
         : !grid
           ? 'No grid.lock.json: nothing can be placed in the mix'
           : !this.midi.hasSource
             ? 'Enable MIDI first: there is nothing to record'
-            : 'Play this cell and be marked on it';
+            : this.armed
+              ? 'Loop these bars and be marked on every time round'
+              : 'Play this cell and be marked on it';
   }
 
   private toggleRecord() {
@@ -475,35 +670,80 @@ export class Practice {
     else this.startRecording();
   }
 
+  /** What Record is aimed at: the range, the tempo, and the words for it. */
+  private aim():
+    | { startBar: number; endBar: number; tempo: number; label: string; restBars?: number }
+    | undefined {
+    const armed = this.armed;
+    if (armed) {
+      return {
+        startBar: armed.source.startBar,
+        endBar: armed.source.endBar,
+        tempo: armed.tempo,
+        label: describeDrill(armed.exercise, armed.source, armed.tempo),
+        restBars: armed.exercise.restBars,
+      };
+    }
+    const cell = this.cell();
+    return cell
+      ? {
+          startBar: cell.startBar,
+          endBar: cell.endBar,
+          tempo: cell.tempo,
+          label: describeCell(cell),
+        }
+      : undefined;
+  }
+
   private startRecording() {
     const loaded = this.loaded;
-    const cell = this.cell();
-    if (!loaded?.grid || !cell) return;
+    const at = this.aim();
+    if (!loaded?.grid || !at) return;
     const grid = loaded.grid;
-    const startMs = barStartMs(grid, cell.startBar - 1);
-    // The cell ends where the bar after its last bar begins.
-    const endMs = barStartMs(grid, cell.endBar);
+    const startMs = barStartMs(grid, at.startBar - 1);
+    // The range ends where the bar after its last bar begins.
+    const endMs = barStartMs(grid, at.endBar);
     if (startMs === undefined || endMs === undefined) {
-      this.onStatus('The beat map does not cover this section.', true);
+      this.onStatus('The beat map does not cover those bars.', true);
       return;
     }
 
     this.heatmap.clear();
     this.result = undefined;
     this.el.report.hidden = true;
+    this.repResults = [];
+    this.el.reps.replaceChildren();
+    this.el.reps.hidden = true;
     // `capture` stays unset until the music actually starts: the transport is
-    // parked on the cell's first beat through the count-in, so a stroke played
+    // parked on the range's first beat through the count-in, so a stroke played
     // over the count-in would otherwise be stamped exactly on that beat and
     // recorded as a very good hit.
     this.capture = undefined;
-    this.recording = { startMs, endMs, started: new Date().toISOString() };
+    const perBar = grid.meter.beats_per_bar;
+    const barMs = (barStartMs(grid, at.startBar) ?? startMs + 2000) - startMs;
+    // The count-in is in the range's tempo, not the record's: four clicks at
+    // 100% would hand you the wrong speed to start a 70% run in.
+    const beatS = barMs / perBar / 1000 / at.tempo;
+    const rec: Recording = {
+      startMs,
+      endMs,
+      started: new Date().toISOString(),
+      written: this.expected(),
+      beatS,
+      beatsPerBar: perBar,
+      ...(at.restBars === undefined
+        ? {}
+        : { loop: { restBars: at.restBars, reps: [], pausedAt: 0, resting: false } }),
+    };
+    this.recording = rec;
 
     this.mixer.ensureGraph();
+    if (this.armed?.exercise.backing === 'click') this.holdStems();
     // Through the page's own tempo slider rather than straight at alphaTab: the
     // slider, its readout and the media's rate then cannot disagree about what
-    // speed you are playing at, and the cell's tempo is visible where every
-    // other tempo on this page is.
-    this.setSpeed(cell.tempo);
+    // speed you are playing at, and the tempo is visible where every other
+    // tempo on this page is.
+    this.setSpeed(at.tempo);
     this.clock.seekTo(startMs);
 
     say(this.el.record, 'Stop', '⏹');
@@ -511,29 +751,109 @@ export class Practice {
     this.el.record.disabled = false;
     this.drawGrid();
     this.onStatus(
-      `Counting in ${describeCell(cell)}` +
+      `Counting in ${at.label}` +
         (this.calibration ? '' : ' -- uncalibrated, so the mean offset will include the audio path')
     );
 
-    // One bar of clicks, then the music, starting exactly on the cell's first
-    // beat. A count-in rather than a bar of the record itself, because the
+    // One bar of clicks, then the music, starting exactly on the first beat of
+    // the range. A count-in rather than a bar of the record itself, because the
     // first section of a song has no bar before it to play -- and because the
     // clicks give you the tempo, which the run-up only implies.
-    const perBar = grid.meter.beats_per_bar;
-    const barMs = (barStartMs(grid, cell.startBar) ?? startMs + 2000) - startMs;
-    // The count-in is in the cell's tempo, not the record's: four clicks at
-    // 100% would hand you the wrong speed to start a 70% cell in.
-    const beatS = barMs / perBar / 1000 / cell.tempo;
     void this.countIn(beatS, perBar * COUNT_IN_BARS).then((go) => {
-      if (!go) return; // stopped during the count-in
-      this.capture = [];
+      if (!go || this.recording !== rec) return; // stopped during the count-in
+      this.openRep();
       this.api.play();
       clearInterval(this.timer);
-      this.timer = window.setInterval(() => {
-        if (this.clock.mixTimeMs >= endMs) this.stopRecording(true);
-      }, 25);
-      this.onStatus(`Recording ${describeCell(cell)}.`);
+      this.timer = window.setInterval(() => this.tick(), 25);
+      this.onStatus(`Recording ${at.label}.`);
     });
+  }
+
+  /**
+   * The only place the transport is watched: the end of a take, or of a rep.
+   *
+   * A take stops at the end of the range. A drill pauses there, waits a moment
+   * for a last note that was a hair late, grades the rep, seeks back and counts
+   * you in again -- play it, wait, play it again, which is how the thing is
+   * actually practised. The pause is also what makes the seek safe: a paused
+   * seek is the only kind this app has ever done, and a bar of click covers
+   * whatever the audio element needs to do to get back.
+   */
+  private tick() {
+    const rec = this.recording;
+    if (!rec) return;
+    const loop = rec.loop;
+    if (!loop) {
+      if (this.clock.mixTimeMs >= rec.endMs) this.stopRecording(true);
+      return;
+    }
+    // The rest is driven by the count-in's own promise, not by this timer.
+    if (loop.resting || this.clock.mixTimeMs < rec.endMs) return;
+    loop.resting = true;
+    const rate = this.clock.playbackRate || 1;
+    // This fires every 25 ms, so it has overshot by up to that much. Back the
+    // overshoot out to get the moment the clock really crossed the end.
+    loop.pausedAt = performance.now() - (this.clock.mixTimeMs - rec.endMs) / rate;
+    this.api.pause();
+    // The rep stays open through the grace window, so that a fill's last note
+    // -- routinely a few milliseconds late -- is still the note it was written
+    // as rather than a very early downbeat of the next rep.
+    clearTimeout(this.graceTimer);
+    this.graceTimer = window.setTimeout(() => void this.nextRep(rec), EDGE_MS);
+  }
+
+  /** Close the rep that just ended, wind back, and count in the next one. */
+  private async nextRep(rec: Recording) {
+    if (this.recording !== rec || !rec.loop) return;
+    const loop = rec.loop;
+    this.closeRep(rec, true);
+    this.drawReps(loop.reps);
+    if (loop.reps.length >= MAX_REPS) {
+      this.onStatus(`That is ${MAX_REPS} reps -- stopping there and writing the drill.`);
+      this.stopRecording(true);
+      return;
+    }
+    this.clock.seekTo(rec.startMs);
+    // A rest of nought still turns round through a pause and a seek; it is as
+    // fast as the transport goes, not instant. One bar is the default because
+    // waiting for your entry is part of the exercise.
+    const beats = rec.beatsPerBar * loop.restBars;
+    const go = beats > 0 ? await this.countIn(rec.beatS, beats) : true;
+    if (!go || this.recording !== rec) return;
+    this.openRep();
+    this.api.play();
+    loop.resting = false;
+  }
+
+  /** A rep begins: hits from here land in it. */
+  private openRep() {
+    this.capture = [];
+  }
+
+  /**
+   * A rep ends, and is graded there and then.
+   *
+   * Per rep rather than all at the end, because the strip of chips has to
+   * colour itself as you play and because twenty grades at once is twenty
+   * grades the page does in one frame.
+   */
+  private closeRep(rec: Recording, complete: boolean) {
+    const events = this.capture;
+    this.capture = undefined;
+    if (!events || !rec.loop) return;
+    const result = grade(rec.written, events, {
+      calibrationMs: this.calibration?.offsetMs ?? 0,
+      referenceMs: this.loaded?.referenceMs ?? 0,
+      sameDrum: kitInput.same_drum,
+    });
+    rec.loop.reps.push({
+      n: rec.loop.reps.length + 1,
+      startedAt: new Date().toISOString(),
+      complete,
+      events,
+      grade: result.grade,
+    });
+    this.repResults.push(result);
   }
 
   /** The tempo slider is the one place a playback rate is set (see `startRecording`). */
@@ -596,20 +916,35 @@ export class Practice {
   private stopRecording(complete: boolean) {
     clearInterval(this.timer);
     clearTimeout(this.countInTimer);
+    clearTimeout(this.graceTimer);
     this.timer = 0;
-    const window_ = this.recording;
+    const rec = this.recording;
     const events = this.capture;
     this.recording = undefined;
-    this.capture = undefined;
     say(this.el.record, 'Record', '⏺');
     delete this.el.record.dataset.armed;
     this.drawGrid();
-    if (!window_ || !events) {
+    if (!rec) {
+      this.capture = undefined;
+      this.releaseStems();
       this.showCell();
       return;
     }
     this.api.pause();
-    void this.finish(window_, events, complete);
+    if (rec.loop) {
+      // The rep you press Stop in is kept -- it is a measurement that happened
+      // -- and it is not in the median. Nothing to close if the loop was already
+      // resting when you stopped it.
+      this.closeRep(rec, false);
+      void this.finishDrill(rec, rec.loop);
+      return;
+    }
+    this.capture = undefined;
+    if (!events) {
+      this.showCell();
+      return;
+    }
+    void this.finish(rec, events, complete);
   }
 
   private async finish(
@@ -692,6 +1027,131 @@ export class Practice {
     this.showCell();
   }
 
+  // --- the drill --------------------------------------------------------------------
+
+  /**
+   * A sitting ends: score it, write it, and put the median rep on the staff.
+   *
+   * The median rather than the last or the best, because unlike a take a drill
+   * is many attempts at once and the middle one is the honest description of
+   * how it went (exercise.ts). Drawing the *median* rep's reading rather than
+   * the last one is the same decision seen from the other side: the picture on
+   * the notation and the number in the square should be the same rep.
+   */
+  private async finishDrill(rec: Recording, loop: NonNullable<Recording['loop']>) {
+    this.releaseStems();
+    const armed = this.armed;
+    const loaded = this.loaded;
+    if (!armed || !loaded) {
+      this.showCell();
+      return;
+    }
+    this.drawReps(loop.reps);
+    const scored = scoreReps(loop.reps);
+    if (!scored) {
+      this.onStatus(
+        'No rep reached the end, so there is nothing to score. The drill was not written.'
+      );
+      this.showCell();
+      return;
+    }
+    this.showRep(scored.medianRep, loop.reps.length);
+
+    const drill: Drill = {
+      version: 1,
+      exercise: armed.exercise.id,
+      startedAt: rec.started,
+      endedAt: new Date().toISOString(),
+      source: {
+        slug: armed.source.slug,
+        ...(armed.source.section ? { section: armed.source.section } : {}),
+        startBar: armed.source.startBar,
+        endBar: armed.source.endBar,
+      },
+      tempo: armed.tempo,
+      restBars: loop.restBars,
+      backing: armed.exercise.backing,
+      calibrationMs: this.calibration?.offsetMs ?? 0,
+      calibrationNote: this.calibration?.note,
+      referenceMs: loaded.referenceMs,
+      chartHash: loaded.chartHash,
+      accuracy: scored.accuracy,
+      completeReps: scored.completeReps,
+      timing: scored.timing,
+      best: scored.best,
+      worst: scored.worst,
+      reps: loop.reps,
+    };
+
+    let written = '';
+    try {
+      written = await writeDrill(drill);
+    } catch (err) {
+      this.onStatus(`Drill not written: ${(err as Error).message}`, true);
+    }
+    // The ladder is read back off disk rather than patched in memory: the
+    // square *is* the newest file, and a page that believed otherwise would be
+    // the one thing that can disagree with the directory.
+    if (written) this.onDrilled?.(armed.exercise.id);
+
+    const pct = (v: number) => `${Math.round(v * 100)}%`;
+    this.onStatus(
+      [
+        `${scored.completeReps} rep${scored.completeReps === 1 ? '' : 's'}, ${pct(scored.accuracy)}.`,
+        scored.best === scored.worst
+          ? 'Every one the same.'
+          : `${pct(scored.worst)} to ${pct(scored.best)}.`,
+        `Mean ${signed(scored.timing.meanMs)} ms, spread ±${scored.timing.sdMs} ms.`,
+        written ? `Written to exercises/${armed.exercise.id}/drills/${written}.` : '',
+      ]
+        .filter(Boolean)
+        .join(' ')
+    );
+    this.showCell();
+  }
+
+  /** Put one rep's reading on the staff and in the panel. */
+  private showRep(n: number, of: number) {
+    const result = this.repResults[n - 1];
+    const grid = this.loaded?.grid;
+    const source = this.armed?.source;
+    if (!result || !grid || !source) return;
+    this.result = result;
+    this.heatmap.show(result, grid);
+    this.reportRange = { startBar: source.startBar, endBar: source.endBar };
+    this.drawReport(result, { rep: n, of });
+    this.el.report.hidden = false;
+  }
+
+  /**
+   * One chip per rep, in the order you played them.
+   *
+   * The only question a sitting really asks is whether it got better over the
+   * twenty, and twenty numbers in a row answers it in one look where a single
+   * median cannot. Clicking one puts that rep's reading on the staff.
+   */
+  private drawReps(reps: Rep[]) {
+    const el = this.el.reps;
+    el.replaceChildren();
+    el.hidden = reps.length === 0;
+    for (const rep of reps) {
+      const chip = document.createElement('button');
+      const accuracy = rep.grade.accuracy;
+      chip.className = `rep ${!rep.complete ? 'part' : accuracy >= PASS ? 'pass' : 'fail'}`;
+      chip.textContent = rep.complete ? `${Math.round(accuracy * 100)}%` : '–';
+      chip.title = rep.complete
+        ? `Rep ${rep.n}: ${rep.grade.hit}/${rep.grade.expected} notes · ±${rep.grade.timing.overall.sdMs} ms`
+        : `Rep ${rep.n}: stopped part way, so it is not in the score`;
+      chip.addEventListener('click', () => {
+        if (this.recording) return;
+        this.showRep(rep.n, reps.length);
+        for (const other of el.querySelectorAll('.rep')) other.classList.remove('at');
+        chip.classList.add('at');
+      });
+      el.appendChild(chip);
+    }
+  }
+
   // --- the routine ------------------------------------------------------------------
 
   /**
@@ -753,14 +1213,9 @@ export class Practice {
     this.drawGrid();
     const ladder = TEMPOS.map((t) => Math.round(t * 100)).join('/');
     this.onStatus(
-      `Routine open: ${routine.cells.length} cells -- ${this.sectionCount()} sections at ${ladder}%, ` +
-        'then the whole song at each. It stays open until you seal it, over as many sittings as it takes.'
+      `Routine open: the whole song at ${ladder}%. It stays open until you seal it, over as ` +
+        'many sittings as it takes. A stretch of bars you want to drill is an exercise, not a cell.'
     );
-  }
-
-  /** Distinct sections in the grid: the whole-song row is not one of them. */
-  private sectionCount(): number {
-    return new Set(this.cells.filter((cell) => !cell.whole).map((cell) => cell.section)).size;
   }
 
   /** Finish the run: it enters the history and stops being the open one. */
@@ -833,7 +1288,7 @@ export class Practice {
   }
 
   /**
-   * The grid: sections down, the tempo ladder across, the whole song last.
+   * The grid: the whole song across the tempo ladder, and its four lines.
    *
    * Drawn from `cells` whether or not a routine is open, because the grid is a
    * property of the song and not of the run -- seeing the shape of the work is
@@ -876,10 +1331,10 @@ export class Practice {
     if (el.hidden) return;
 
     const table = document.createElement('table');
-    // The trend column appears only once there is something to plot: an empty
-    // column on a song you have never finished a run of is a promise, not a
-    // reading.
-    const runs = comparableRuns(this.history, this.loaded?.song.sectionsHash ?? '');
+    table.className = 'grid';
+    // The trend row appears only once there is something to plot: an empty row
+    // on a song you have never finished a run of is a promise, not a reading.
+    const runs = comparableRuns(this.history, spanOf(this.cells));
     const head = document.createElement('tr');
     head.appendChild(document.createElement('th'));
     for (const tempo of TEMPOS) {
@@ -887,40 +1342,41 @@ export class Practice {
       th.textContent = `${Math.round(tempo * 100)}%`;
       head.appendChild(th);
     }
-    if (runs.length) {
-      const th = document.createElement('th');
-      th.className = 'trend-head';
-      th.textContent = runs.length === 1 ? '1 run' : `${runs.length} runs`;
-      th.title =
-        'How this section has gone across your sealed runs, oldest on the left. ' +
-        'Smoothed as a median of the last three, because the grid counts your last ' +
-        'take and not your best -- so one lucky run should not look like progress ' +
-        'and one bad one should not look like a collapse. The dotted line is ' +
-        `${Math.round(PASS * 100)}%.`;
-      head.appendChild(th);
-    }
     const thead = document.createElement('thead');
     thead.appendChild(head);
     table.appendChild(thead);
 
-    // Cells arrive section-major, so consecutive runs of one section are a row.
-    const rows = new Map<string, RoutineCell[]>();
-    for (const cell of this.cells) {
-      const row = rows.get(cell.section);
-      if (row) row.push(cell);
-      else rows.set(cell.section, [cell]);
-    }
+    // One row, because the routine is one thing played four times. The bars it
+    // covers go in the row's own heading, where the section name used to be.
+    const first = this.cells[0]!;
     const body = document.createElement('tbody');
-    for (const [section, cells] of rows) {
-      const tr = document.createElement('tr');
-      if (cells[0]?.whole) tr.className = 'whole';
-      const th = document.createElement('th');
-      th.textContent = section;
-      th.title = `bars ${cells[0]?.startBar}-${cells[0]?.endBar}`;
-      tr.appendChild(th);
-      for (const cell of cells) tr.appendChild(this.drawCell(cell, !!routine));
-      if (runs.length) tr.appendChild(this.drawTrend(section, runs));
-      body.appendChild(tr);
+    const tr = document.createElement('tr');
+    tr.className = 'whole';
+    const th = document.createElement('th');
+    th.textContent = first.section;
+    th.title = `bars ${first.startBar}-${first.endBar}`;
+    tr.appendChild(th);
+    for (const cell of this.cells) tr.appendChild(this.drawCell(cell, !!routine));
+    body.appendChild(tr);
+
+    // A line under each square rather than one at the end of the row: four
+    // tempos are four separate questions, and a mean over 70% and 100% hides
+    // whether the fast one is catching up (practice-plan Q14).
+    if (runs.length) {
+      const trends = document.createElement('tr');
+      trends.className = 'trends';
+      const label = document.createElement('th');
+      label.className = 'trend-head';
+      label.textContent = runs.length === 1 ? '1 run' : `${runs.length} runs`;
+      label.title =
+        'How each tempo has gone across your sealed runs, oldest on the left. ' +
+        'Smoothed as a median of the last three, because the grid counts your last ' +
+        'take and not your best -- so one lucky run should not look like progress ' +
+        'and one bad one should not look like a collapse. The dotted line is ' +
+        `${Math.round(PASS * 100)}%.`;
+      trends.appendChild(label);
+      for (const cell of this.cells) trends.appendChild(this.drawTrend(cell, runs));
+      body.appendChild(trends);
     }
     table.appendChild(body);
     el.appendChild(table);
@@ -940,22 +1396,24 @@ export class Practice {
   }
 
   /**
-   * One section's line across the sealed runs.
+   * One cell's line across the sealed runs.
    *
    * Accuracy, on a fixed 0-100% scale with the pass threshold drawn on it, so
-   * that two rows can be compared by eye -- a line that rescaled itself to its
-   * own range would make every section look equally close to done.
+   * that the four can be compared by eye -- a line that rescaled itself to its
+   * own range would make every tempo look equally close to done.
    */
-  private drawTrend(section: string, runs: Routine[]): HTMLTableCellElement {
+  private drawTrend(cell: RoutineCell, runs: Routine[]): HTMLTableCellElement {
     const td = document.createElement('td');
     td.className = 'trend';
-    const smoothed = rollingMedian(sectionSeries(runs, section));
+    const smoothed = rollingMedian(cellSeries(runs, cell.id));
     const points = smoothed
       .map((value, i) => ({ value, i }))
       .filter((p): p is { value: number; i: number } => p.value !== undefined);
     if (points.length === 0) return td;
 
-    const W = 66;
+    // The width of a square, so the line sits exactly under the number it
+    // belongs to rather than letterboxing inside it.
+    const W = 54;
     const H = 18;
     const PAD = 2;
     const x = (i: number) => (runs.length < 2 ? W / 2 : PAD + (i / (runs.length - 1)) * (W - 2 * PAD));
@@ -992,7 +1450,7 @@ export class Practice {
     const pct = (v: number) => `${Math.round(v * 100)}%`;
     const first = points[0]!;
     td.title =
-      `${section}: ${pct(first.value)} to ${pct(last.value)} over ` +
+      `${Math.round(cell.tempo * 100)}%: ${pct(first.value)} to ${pct(last.value)} over ` +
       `${runs.length} run${runs.length > 1 ? 's' : ''}` +
       (points.length > 1 && last.value > first.value
         ? ', going the right way.'
@@ -1047,7 +1505,7 @@ export class Practice {
    * is the playing, and one number averaging them would send you off to
    * practise a problem you do not have.
    */
-  private drawReport(result: GradeResult) {
+  private drawReport(result: GradeResult, rep?: { rep: number; of: number }) {
     const g = result.grade;
     const el = this.el.report;
     el.replaceChildren();
@@ -1058,7 +1516,9 @@ export class Practice {
       dial({
         label: 'Notes',
         big: `${Math.round(g.accuracy * 100)}%`,
-        sub: `${g.hit} of ${g.expected}`,
+        // Which rep this is, because after a drill the staff shows one of many
+        // and a reading that did not say which would be a reading of nothing.
+        sub: rep ? `rep ${rep.rep} of ${rep.of}` : `${g.hit} of ${g.expected}`,
         tone: g.accuracy >= PASS ? 'good' : 'bad',
         title:
           `${g.hit} of ${g.expected} written notes landed on the right drum. ` +

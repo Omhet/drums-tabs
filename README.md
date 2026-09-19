@@ -12,10 +12,14 @@ dials -- did you play the right notes, were you steady, where do you sit against
 the record's own feel -- plus coloured noteheads and a map of the bars that went
 wrong, with the numbers behind them folded away. The whole attempt is kept as
 JSON so the history is readable by you and by an agent. A **routine** is the
-fixed grid those attempts fill: every section at 70/80/90/100% and then the
-whole song, the same set of cells every run so that two runs can be compared,
-open across as many sittings as it takes and sealed by hand. Two things it
-needs: the dev server, because writing files is a Vite plugin's job here and not
+fixed grid those attempts fill: the whole song at 70/80/90/100%, four cells, the
+same set every run so that two runs can be compared, open across as many
+sittings as it takes and sealed by hand. The stretch of bars you actually need
+to drill is an **exercise** instead -- a few bars cut out of a chart and played
+on a loop with a bar of click between the reps, graded every time round, with a
+history of its own. Exercises live in a shared pool at the repo root and one can
+name several songs, because the same lick turns up in more than one tune. Two
+things it needs: the dev server, because writing files is a Vite plugin's job here and not
 a built page's; and a MIDI port Chrome can open **while your sampler is already
 holding one** -- the kit is a controller for Superior Drummer in Ableton, so
 two applications want the same module. See `handoff.md` §1 for the test and
@@ -48,6 +52,24 @@ songs/<slug>/
   stems/drums.wav, nodrums.wav          (untracked) separated stems
   stems/straight-*.wav, straight.json   (untracked) tempo-straightened renders for authoring
 ```
+
+## The exercise pool
+
+Shared across songs, so it sits at the repo root rather than under one of them:
+an exercise can be played from several songs, and a file cannot live in two
+directories.
+
+```
+exercises/<id>/exercise.json          what it is: kind, bars, rest, backing, every source
+exercises/<id>/drills/<when>-<pct>.json   one sitting at one tempo, every rep in it
+```
+
+A **source** is `{slug, section, startBar, endBar, chartHash}` -- somewhere in a
+real song this exercise can be played from. A song's page lists every exercise
+naming its slug, which is the whole of the many-to-many link and leaves nothing
+to keep in step. A **drill** is one sitting; it scores as the *median* of its
+complete reps and fills one square of the exercise's own 70/80/90/100 ladder.
+There is nothing to seal: the newest drill at a tempo simply is that square.
 
 ## Workflow
 
@@ -545,7 +567,9 @@ grid once a run has been sealed -- one sparkline per section row, oldest run on
 the left, on a fixed 0-100% scale with the pass threshold dotted across it so
 two rows can be compared by eye. The unit is the *section*, not the cell: a cell
 is one square of a 44-square grid and nobody reads 44 sparklines, while a section
-is the thing you think of yourself as working on. Three things learned:
+is the thing you think of yourself as working on. (The grid became four cells in
+2026-09-19, and with it the line became one *per cell* -- see the last entry.)
+Three things learned:
 
 - **What makes the grid honest makes the history jumpy.** The routine counts
   your last complete take, not your best, so a lucky run cannot be farmed -- and
@@ -647,13 +671,66 @@ Three things learned:
   is the whole point of writing it.
 
 The sections are still the lettered seed `drums sections` proposed -- fifteen
-blocks, A-N, 60 cells, which is half again the size of Kill Me's routine. They
-want naming from the notation the way the other two were, and that is worth
-doing before a run is sealed, because renaming starts a new epoch.
+blocks, A-N. They want naming from the notation the way the other two were.
+(Renaming used to start a new comparison epoch and throw the history away; as of
+2026-09-19 it does not, so this can be done whenever you like -- see below.)
 
-What is left of M3 in `practice-plan.md` is the per-*cell* trend lines and the
-take-vs-take overlay, and both are worth building only if the per-section lines
-turn out to be too coarse in use -- check that before writing them.
+**The routine became the song, and the drilling became exercises (2026-09-19).**
+The grid was every section at four tempos -- 28 to 60 cells, a run you spread
+over a week. Sections did not stop being the thing worth drilling; they stopped
+being what a *run* is made of. So `buildCells` now returns four cells, the whole
+song at 70/80/90/100, and a stretch of bars is an **exercise**: a few bars cut
+out of a chart, looped with a bar of click between the reps, graded every time
+round. A drill fills a square of the exercise's own ladder and touches no cell,
+which keeps the two histories apart -- "can I play the piece" and "have I got
+that fill yet" are different questions and were never one number.
+
+Five things learned, in the order they bit:
+
+- **The rest bar is what makes the loop buildable at all.** The plan had the
+  transport seeking back mid-playback, with an audible bump at the seam and a
+  real risk the `<audio>` element would stutter every rep. Asking for a bar of
+  click between reps -- which is how the thing is practised anyway -- turned
+  that into a *paused* seek, which is the only kind this app has ever done. The
+  feature that was wanted for musical reasons removed the engineering risk
+  entirely. The check asserts every rep starts on the same millisecond of the
+  record, and the spread is 0.
+- **A fill's last note arrives after the transport has stopped.** It is written
+  on the last sixteenth and played a hair behind, so it lands while the clock is
+  parked at the end of the range -- where `mixTimeAt` would stamp it as `endMs`
+  however late it actually was, or, worse, as a very early downbeat of the next
+  rep. `MidiHit` already carries `wallMs`, so the rep stays open for `EDGE_MS`
+  after the pause and anything arriving in that window is placed from the wall
+  clock instead. `EDGE_MS` is now deliberately one number doing two jobs -- the
+  matching window and the grace -- because they are the same question.
+- **Four cells is what makes the per-cell trend lines readable.** Q14's lines
+  were unbuilt because 44 sparklines is not a reading. Four is four, so the trend
+  moved from a column of one line per *section* -- the mean of that section's
+  four tempos -- to a row of four lines, one under each square. The mean was
+  hiding the only thing worth knowing: whether the fast one is catching up.
+- **The epoch key had to move from the section hash to the bar span.** Renaming a
+  section used to end a comparison epoch, which was right when sections *were*
+  the cells. In a four-cell grid a rename changes nothing at all, and One For The
+  Road's sections are still unnamed. Under the old rule, naming them would have
+  thrown away every run on it. The span (`spanOf`, `1-62`) still ends an epoch
+  when the first or last boundary moves, which is when the cells genuinely change.
+- **Click-only backing must not go through the sliders.** Every other level
+  change on the page dispatches the slider's `input` event, which persists the
+  mix to localStorage -- and Ableton reloads the page on every Ctrl+S. A drill
+  interrupted half way would have left the song playing silently with nothing on
+  screen to say why. The stems come down through `mixer.setLevel` directly and
+  the sliders are disabled under a `data-held` attribute, so the page shows it is
+  holding them rather than lying about them.
+
+Deliberately not built: alphaTab's `display.startBar`, which would slice the
+engraving to the exercise's bars. Four separate things index bars by score
+position -- the sync points, the sticking letters, the heatmap and
+`barAtTick` -- and all four would need re-basing at once, for a view the
+notation window already gives by parking on the right row. The comment saying so
+is in `practice.ts`, because somebody will reach for it.
+
+What is left of M3 in `practice-plan.md` is the take-vs-take overlay. The
+per-cell trend lines it also asked for are done.
 
 Against that sit the small unscheduled things, which the user has said serve the
 thing they actually value -- playing along with the notation at different tempos
@@ -689,7 +766,7 @@ the two themes are for), `-icons.png`, `-zen.png` and `-zoom.png`), and
 within 15 ms, then plays through the count-in), `check-mix.mjs` (plays at
 100% and 50% and asserts the stems stay within 20 ms of the clock and the
 picture settles within 60 ms of it, the graph is silent with every fader at 0,
-and the click is audible), and `check-practice.mjs` (opens a routine,
+and the click is audible), `check-practice.mjs` (opens a routine,
 records one of its cells with injected strokes -- one of each mistake -- and
 asserts the grade, the three dials, the bar strip, the take on disk and the cell
 it filled, including that the lateness which comes back is the lateness that
@@ -697,15 +774,26 @@ went in *minus the song's reference floor*; screenshots the reading in its rail
 to `app/shots/practice.png`, because whether it fits is not a thing a count can
 answer; **reloads the page** the way a
 Ctrl+S in Live does and asserts the run came back with the cell still in it;
-posts synthetic sealed runs and asserts the trend column reads them and smooths
+posts synthetic sealed runs and asserts the trend row reads them and smooths
 them; then runs the calibration ritual with strokes placed a known lateness
 after each click is *heard* and asserts that number comes back. It deletes
-everything it wrote and restores the machine's own calibration). They
+everything it wrote and restores the machine's own calibration -- **and note
+that its cell is now the whole song, so it sits there for the length of the
+record**), and `check-exercise.mjs`, which is the fast end-to-end proof of the
+same path because a loop is three bars: it cuts an exercise out through the real
+form, asserts the three refusals that cannot be fixed afterwards, drills it for
+three reps and stops part way through a fourth, and then asserts the two things
+the loop lives or dies on -- that **every rep starts on the same millisecond of
+the record**, and that a stroke played past the end of the range **stays in the
+rep that asked for it, still as late as it was played**. It also asserts the
+drill on disk, the median rule, the ladder, that a click-only drill gives the
+faders back, that a reload does not lose the square, and that the trend reads a
+posted history. It deletes the exercise it made, drills and all. They
 launch the installed Chrome or Edge (`browser.mjs`): Playwright's own Chromium
 cannot decode the H.264 video. Each checks the first song in the list unless
 `SONG=<slug>` names another.
 
 Tests that need no browser: `.venv/Scripts/python -m pytest -q tests` for the
-pipeline, and `npm test` in `app/` for the scorer, the chart reader and the
-routine grid -- Node runs the TypeScript source directly, with
+pipeline, and `npm test` in `app/` for the scorer, the chart reader, the routine
+grid and the exercise ladder -- Node runs the TypeScript source directly, with
 `scripts/ts-resolve.mjs` supplying the file extensions a bundler would.

@@ -196,7 +196,8 @@
       :root[data-desk="icons"] { --desk: 46px; }
       :root[data-rail="icons"] #rail :is(h1, h2, .fader, .keys, output, label > span, .row > .name),
       :root[data-desk="icons"] #desk
-        :is(h1, h2, .fader, .keys, output, label > span, .row > .name, #monitor, #routine, #report) {
+        :is(h1, h2, .fader, .keys, output, label > span, .row > .name, #monitor, #routine,
+           #report, #exercises, #exercise-form, #ladder, #reps) {
         display: none;
       }
       :root[data-rail="icons"] #rail .group,
@@ -404,49 +405,135 @@
         text-transform: uppercase; color: var(--muted);
         content: "The reading";
       }
-      /* The routine grid (routine.ts): rows are sections, columns the tempo
-         ladder, and the last row is the whole song. The same shape every run,
-         forever -- that is what makes two runs comparable at all. A filled cell
-         shows its accuracy and goes green or red; red is a signal and not a
-         gate, so it is not in the way of anything. */
-      #routine { font-size: 12px; }
-      #routine table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
-      #routine th {
+      /* The square grid, drawn in two places: the routine (routine.ts), where
+         the one row is the whole song across the tempo ladder, and an
+         exercise's ladder (exercise.ts), where it is one stretch of bars across
+         the same four. The same shape every run, forever -- that is what makes
+         two runs comparable at all. A filled square shows its accuracy and goes
+         green or red; red is a signal and not a gate, so it is not in the way
+         of anything. */
+      #routine, #ladder { font-size: 12px; }
+      table.grid { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+      .grid th {
         padding: 0 10px 0 0; text-align: left; font-weight: normal; color: var(--muted);
         white-space: nowrap;
       }
-      #routine thead th { text-align: center; padding: 0 0 2px; }
-      #routine td { padding: 0 3px 1px 0; }
-      #routine .cell {
+      .grid thead th { text-align: center; padding: 0 0 2px; }
+      .grid td { padding: 0 3px 1px 0; }
+      .grid .cell {
         width: 54px; padding: 1px 0; font: inherit; line-height: 1.25; text-align: center;
         border-radius: 5px; border: 1px solid var(--border);
         background: var(--panel); color: var(--muted); cursor: pointer;
       }
-      #routine .cell.pass { border-color: var(--pass); color: var(--pass); }
-      #routine .cell.fail { border-color: var(--fail); color: var(--fail); }
+      .grid .cell.pass { border-color: var(--pass); color: var(--pass); }
+      .grid .cell.fail { border-color: var(--fail); color: var(--fail); }
       /* Where you are. An outline rather than a fill, so it reads on top of
-         whichever of the three states the cell is already in. */
-      #routine .cell.at { outline: 2px solid var(--fg); outline-offset: 1px; color: var(--fg); }
-      #routine tr.whole th, #routine tr.whole .cell { font-weight: 600; }
-      #routine tr.whole td { padding-top: 5px; }
-      #routine tr.whole th { padding-top: 5px; color: var(--fg); }
+         whichever of the three states the square is already in. */
+      .grid .cell.at { outline: 2px solid var(--fg); outline-offset: 1px; color: var(--fg); }
+      .grid tr.whole th, .grid tr.whole .cell { font-weight: 600; }
+      .grid tr.whole td { padding-top: 5px; }
+      .grid tr.whole th { padding-top: 5px; color: var(--fg); }
       #routine .note { margin: 6px 0 0; color: var(--muted); }
-      /* The trend column: one line per section across the sealed runs, oldest
-         on the left, smoothed as a median of the last three (routine.ts). The
-         scale is a fixed 0-100% with the pass threshold dotted on it, so two
-         rows can be compared by eye -- a line that rescaled to its own range
-         would make every section look equally close to done. */
-      #routine th.trend-head { text-align: center; color: var(--muted); font-size: 11px; }
-      #routine td.trend { padding-left: 10px; line-height: 0; }
-      #routine td.trend svg { overflow: visible; }
-      #routine td.trend .pass-line {
+      /* The trend: one line *under each square* across the sealed runs, oldest
+         on the left, smoothed as a median of the last three (routine.ts). It
+         used to be a single line per section at the end of the row -- the mean
+         of that section's four tempos -- which hid the only thing worth
+         knowing, whether the fast one is catching up with the slow one. The
+         scale is a fixed 0-100% with the pass threshold dotted on it, so the
+         four can be compared by eye; a line that rescaled to its own range
+         would make every tempo look equally close to done. */
+      .grid th.trend-head { text-align: right; color: var(--muted); font-size: 11px; }
+      .grid tr.trends td { padding: 3px 3px 0 0; line-height: 0; }
+      .grid td.trend svg { overflow: visible; }
+      .grid td.trend .pass-line {
         stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 2;
       }
-      #routine td.trend .line { fill: none; stroke-width: 1.5; stroke-linejoin: round; }
-      #routine td.trend.pass .line, #routine td.trend.pass .dot { stroke: var(--pass); fill: var(--pass); }
-      #routine td.trend.fail .line, #routine td.trend.fail .dot { stroke: var(--fail); fill: var(--fail); }
-      #routine td.trend .line { fill: none; }
+      .grid td.trend .line { fill: none; stroke-width: 1.5; stroke-linejoin: round; }
+      .grid td.trend.pass .line, .grid td.trend.pass .dot { stroke: var(--pass); fill: var(--pass); }
+      .grid td.trend.fail .line, .grid td.trend.fail .dot { stroke: var(--fail); fill: var(--fail); }
       #routine .note.warn { color: var(--fail); }
+      /* Which page you are on. The hash is the state, the attribute is how the
+         page reads it, and the CSS does the rest -- the same arrangement as zen
+         and the rails, for the same reason: there is nothing for the script to
+         keep in step. */
+      :root[data-page="pool"] #stage,
+      :root[data-page="pool"] #desk-exercises,
+      :root[data-page="pool"] #desk-drill,
+      :root[data-page="pool"] #report,
+      :root[data-page="pool"] .group:has(#routine),
+      :root[data-page="exercise"] #desk-exercises,
+      :root[data-page="exercise"] .group:has(#routine) { display: none; }
+      :root[data-page="pool"] #pool { display: block; }
+      /* The Drill group belongs to one page, so the page owns whether it is
+         there -- an element that also carried `hidden` would be two sources of
+         truth for one question. */
+      #desk-drill { display: none; }
+      :root[data-page="exercise"] #desk-drill { display: flex; }
+      /* The stems held down by a click-only drill: dimmed, not hidden, so it is
+         plain that something is holding them and that it is not you. */
+      #mix-group[data-held] .fader:not(:last-child) { opacity: 0.45; }
+      /* The reps of a drill as they happen: one chip per time round the loop,
+         newest last, coloured against the same threshold the squares use. The
+         only question a sitting asks is whether it got better over the twenty,
+         and twenty numbers in a row answer it where one median cannot. */
+      #reps { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 0; }
+      #reps .rep {
+        padding: 1px 6px; font: 11px/1.6 ui-monospace, "Cascadia Mono", Consolas, monospace; border-radius: 4px;
+        border: 1px solid var(--border); background: var(--panel);
+        color: var(--muted); cursor: pointer;
+      }
+      #reps .rep.pass { border-color: var(--pass); color: var(--pass); }
+      #reps .rep.fail { border-color: var(--fail); color: var(--fail); }
+      /* Stopped part way: kept, because it happened, and out of the median. */
+      #reps .rep.part { border-style: dashed; }
+      #reps .rep.at { outline: 2px solid var(--fg); outline-offset: 1px; color: var(--fg); }
+      /* The song's exercise list, and the pool page. Both draw the same row:
+         what it is called, where it comes from, and its four squares. */
+      #exercises { font-size: 12px; }
+      #exercises:empty::before {
+        content: "Nothing cut from this song yet.";
+        color: var(--muted);
+      }
+      #exercises .ex {
+        display: flex; align-items: center; gap: 8px; width: 100%;
+        padding: 5px 6px; margin: 3px 0; text-align: left; font: inherit;
+        background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+        color: var(--fg); cursor: pointer;
+      }
+      #exercises .ex:hover { border-color: var(--fg); }
+      #exercises .ex .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #exercises .ex .bars, #pool .bars { color: var(--muted); font: 11px ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: nowrap; }
+      /* The four squares in miniature: a shape to recognise, not numbers to
+         read. The numbers are on the exercise's own page. */
+      .pips { display: flex; gap: 2px; }
+      .pips i {
+        width: 7px; height: 7px; border-radius: 2px;
+        border: 1px solid var(--border); background: transparent;
+      }
+      .pips i.pass { border-color: var(--pass); background: var(--pass); }
+      .pips i.fail { border-color: var(--fail); background: var(--fail); }
+      #exercise-form { display: grid; grid-template-columns: auto 1fr; gap: 6px 8px; font-size: 12px; }
+      #exercise-form label { grid-column: 1; align-self: center; color: var(--muted); }
+      #exercise-form input, #exercise-form select { grid-column: 2; width: 100%; }
+      #exercise-form .row, #exercise-form .full { grid-column: 1 / -1; }
+      #exercise-form .why { grid-column: 1 / -1; margin: 0; color: var(--fail); }
+      #pool { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 2px 12px; }
+      #pool h2 {
+        margin: 14px 0 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+        text-transform: uppercase; color: var(--muted);
+      }
+      #pool h2:first-child { margin-top: 0; }
+      #pool .ex {
+        display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px;
+        width: 100%; padding: 8px 10px; margin: 4px 0; text-align: left; font: inherit;
+        background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+        color: var(--fg); cursor: pointer;
+      }
+      #pool .ex:hover { border-color: var(--fg); }
+      #pool .ex .note { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+      #pool .ex .where { font-size: 12px; color: var(--muted); }
+      #pool .ex.orphan { opacity: 0.55; cursor: not-allowed; }
+      #pool .empty { color: var(--muted); }
       /* The reading after a take (practice.ts drawReport): three dials, a map
          of the bars, then the numbers folded away. Each dial answers exactly
          one question and they are never blended into a score -- consistently
@@ -553,8 +640,10 @@
           </div>
         </div>
         <!-- The mixer: what you hear is the two stems and the click, not the
-             video's own soundtrack (that is the full mix). -->
-        <div class="group">
+             video's own soundtrack (that is the full mix). A click-only drill
+             holds the two stems at zero and disables them while it runs, so
+             the page shows it is holding them rather than lying about them. -->
+        <div class="group" id="mix-group">
           <h2>Mix</h2>
           <div class="fader">
             <span>No drums</span>
@@ -631,6 +720,10 @@
           <div id="picture"><video id="video" playsinline preload="auto"></video></div>
           <div id="tabs"><div id="score-box"><div id="score"></div></div></div>
         </div>
+        <!-- The pool takes over the stage at #exercises: every exercise in the
+             repo, grooves then fills, with its ladder and where it can be
+             played from. There is no notation to show until you pick one. -->
+        <div id="pool" hidden></div>
         <p id="status">Loading alphaTab&hellip;</p>
       </main>
       <!-- The right rail: practice mode, end to end -- what you play, measured
@@ -710,6 +803,35 @@
           </div>
           <output id="routine-state">no routine open</output>
           <div id="routine" hidden></div>
+        </div>
+        <!-- The exercises: the hard bars cut out of this chart and drilled on
+             a loop with a rest in it. The pool is shared -- the same lick in
+             two songs is one exercise with two sources -- so this is "every
+             exercise that names this song", not "this song's exercises".
+             Drilling is not the routine: a drill fills a square of the
+             exercise's own ladder and touches no cell. -->
+        <div class="group" id="desk-exercises">
+          <h2>Exercises</h2>
+          <div class="row">
+            <button id="exercise-new" data-icon="✂" title="Cut a stretch of bars into an exercise">
+              Cut bars…
+            </button>
+            <button id="exercise-pool" data-icon="☰" title="Every exercise in the pool">Pool</button>
+          </div>
+          <form id="exercise-form" hidden></form>
+          <div id="exercises"></div>
+        </div>
+        <!-- The drill: one exercise, looped, at one rung of its own ladder.
+             There is nothing to seal -- the newest drill at a tempo is that
+             square. -->
+        <div class="group" id="desk-drill">
+          <h2>Drill</h2>
+          <output id="drill-state"></output>
+          <div id="ladder"></div>
+          <div id="reps" hidden></div>
+          <div class="row">
+            <button id="drill-back" data-icon="↩" title="Back to the routine">Done</button>
+          </div>
         </div>
         <div id="report" hidden></div>
       </aside>

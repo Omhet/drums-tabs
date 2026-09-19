@@ -20,7 +20,9 @@ as its own song, and added `drums sections` and `drums sticking`.
 the scorer, and the grade drawn on the staff.
 
 **M2** is the routine grid: the fixed set of cells one run walks, filled a cell
-at a time, resumable across sittings and sealed by hand.
+at a time, resumable across sittings and sealed by hand. **Reshaped on
+2026-09-19** -- it is four cells now, the whole song at each tempo, and the
+stretch of bars you drill is an exercise instead.
 
 **The reading** (2026-09-16) is three dials, a bar strip, three notehead colours
 and a per-section trend column, replacing a table nobody could read. See §3.
@@ -36,6 +38,9 @@ app/src/chart.ts       tab.mid -> notes, placed in the mix, given limbs
 app/src/calibrate.ts   tap-to-click, median of N, two clocks bridged
 app/src/take.ts        the take format (Q8). The important one.
 app/src/heatmap.ts     noteheads coloured by verdict + the extras lane
+app/src/exercise.ts    the pool: what an exercise and a drill are. Pure; tested.
+app/src/exercises.ts   the panels: the song's list, the cutting form, the pool page
+exercises/<id>/        the pool itself, at the repo root: one dir per exercise
 kit.toml [input]       what your module sends (NOT the chart's numbering)
 pipeline/reference.py  measures the floor, writes reference.lock.json
 songs/<slug>/routines/ the runs. The open one has `sealedAt: null`.
@@ -46,15 +51,16 @@ songs/<slug>/routines/ the runs. The open one has `sealedAt: null`.
 From `app/`, with `npm run dev` running in its own terminal:
 
 ```
-npm run smoke · check-sync · check-mix · check-ui out.png · check-practice
-npm test                                   # scorer + chart + routine + bar_offset, 73, no browser
+npm run smoke · check-sync · check-mix · check-ui out.png · check-practice · check-exercise
+npm test                                   # scorer + chart + routine + exercise + bar_offset, 100, no browser
 .venv/Scripts/python -m pytest -q tests    # 116, no browser
 cd app && npm run typecheck
 ```
 
-**Known-good as of 2026-09-18:** 116 pytest, 73 node tests, clean typecheck, and
-every browser check on all four songs. Run the important ones once per song
-(`SONG=<slug>`).
+**Known-good as of 2026-09-19:** 116 pytest, 100 node tests, clean typecheck, and
+every browser check. Run the important ones once per song (`SONG=<slug>`).
+`check-practice` now records the whole song, so it takes about as long as the
+record does; `check-exercise` is the fast proof of the same path.
 
 Gotchas, all previously bitten: the checks need **real Chrome or Edge** (bundled
 Chromium has no H.264); the Ableton plugin reloads the page on every `.als` save,
@@ -133,20 +139,26 @@ whole-song take logs two extras, which never touch accuracy.
 
 ### What the user still owes the work
 
-1. **Play a run on Song 2 and seal it.** Nothing has been sealed yet on either
-   song, so the trend column has never appeared outside a headless check. It
-   needs one sealed run to show anything and three to start smoothing.
-2. **Name One For The Road's sections, and check the other two.** The new song
-   still has the lettered seed `drums sections` proposed -- fifteen blocks, A-N,
-   60 cells against Kill Me's 44 -- so it is the one that needs the pass most.
-   Renaming is free until a run worth keeping is sealed: it changes
-   `sectionsHash`, which starts a new epoch, and old runs then leave the line.
-3. **Check the module's hi-hat offset** (parked). Closed only registers under
+1. **Cut the first real exercises.** The pool is empty. Every fill in the two
+   prepared songs is already a `[[section]]` of its own, so `Cut bars…` on the
+   song page is one click each. Nothing about the loop's *feel* — chiefly
+   whether one bar of rest is the right amount — can be settled without playing
+   it, and `restBars` is per-exercise precisely so it can be argued with.
+2. **Play a run and seal it.** Nothing has been sealed yet on any song, so the
+   trend row has never appeared outside a headless check. It needs one sealed
+   run to show anything and three to start smoothing. A run is four cells now,
+   not forty-four, so this is an afternoon rather than a week.
+3. **Name One For The Road's sections.** It still has the lettered seed
+   `drums sections` proposed -- fifteen blocks, A-N. This used to be urgent
+   because renaming changed `sectionsHash` and threw the history away; since
+   2026-09-19 the epoch key is the bar span, so a rename costs nothing and this
+   can be done whenever the names come to you.
+4. **Check the module's hi-hat offset** (parked). Closed only registers under
    heavy pressure, which is either a miscalibrated offset or honest reporting of
    a loose-hat style. The Monitor tells them apart: press to what *you* call
    closed and see whether note 42 or 46 comes out. Nothing depends on the
    outcome — `[input]` maps both and takes re-grade from raw stamps.
-4. **Read the R/L letters** and tune `kit.toml` if they are not what they would
+5. **Read the R/L letters** and tune `kit.toml` if they are not what they would
    play, then `drums sticking <slug> --restick`.
 
 ---
@@ -228,17 +240,22 @@ single outlier either way.
 
 ## 4. What is left
 
-**The rest of M3.** Per-cell trend lines and the take-vs-take overlay (Q14).
-Worth doing only if the per-section lines turn out to be too coarse in use —
-check that before building it.
+**The rest of M3.** The take-vs-take overlay (Q14). The per-cell trend lines it
+also asked for were built on 2026-09-19, when the grid shrank to four cells and
+four sparklines became a reading rather than a wall.
 
 **M4, the coach.** Two halves that do not belong together:
 - **Step-by-step** (Q12) — transport paused, the cursor waits for you to play the
   next note. No scoring, no take, no calibration. Nearer to a play-along feature
   than a coaching one, and buildable on its own.
-- **Exercises** (Q13) — excerpt or agent-generated alphaTex. The structural cost
-  is that `grid` must become an interface with two implementations, because
-  generated notation has no recording and so no measured beats.
+- **Exercises** (Q13) — **the excerpt half is built** (2026-09-19). An exercise is
+  a few bars of a real chart, looped with a bar of click between the reps and
+  graded every time round; drills fill the exercise's own tempo ladder and touch
+  no routine cell. Because an excerpt keeps its song's `grid.lock.json`, the
+  constructible-grid cost Q13 warns about **did not arrive** — it is still owed
+  by the *generated* half, and only by it. What an agent writing exercises needs
+  now is the file format (`app/src/exercise.ts`) and `POST /practice/exercise`,
+  both of which exist.
 
 **M5, the artifact.** Take → `.mid` warped onto the straight grid for Ableton
 (small, all the machinery exists); phone-video alignment by onset-envelope
@@ -250,10 +267,11 @@ export itself.
 lock. Explicitly last.
 
 **Small and unscheduled, but wanted:** the user has said the thing they actually
-value is playing along with the notation at different tempos. Against that, the
-highest-value unbuilt things are **a loop** (mark two bars, repeat them), a
-**tempo ramp** on that loop, **bigger notes**, and a **count-in on a paused
-start**. None are in the plan; all serve the stated need better than M4 does.
+value is playing along with the notation at different tempos. **Bigger notes**
+(2026-09-16) and **the loop** (2026-09-19, as an exercise drill) are done. What
+is left of that list is a **tempo ramp** across a drill's reps — the loop and
+the ladder both exist now, so it is a small thing on top of them — and a
+**count-in on a paused start**, which is still only inside a recording.
 
 ---
 

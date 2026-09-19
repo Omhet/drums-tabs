@@ -8,21 +8,23 @@
 // went badly goes red and is not repeated for you, and the only thing a take
 // changes is which cell is filled.
 //
-// Four rules are frozen here and should not be quietly revisited:
+// Three rules are frozen here and should not be quietly revisited:
 //
-//  1. **Section-major.** Section 1 at 70/80/90/100, then section 2. You learn a
-//     stretch of music at a walking pace and bring it up, rather than playing
-//     the whole song four times.
-//  2. **Two blocks with the same name are one cell.** `[[section]]` names are
-//     the identity, not the bar numbers, so naming both choruses `chorus`
-//     practises it once -- against the first of them -- instead of learning the
-//     same music twice in a run.
-//  3. **The whole song at 100% is the last cell of every routine.** The "record
+//  1. **The routine is the whole song, at every tempo on the ladder.** Four
+//     cells, and the run is the piece played through, slow to fast.
+//  2. **The whole song at 100% is the last cell of every routine.** The "record
 //     the finished thing" artifact is not a separate feature; it is the last
 //     thing you do on every run.
-//  4. **Only a complete take fills a cell, and the last one counts, not the
+//  3. **Only a complete take fills a cell, and the last one counts, not the
 //     best.** Farming a lucky take is exactly how a progress line stops meaning
 //     anything.
+//
+// The grid used to be section-major -- every `[[section]]` up the ladder and
+// then the whole song, which was twenty-eight to sixty cells and made a run
+// something you spread over a week. Sections did not stop being the thing you
+// drill; they stopped being what a *run* is made of. Drilling a stretch of bars
+// is an exercise now (exercise.ts), where it is looped with a rest in it and
+// graded rep by rep, which is how anybody actually practises a hard bar.
 //
 // Everything above the `--- disk ---` line at the bottom is pure: no DOM, no
 // network, nothing to stub, so `node --test` runs it directly
@@ -99,9 +101,11 @@ export interface Routine {
   /** The chart the routine opened against. A mid-routine edit warns; see `mixed`. */
   chartHash: string;
   /**
-   * The `[[section]]` blocks it opened against. Moving a boundary changes the
-   * shape of the grid, so a routine whose song no longer hashes to this belongs
-   * to a previous comparison epoch and cannot be resumed (Q5 consequence 1).
+   * The `[[section]]` blocks it opened against.
+   *
+   * A true record of what the song looked like, and no longer what ends an
+   * epoch -- that is the bar span now (`spanOf`), because renaming a section
+   * changes no cell in a four-cell grid.
    */
   sectionsHash: string;
   /**
@@ -118,50 +122,45 @@ export function cellId(section: string, tempo: number): string {
 }
 
 /**
- * The fixed grid, from the sections alone.
+ * The fixed grid: the whole song, once at each tempo on the ladder. Four cells.
  *
- * Section-major, same-named blocks merged onto the first of them, then the
- * whole song at each tempo. Six distinct sections is 6x4 + 4 = 28 cells.
+ * The sections are still what says where the song *is* -- the grid spans the
+ * bars they cover, not bar 1 to the last bar of the chart, so a tab with
+ * trailing empty bars does not add silence to the run. They are no longer cells
+ * themselves; see the note at the top of this file.
+ *
+ * A song with no `[[section]]` blocks has no grid at all rather than a
+ * whole-song row over guessed bars: without them nothing knows where the music
+ * starts or stops.
  */
 export function buildCells(sections: Section[], tempos: readonly number[] = TEMPOS): RoutineCell[] {
-  const cells: RoutineCell[] = [];
-  const seen = new Set<string>();
-  for (const section of sections) {
-    const name = section.name.trim();
-    // A block with no name cannot be told apart from the next nameless one, so
-    // it would silently swallow it. Better to leave it out of the grid and let
-    // `drums sections` or the user name it.
-    if (!name || seen.has(name)) continue;
-    seen.add(name);
-    for (const tempo of tempos) {
-      cells.push({
-        id: cellId(name, tempo),
-        section: name,
-        whole: false,
-        tempo,
-        startBar: section.start_bar,
-        endBar: section.end_bar,
-        fill: null,
-      });
-    }
-  }
-  if (cells.length === 0) return cells;
-  // The whole song is the span the sections cover, not bar 1 to the last bar of
-  // the chart: a tab with trailing empty bars should not add silence to the run.
+  if (sections.length === 0) return [];
   const startBar = Math.min(...sections.map((s) => s.start_bar));
   const endBar = Math.max(...sections.map((s) => s.end_bar));
-  for (const tempo of tempos) {
-    cells.push({
-      id: cellId(WHOLE, tempo),
-      section: WHOLE_SONG,
-      whole: true,
-      tempo,
-      startBar,
-      endBar,
-      fill: null,
-    });
-  }
-  return cells;
+  return tempos.map((tempo) => ({
+    id: cellId(WHOLE, tempo),
+    section: WHOLE_SONG,
+    whole: true,
+    tempo,
+    startBar,
+    endBar,
+    fill: null,
+  }));
+}
+
+/**
+ * The bars a routine covers, as one string: `1-62`.
+ *
+ * This is the epoch key -- two runs over the same span are measuring the same
+ * music and belong on one line. It used to be the `[[section]]` hash, which was
+ * right when the sections *were* the cells: a boundary that moved changed which
+ * cells existed. Now a rename changes nothing at all, and the sections are
+ * about to be renamed on One For The Road. Moving the first or last boundary
+ * still ends an epoch, because that moves the span.
+ */
+export function spanOf(cells: RoutineCell[]): string {
+  const cell = cells[0];
+  return cell ? `${cell.startBar}-${cell.endBar}` : '';
 }
 
 /** A new, empty routine over a song's sections. */
@@ -246,22 +245,23 @@ export function sealRoutine(routine: Routine, now = new Date().toISOString()): R
 /**
  * Why an open routine cannot be picked up again, or nothing if it can.
  *
- * The section grid is the hard stop: a boundary that moved changed the shape of
- * the cell set, so the filled cells and the empty ones are no longer describing
- * the same music. A chart edit is the soft one -- it is allowed, it warns, and
- * it comes out at sealing as `mixed`.
+ * The span is the hard stop: the song now starts or ends somewhere else, so the
+ * cells you filled and the ones you have not are no longer the same music. A
+ * chart edit is the soft one -- it is allowed, it warns, and it comes out at
+ * sealing as `mixed`.
  */
 export function resumeProblem(
   routine: Routine,
-  song: { sectionsHash: string },
+  song: { sections: Section[] },
   chartHash: string
 ): { fatal: boolean; message: string } | undefined {
-  if (routine.sectionsHash !== song.sectionsHash) {
+  const today = spanOf(buildCells(song.sections));
+  if (spanOf(routine.cells) !== today) {
     return {
       fatal: true,
       message:
-        'The sections moved since this routine was opened, so its cells are a different ' +
-        'shape from today’s. Seal it or discard it to start a new one.',
+        'The song covers different bars than when this routine was opened, so its cells are ' +
+        'no longer the same music. Seal it or discard it to start a new one.',
     };
   }
   if (routine.chartHash !== chartHash) {
@@ -282,27 +282,35 @@ export function describeCell(cell: RoutineCell): string {
 
 // --- the history ------------------------------------------------------------------
 //
-// One line per section, across sealed runs. The unit is the section rather than
-// the cell because a cell is one square of a 44-square grid and forty-four
-// sparklines is not a thing anyone reads -- a section is the thing you think of
-// yourself as working on ("the chorus is coming along").
+// One line per cell, across sealed runs. It used to be one line per *section* --
+// the mean of that section's four tempos -- which was the right call against a
+// forty-four square grid, because forty-four sparklines is not a thing anyone
+// reads. Four squares is four lines, and nothing is averaged on the way to them:
+// a mean over 70% and 100% hid the only thing worth knowing, which is whether
+// the fast one is catching up with the slow one (practice-plan Q14).
 
-/**
- * How a section went in one run: the mean accuracy over its cells.
- *
- * All four tempos together, deliberately. A section is only learned when it is
- * learned at speed, so the 100% cell dragging the average down is the line
- * telling the truth rather than a flaw in it.
- */
-export function sectionScore(routine: Routine, section: string): number | undefined {
-  const filled = routine.cells.filter((cell) => cell.section === section && cell.fill);
-  if (filled.length === 0) return undefined;
-  return filled.reduce((sum, cell) => sum + cell.fill!.accuracy, 0) / filled.length;
+/** How a cell went in one run: the accuracy of the take that filled it. */
+export function cellScore(routine: Routine, id: string): number | undefined {
+  return cellById(routine, id)?.fill?.accuracy;
 }
 
-/** A section's score in each run, oldest first. `undefined` where it was not played. */
-export function sectionSeries(runs: Routine[], section: string): (number | undefined)[] {
-  return runs.map((run) => sectionScore(run, section));
+/** A cell's score in each run, oldest first. `undefined` where it was not played. */
+export function cellSeries(runs: Routine[], id: string): (number | undefined)[] {
+  return runs.map((run) => cellScore(run, id));
+}
+
+/**
+ * The middle value, averaging the middle two when there is no single middle.
+ *
+ * Shared, because the two places this project reaches for a middle are asking
+ * the same question: what happened, with the one freak result set aside. Here it
+ * smooths a progress line; in exercise.ts it scores a sitting of many reps.
+ */
+export function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  if (sorted.length === 0) return 0;
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
 }
 
 /**
@@ -320,29 +328,25 @@ export function rollingMedian(series: (number | undefined)[], window = 3): (numb
     if (value === undefined) return undefined;
     const recent = series
       .slice(Math.max(0, i - window + 1), i + 1)
-      .filter((v): v is number => v !== undefined)
-      .sort((a, b) => a - b);
+      .filter((v): v is number => v !== undefined);
     if (recent.length === 0) return undefined;
-    const mid = recent.length >> 1;
-    const median =
-      recent.length % 2 ? recent[mid]! : (recent[mid - 1]! + recent[mid]!) / 2;
     // Rounded to the same three places `accuracy` itself carries: averaging two
     // of them otherwise produces 0.6000000000000001, which is not a different
     // reading, only a noisier one.
-    return Math.round(median * 1000) / 1000;
+    return Math.round(median(recent) * 1000) / 1000;
   });
 }
 
 /**
  * Which runs belong on one line with today's grid.
  *
- * A run whose sections were a different shape is measuring different music, and
- * a run sealed `mixed` was graded against two charts (Q10). Both stay readable
- * on disk; neither is a point on this line.
+ * A run over a different span of bars is measuring different music, and a run
+ * sealed `mixed` was graded against two charts (Q10). Both stay readable on
+ * disk; neither is a point on this line.
  */
-export function comparableRuns(runs: Routine[], sectionsHash: string): Routine[] {
+export function comparableRuns(runs: Routine[], span: string): Routine[] {
   return runs
-    .filter((run) => run.sealedAt && !run.mixed && run.sectionsHash === sectionsHash)
+    .filter((run) => run.sealedAt && !run.mixed && spanOf(run.cells) === span)
     .sort((a, b) => a.sealedAt!.localeCompare(b.sealedAt!));
 }
 

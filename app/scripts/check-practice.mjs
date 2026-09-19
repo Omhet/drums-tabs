@@ -122,20 +122,17 @@ if (grid.cells === 0) {
   process.exit(0);
 }
 
-// Six named sections at four tempos, plus the whole song at each.
+// The whole song, four times. Sections are no longer cells: a stretch of bars
+// you want to drill is an exercise now (check-exercise.mjs).
 check(
-  grid.cells === (grid.sections.length - 1) * 4 + 4,
-  'the grid is the sections times the ladder',
-  `${grid.cells} cells, ${grid.sections.length - 1} sections`
+  grid.cells === 4 && grid.sections.join(' ') === 'whole song',
+  'the grid is the whole song at each tempo, whatever the sections are',
+  `${grid.cells} cells, ${grid.sections.join(' / ')}`
 );
-// Section names come from song.toml, so the expectation is built from them
-// rather than written out: renaming a section is the user's business and must
-// not be a failing check.
-const [FIRST, SECOND] = grid.sections;
-TAKE_CELL = `${FIRST}@100`;
+TAKE_CELL = '*@100';
 check(
-  grid.ids.join(' ') === `${FIRST}@70 ${FIRST}@80 ${FIRST}@90 ${FIRST}@100 ${SECOND}@70`,
-  'it is walked section-major, up the ladder then on',
+  grid.ids.join(' ') === '*@70 *@80 *@90 *@100',
+  'it is walked slow to fast',
   grid.ids.join(' ')
 );
 check(
@@ -250,8 +247,16 @@ await page.evaluate(
 );
 
 // Let the cell play out. The recorder stops itself at the end of the last bar.
+//
+// The cell is the whole song now, so this genuinely sits here for the length of
+// the record -- around three minutes on these songs, where it used to be the
+// twenty seconds one section took. That is the honest cost of the routine being
+// the song; the fast end-to-end proof of the scorer is check-exercise.mjs,
+// which loops three bars.
+const playMs = Math.round(cell.last - cell.first);
+console.log(`     playing ${cell.label} -- about ${Math.ceil(playMs / 1000)}s of record`);
 await page.waitForFunction(() => !document.getElementById('record').dataset.armed, null, {
-  timeout: 120000,
+  timeout: playMs + 60000,
 });
 await page.evaluate(() => clearInterval(window.__injector));
 await page.waitForTimeout(1200);
@@ -395,11 +400,9 @@ check(
   'the cell carries the accuracy the grade gave it',
   `${Math.round((filled.fill?.accuracy ?? 0) * 100)}%`
 );
-// Forwards from the cell just played, not back to the top: someone who jumped
-// to the middle of the grid is working through it from there. Picking a routine
-// up in a new sitting is the other case, and goes to the first hole -- see the
-// reload leg below.
-check(filled.next === `${SECOND}@70`, 'it walks on to the next unfilled cell', filled.next);
+// Forwards from the cell just played, wrapping: the take leg plays 100%, which
+// is the last square, so the next unfilled one is back at the top of the ladder.
+check(filled.next === '*@70', 'it walks on to the next unfilled cell, wrapping', filled.next);
 check(filled.green + filled.red === 1, 'the filled cell is drawn green or red', `${filled.green} green, ${filled.red} red`);
 check(filled.sealDisabled, `one cell of ${grid.cells} is not a routine you can seal`);
 
@@ -424,7 +427,7 @@ const resumed = await page.evaluate(() => {
 });
 check(resumed.open, 'the routine survived the reload', resumed.state);
 check(resumed.filled === 1, 'the cell it had filled is still filled', `${resumed.filled} filled`);
-check(resumed.at === `${FIRST}@70`, 'it picks up at the first unfilled cell', resumed.at);
+check(resumed.at === '*@70', 'it picks up at the first unfilled cell', resumed.at);
 check(resumed.startHidden && resumed.sealShown, 'the page offers to seal it, not to start another');
 
 // A second routine cannot be opened behind the first one's back, even by a
@@ -497,23 +500,25 @@ await page.waitForTimeout(2500);
 
 const history = await page.evaluate(() => {
   const p = window.drums.practice;
-  const rows = [...document.querySelectorAll('#routine tbody tr')];
   return {
     runs: p.history.length,
     head: document.querySelector('#routine th.trend-head')?.textContent ?? '',
-    lines: document.querySelectorAll('#routine td.trend svg').length,
-    rows: rows.length,
+    lines: document.querySelectorAll('#routine tr.trends td.trend svg').length,
+    squares: document.querySelectorAll('#routine tr.whole .cell').length,
     firstTitle: document.querySelector('#routine td.trend')?.title ?? '',
     open: !!p.routine,
   };
 });
 check(history.runs === ACCURACIES.length, 'the page read them back', `${history.runs} runs`);
 check(!history.open, 'a sealed run is history, not something to resume');
-check(history.head === '4 runs', 'the trend column says how many runs are on it', history.head);
+check(history.head === '4 runs', 'the trend row says how many runs are on it', history.head);
+// One line under each square rather than one for the row: four tempos are four
+// separate questions, and a mean over 70% and 100% hides which way the fast one
+// is going (practice-plan Q14).
 check(
-  history.lines === history.rows,
-  'every section row has a line, the whole song included',
-  `${history.lines} lines for ${history.rows} rows`
+  history.lines === history.squares && history.lines === 4,
+  'every tempo has its own line',
+  `${history.lines} lines for ${history.squares} squares`
 );
 // 0.55, 0.9, 0.7, 0.95 -> medians 0.55, 0.725, 0.7, 0.9: the dip at run 3 is
 // absorbed and the line still ends where the playing ended up.

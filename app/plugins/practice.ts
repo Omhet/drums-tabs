@@ -28,6 +28,16 @@
 //                            calibration.local.json at the repo root. Untracked
 //                            and per machine: it measures this audio path, not
 //                            this song and not this drummer (Q9).
+//   GET /practice/exercises  the whole pool: exercises/<id>/exercise.json, each
+//                            with its drills, `reps` stripped. The pool is at
+//                            the repo root and not under a song, because one
+//                            exercise can be played from several songs and a
+//                            file cannot live in two directories.
+//   POST/DELETE /practice/exercise
+//                            exercises/<id>/exercise.json. POST is an upsert,
+//                            which is also how a second source is added to one.
+//   POST /practice/drill     exercises/<id>/drills/<id>.json: one sitting, with
+//                            every rep in it. Tracked, like takes.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
@@ -82,6 +92,23 @@ function stamp(iso: string): string {
 const safe = (s: string) => s.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'x';
 
 /**
+ * Why an exercise id cannot be a directory name here, or nothing if it can.
+ *
+ * Refused rather than scrubbed the way `safe()` scrubs a slug. A slug comes
+ * from a directory that already exists, so rewriting it is harmless; an id
+ * *names* a directory this route is about to make, and a silent rename means
+ * the page and the disk disagree about where an exercise lives from then on.
+ * `uniqueId` in exercise.ts already produces exactly this alphabet.
+ */
+function idProblem(id: string | undefined): string | undefined {
+  if (!id) return 'no id';
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(id)) {
+    return 'an id is lowercase letters, digits and single hyphens';
+  }
+  return undefined;
+}
+
+/**
  * Every routine of a song that parses, by filename.
  *
  * A directory scan rather than an index file: the routines directory is tracked
@@ -117,10 +144,54 @@ function sealedRoutines(songs: string, slug: string) {
     .sort((a, b) => String(a.routine.sealedAt).localeCompare(String(b.routine.sealedAt)));
 }
 
+/**
+ * Every exercise in the pool, each with its drills, oldest first.
+ *
+ * The same directory scan the routines get, for the same reason, and the
+ * drills come back **without their reps**: a twenty-rep sitting is hundreds of
+ * strokes, the pool only ever needs the grades, and nothing reads a rep back
+ * yet. The day something does, it gets a route of its own rather than making
+ * this one fat.
+ */
+function allExercises(root: string) {
+  if (!existsSync(root)) return [];
+  const found: { exercise: unknown; drills: unknown[] }[] = [];
+  for (const id of readdirSync(root).sort()) {
+    const file = join(root, id, 'exercise.json');
+    if (!existsSync(file)) continue;
+    try {
+      const exercise = JSON.parse(readFileSync(file, 'utf-8'));
+      const drillDir = join(root, id, 'drills');
+      const drills: unknown[] = [];
+      if (existsSync(drillDir)) {
+        for (const name of readdirSync(drillDir).sort()) {
+          if (!name.endsWith('.json')) continue;
+          try {
+            const { reps: _reps, ...summary } = JSON.parse(readFileSync(join(drillDir, name), 'utf-8'));
+            drills.push(summary);
+          } catch {
+            console.warn(`[practice] exercises/${id}/drills/${name} is not readable JSON`);
+          }
+        }
+      }
+      found.push({ exercise, drills });
+    } catch {
+      // One broken file is a thing to fix by hand, not a reason to refuse to
+      // practise: skip it and let the readable ones through.
+      console.warn(`[practice] exercises/${id}/exercise.json is not readable JSON`);
+    }
+  }
+  return found;
+}
+
 export function practice(songsDir: string, repoRoot: string): Plugin {
   const kitPath = join(repoRoot, 'kit.toml');
   const calibrationPath = join(repoRoot, 'calibration.local.json');
   const songs = resolve(songsDir);
+  // The pool's own root. Every path built from a request is contained against
+  // *this*, not against `songs` -- the guard is the same idea as the take and
+  // routine routes use, but it must not be copy-pasted with the old root.
+  const exercises = resolve(join(repoRoot, 'exercises'));
 
   const handle = async (req: IncomingMessage, res: ServerResponse, next: () => void) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
@@ -227,6 +298,62 @@ export function practice(songsDir: string, repoRoot: string): Plugin {
           console.log(`[practice] routine discarded: ${file}`);
           return json(res, 200, JSON.stringify({ discarded: name }));
         }
+      }
+      if (url.pathname === '/practice/exercises' && req.method === 'GET') {
+        return json(res, 200, JSON.stringify({ exercises: allExercises(exercises) }));
+      }
+      if (url.pathname === '/practice/exercise') {
+        if (req.method === 'POST') {
+          const exercise = JSON.parse(await read(req)) as { id?: string; sources?: unknown };
+          const bad = idProblem(exercise.id);
+          if (bad) return json(res, 400, JSON.stringify({ error: bad }));
+          // An exercise with nowhere to be played from is not an exercise. It
+          // would sit in the pool for ever looking like a thing you could pick.
+          if (!Array.isArray(exercise.sources) || exercise.sources.length === 0) {
+            return json(res, 400, JSON.stringify({ error: 'an exercise needs at least one source' }));
+          }
+          const dir = join(exercises, exercise.id!);
+          if (!dir.startsWith(exercises)) return json(res, 403, JSON.stringify({ error: 'bad id' }));
+          mkdirSync(dir, { recursive: true });
+          // An upsert, and safe to be one: the page derives a fresh id from the
+          // pool it is already holding, so writing over an exercise is only
+          // ever the deliberate act of adding a source to it.
+          writeFileSync(join(dir, 'exercise.json'), JSON.stringify(exercise, null, 1) + '\n');
+          console.log(`[practice] exercise -> ${dir}`);
+          return json(res, 200, JSON.stringify({ id: exercise.id, path: dir }));
+        }
+        if (req.method === 'DELETE') {
+          const id = url.searchParams.get('id') ?? '';
+          const bad = idProblem(id);
+          if (bad) return json(res, 400, JSON.stringify({ error: bad }));
+          const dir = join(exercises, id);
+          if (!dir.startsWith(exercises)) return json(res, 403, JSON.stringify({ error: 'bad id' }));
+          if (!existsSync(dir)) return json(res, 404, JSON.stringify({ error: 'no such exercise' }));
+          // The drills go with it. Unlike a sealed routine this is allowed,
+          // because an exercise is a thing you made and can unmake -- but the
+          // page says out loud that the history goes too.
+          rmSync(dir, { recursive: true });
+          console.log(`[practice] exercise deleted: ${dir}`);
+          return json(res, 200, JSON.stringify({ deleted: true }));
+        }
+      }
+      if (url.pathname === '/practice/drill' && req.method === 'POST') {
+        const drill = JSON.parse(await read(req)) as {
+          exercise?: string;
+          startedAt?: string;
+          tempo?: number;
+        };
+        const badId = idProblem(drill.exercise);
+        if (badId) return json(res, 400, JSON.stringify({ error: badId }));
+        const dir = join(exercises, drill.exercise!, 'drills');
+        if (!dir.startsWith(exercises)) return json(res, 403, JSON.stringify({ error: 'bad id' }));
+        // The same recipe a take's name uses: when, and how fast, without the
+        // file having to be opened.
+        const name = `${stamp(drill.startedAt ?? '')}-${Math.round((drill.tempo ?? 1) * 100)}.json`;
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(join(dir, name), JSON.stringify(drill, null, 1) + '\n');
+        console.log(`[practice] drill -> ${join(dir, name)}`);
+        return json(res, 200, JSON.stringify({ name, path: join(dir, name) }));
       }
     } catch (err) {
       return json(res, 500, JSON.stringify({ error: String((err as Error)?.message ?? err) }));

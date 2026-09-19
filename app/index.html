@@ -681,6 +681,81 @@
             <span>Sticking</span>
           </label>
         </div>
+        <!-- How the score is engraved, as opposed to how much of it you see
+             (that is Lines, above). Four numbers that are only ever set once,
+             against the screen you read from, and then remembered -- so they
+             are faders you nudge and look at rather than keys you press. The
+             defaults are what the page has always looked like. -->
+        <div class="group">
+          <h2>Layout</h2>
+          <div class="fader">
+            <span>Size</span>
+            <output id="zoom-out">100%</output>
+            <!-- A rung on the ladder in main.ts, not a percentage: the useful
+                 sizes are not evenly spaced. +/- move this too. -->
+            <input
+              id="zoom"
+              type="range"
+              min="0"
+              max="7"
+              value="3"
+              step="1"
+              title="How big the notes are"
+              aria-label="How big the notes are"
+            />
+          </div>
+          <div class="fader">
+            <span>Bars a line</span>
+            <output id="bars-out">4</output>
+            <!-- The row is stretched to the width it is given whatever is on
+                 it, so this is really how much width one bar gets: fewer bars
+                 is more room between the notes. -->
+            <input
+              id="bars"
+              type="range"
+              min="1"
+              max="8"
+              value="4"
+              step="1"
+              title="How many bars go on one line"
+              aria-label="How many bars go on one line"
+            />
+          </div>
+          <div class="fader">
+            <span>Note spacing</span>
+            <output id="spacing-out">100%</output>
+            <!-- alphaTab's stretchForce: how hard the springs between the
+                 notes push. Down, a bar of sixteenths packs tight and the
+                 long notes keep the slack; up, everything breathes evenly. -->
+            <input
+              id="spacing"
+              type="range"
+              min="30"
+              max="200"
+              value="100"
+              step="10"
+              title="How far apart the notes sit inside a bar"
+              aria-label="How far apart the notes sit inside a bar"
+            />
+          </div>
+          <div class="fader">
+            <span>Line gap</span>
+            <output id="gap-out">20px</output>
+            <!-- Air between one row of notation and the next. It comes out of
+                 the window's height, so wider rows mean a taller box for the
+                 same number of Lines. -->
+            <input
+              id="gap"
+              type="range"
+              min="0"
+              max="48"
+              value="20"
+              step="4"
+              title="Air between one line of notation and the next"
+              aria-label="Air between one line of notation and the next"
+            />
+          </div>
+        </div>
         <div class="group">
           <h2>Theme</h2>
           <div class="row">
@@ -703,8 +778,8 @@
           <p>
             <kbd>Space</kbd> play/pause &middot; <kbd>&larr;</kbd><kbd>&rarr;</kbd> a bar &middot;
             <kbd>&uarr;</kbd><kbd>&darr;</kbd> a line &middot; <kbd>Home</kbd> stop &middot;
-            <kbd>[</kbd><kbd>]</kbd> tempo &middot; <kbd>+</kbd><kbd>&minus;</kbd> zoom
-            (<kbd>0</kbd> resets) &middot; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> mute a
+            <kbd>[</kbd><kbd>]</kbd> tempo &middot; <kbd>+</kbd><kbd>&minus;</kbd> size
+            (<kbd>0</kbd> resets Layout) &middot; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> mute a
             fader &middot; <kbd>Z</kbd> zen (<kbd>Esc</kbd> leaves) &middot; click the score to seek
             &middot; wheel over the notation to browse.
           </p>

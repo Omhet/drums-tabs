@@ -118,65 +118,171 @@ if (playable.length === 0) {
 // out where it is going (see `go`, at the bottom of this file).
 songEl.value = playable[0]?.slug ?? '';
 
-// --- zoom ---------------------------------------------------------------------
-// How big the notes are: +/- step the ladder, 0 goes back to 100%.
+// --- the notation's layout ------------------------------------------------------
+// Four faders in the rail's Layout group that decide how the score is
+// engraved -- as against Lines, which decides how much of it you see at once.
+// They are screen-fitting, not song-fitting: you set them once against the
+// monitor you practise in front of and they are remembered as your defaults,
+// which is why they are faders you nudge and look at rather than keys.
 //
-// Size and room are one control here, not two. alphaTab's `scale` grows the
-// glyphs but not the page, and a row is stretched to the width it is given
-// either way -- so at 2x the noteheads would be twice the size with the same
-// pixels to share, and a bar of sixteenths would run into itself. Dropping
-// bars-per-row as the scale climbs keeps roughly the density four bars have at
-// 100%, which is what "bigger notes" has to mean to be worth reading. Below
-// 100% the row stays at four: the phrase you practise in is four bars, and
-// there is no crowding left to relieve.
+// Size and bars-a-line used to be one control: the zoom dropped bars off the
+// line as the scale climbed, on the reasoning that alphaTab grows the glyphs
+// but not the page, so at 2x the same four bars would have twice the ink and
+// the same pixels to share. That is true, but the rate to trade one for the
+// other is a property of the screen, not of the score, and guessing it took
+// away the two settings worth asking for: six small bars on a line, or two
+// big ones. They are separate now, and +/- move Size alone. A row is
+// stretched to the width it is given whatever is on it, so bars-a-line is
+// really how much width one bar gets.
 const ZOOM_STEPS = [0.6, 0.7, 0.85, 1, 1.2, 1.4, 1.7, 2];
-/** Which rung is 100%. */
+/** Which rung of the Size ladder is 100%. */
 const ZOOM_HOME = ZOOM_STEPS.indexOf(1);
-/** Bars on a line at 100%: the unit you practise in. */
-const BARS_PER_ROW = 4;
-const barsAtZoom = (scale: number) =>
-  Math.max(1, Math.min(BARS_PER_ROW, Math.round(BARS_PER_ROW / scale)));
 
-/** The remembered rung; anything that is not one of them is 100%. */
-function savedZoom(): number {
+/** One of the four faders: where it is, what it is remembered as, and how it reads. */
+interface Knob {
+  el: HTMLInputElement;
+  out: HTMLOutputElement;
+  /** The localStorage key it is remembered under. */
+  key: string;
+  /** The value `0` puts it back to; also what the markup ships with. */
+  home: number;
+  /** The number beside the fader's name. */
+  say: (v: number) => string;
+  /**
+   * Size only. It remembers the scale rather than the rung it is on, so
+   * re-cutting the ladder cannot quietly turn a remembered 100% into 85%.
+   * `load` returns -1 for a value that is no longer on the ladder, which is
+   * out of the fader's range and so falls back to the default.
+   */
+  save?: (v: number) => string;
+  load?: (raw: number) => number;
+}
+
+const knobs: Record<'size' | 'bars' | 'spacing' | 'gap', Knob> = {
+  size: {
+    el: byId('zoom'),
+    out: byId('zoom-out'),
+    key: 'zoom',
+    home: ZOOM_HOME,
+    say: (v) => `${Math.round(ZOOM_STEPS[v]! * 100)}%`,
+    save: (v) => String(ZOOM_STEPS[v]!),
+    load: (raw) => ZOOM_STEPS.indexOf(raw),
+  },
+  bars: {
+    el: byId('bars'),
+    out: byId('bars-out'),
+    key: 'bars',
+    home: 4,
+    say: (v) => String(v),
+  },
+  spacing: {
+    el: byId('spacing'),
+    out: byId('spacing-out'),
+    key: 'noteSpacing',
+    home: 100,
+    say: (v) => `${v}%`,
+  },
+  gap: {
+    el: byId('gap'),
+    out: byId('gap-out'),
+    key: 'lineGap',
+    home: 20,
+    say: (v) => `${v}px`,
+  },
+};
+
+/** Put a remembered value back on its fader, if it is one the fader can take. */
+function restoreKnob(k: Knob) {
   let raw: string | null = null;
   try {
-    raw = localStorage.getItem('zoom');
+    raw = localStorage.getItem(k.key);
   } catch {
     /* private mode: there is nothing remembered */
   }
-  const step = ZOOM_STEPS.indexOf(Number(raw));
-  return step < 0 ? ZOOM_HOME : step;
+  if (raw === null) return;
+  const n = k.load ? k.load(Number(raw)) : Number(raw);
+  if (Number.isFinite(n) && n >= Number(k.el.min) && n <= Number(k.el.max)) k.el.value = String(n);
 }
-let zoomStep = savedZoom();
+for (const k of Object.values(knobs)) restoreKnob(k);
+
+/** What the four faders are asking for, in alphaTab's own terms. */
+const asked = () => ({
+  scale: ZOOM_STEPS[Number(knobs.size.el.value)]!,
+  barsPerRow: Number(knobs.bars.el.value),
+  stretchForce: Number(knobs.spacing.el.value) / 100,
+  // What you see between two rows is one row's bottom padding plus the next
+  // one's top, so the fader's number is split across the pair.
+  systemPadding: Number(knobs.gap.el.value) / 2,
+});
 
 /**
- * Engrave at rung `step`.
+ * Engrave at what the faders say.
  *
  * Costs a full re-render, like a theme change, and like a theme change it
  * leaves the transport alone. The notation window re-measures itself
- * afterwards (postRenderFinished), so N lines stays N lines -- taller ones,
- * which the picture above them gives up the room for.
+ * afterwards (postRenderFinished), so N lines stays N lines -- taller or
+ * shorter ones, which the picture above them gives up or takes back the room
+ * for.
  */
-function applyZoom(step: number) {
-  zoomStep = Math.max(0, Math.min(ZOOM_STEPS.length - 1, step));
-  const scale = ZOOM_STEPS[zoomStep]!;
+function applyLayout() {
+  for (const k of Object.values(knobs)) k.out.textContent = k.say(Number(k.el.value));
+  const want = asked();
   // The overlays are our own pixels, not alphaTab's: the sticking letters and
   // the extras lane read this to grow with the notes they belong to.
-  scoreEl.style.setProperty('--tab-zoom', String(scale));
-  const bars = barsAtZoom(scale);
-  if (scale === api.settings.display.scale && bars === api.settings.display.barsPerRow) return;
-  api.settings.display.scale = scale;
-  api.settings.display.barsPerRow = bars;
+  scoreEl.style.setProperty('--tab-zoom', String(want.scale));
+  const d = api.settings.display;
+  if (
+    d.scale === want.scale &&
+    d.barsPerRow === want.barsPerRow &&
+    d.stretchForce === want.stretchForce &&
+    d.systemPaddingTop === want.systemPadding
+  ) {
+    return;
+  }
+  d.scale = want.scale;
+  d.barsPerRow = want.barsPerRow;
+  d.stretchForce = want.stretchForce;
+  d.systemPaddingTop = want.systemPadding;
+  d.systemPaddingBottom = want.systemPadding;
   api.updateSettings();
   if (api.score) api.render();
 }
 
-/** Step the ladder from the keyboard, and remember where it lands. */
-function setZoom(step: number) {
-  applyZoom(step);
-  remember('zoom', String(ZOOM_STEPS[zoomStep]));
+/** Engrave, and remember where this fader landed. */
+function settle(k: Knob) {
+  applyLayout();
+  remember(k.key, (k.save ?? String)(Number(k.el.value)));
 }
+
+/** Move Size from the keyboard; the fader follows. */
+function setSize(step: number) {
+  knobs.size.el.value = String(Math.max(0, Math.min(ZOOM_STEPS.length - 1, step)));
+  settle(knobs.size);
+}
+const sizeStep = () => Number(knobs.size.el.value);
+
+/** The whole group back to the defaults: the one key the group keeps. */
+function resetLayout() {
+  for (const k of Object.values(knobs)) k.el.value = String(k.home);
+  applyLayout();
+  for (const k of Object.values(knobs)) remember(k.key, (k.save ?? String)(k.home));
+}
+
+for (const k of Object.values(knobs)) {
+  // Two events, not one: `input` fires on every pixel of a drag and only
+  // moves the number beside the fader, so the reading keeps up with the
+  // thumb, while the re-engrave waits for `change` -- the mouse being let go,
+  // or one press of an arrow key. Re-laying out the whole score on every
+  // pixel would be a slideshow. (The mix faders are on `input` alone; setting
+  // a gain costs nothing.)
+  k.el.addEventListener('input', () => {
+    k.out.textContent = k.say(Number(k.el.value));
+  });
+  k.el.addEventListener('change', () => settle(k));
+}
+
+/** What the faders say before alphaTab exists, to build it with. */
+const start = asked();
 
 const api = new alphaTab.AlphaTabApi(scoreEl, {
   core: {
@@ -195,12 +301,14 @@ const api = new alphaTab.AlphaTabApi(scoreEl, {
     enableLazyLoading: false,
   },
   display: {
-    // Four bars per line at 100%, and what the window over the video shows N
-    // lines of. Both of these are the zoom's to move; they are set here rather
-    // than after construction so that a remembered zoom is engraved once, the
-    // same way a remembered rail width is.
-    barsPerRow: barsAtZoom(ZOOM_STEPS[zoomStep]!),
-    scale: ZOOM_STEPS[zoomStep]!,
+    // The Layout group's four, read straight off the faders. They are set
+    // here rather than after construction so that remembered settings are
+    // engraved once, the same way a remembered rail width is.
+    scale: start.scale,
+    barsPerRow: start.barsPerRow,
+    stretchForce: start.stretchForce,
+    systemPaddingTop: start.systemPadding,
+    systemPaddingBottom: start.systemPadding,
     resources: palette(isDark()),
   },
   notation: {
@@ -228,9 +336,10 @@ const api = new alphaTab.AlphaTabApi(scoreEl, {
   },
 });
 
-// The settings above were already built at the remembered zoom; this only
-// publishes it to the overlays, and re-renders nothing.
-applyZoom(zoomStep);
+// The settings above were already built from the faders; this only writes
+// their numbers beside them and publishes the scale to the overlays. It
+// re-renders nothing -- everything it would set is already set.
+applyLayout();
 
 // --- the notation window ------------------------------------------------------
 // N lines of the score under the picture, the picture taking what is left --
@@ -898,8 +1007,8 @@ zenExitBtn.addEventListener('click', () => {
 // --- keyboard -------------------------------------------------------------------
 // From anywhere except a control that uses the key itself (a select, a
 // slider being dragged). Space is play/pause; Home is Stop; arrows seek by a
-// bar or a line; brackets step the tempo; +/- zoom the notation and 0 puts it
-// back at 100%; 1/2/3 mute a fader; Z is zen.
+// bar or a line; brackets step the tempo; +/- size the notation and 0 puts the
+// whole Layout group back to its defaults; 1/2/3 mute a fader; Z is zen.
 const keys: Record<string, () => void> = {
   Space: () => {
     if (!playBtn.disabled) api.playPause();
@@ -913,12 +1022,14 @@ const keys: Record<string, () => void> = {
   BracketRight: () => applySpeed(Number(speedEl.value) + Number(speedEl.step)),
   // `+` is Shift and the `=` key on most layouts, and the handler below lets
   // Shift through, so both spellings of the same key arrive as Equal.
-  Equal: () => setZoom(zoomStep + 1),
-  Minus: () => setZoom(zoomStep - 1),
-  NumpadAdd: () => setZoom(zoomStep + 1),
-  NumpadSubtract: () => setZoom(zoomStep - 1),
-  Digit0: () => setZoom(ZOOM_HOME),
-  Numpad0: () => setZoom(ZOOM_HOME),
+  Equal: () => setSize(sizeStep() + 1),
+  Minus: () => setSize(sizeStep() - 1),
+  NumpadAdd: () => setSize(sizeStep() + 1),
+  NumpadSubtract: () => setSize(sizeStep() - 1),
+  // The rest of the Layout group is set in the rail and left alone; 0 is the
+  // way back from a setting that turned out to be a bad idea.
+  Digit0: resetLayout,
+  Numpad0: resetLayout,
   Digit1: () => toggleFader('nodrums'),
   Digit2: () => toggleFader('drums'),
   Digit3: () => toggleFader('click'),

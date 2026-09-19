@@ -1,0 +1,17 @@
+{
+ "version": 1,
+ "id": "one-for-the-road-a",
+ "name": "One For The Road A",
+ "kind": "groove",
+ "restBars": 0,
+ "backing": "record",
+ "sources": [
+  {
+   "slug": "arctic-monkeys-one-for-the-road-official-video",
+   "startBar": 1,
+   "endBar": 2,
+   "chartHash": "sha256:037f304855d37ffe"
+  }
+ ],
+ "createdAt": "2026-09-19T18:11:38.703Z"
+}

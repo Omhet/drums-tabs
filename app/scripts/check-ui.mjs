@@ -60,7 +60,25 @@ const snapshot = () =>
       speed: document.getElementById('speed').value,
       faders: Object.fromEntries(['nodrums', 'drums', 'click'].map((f) => [f, document.getElementById(`fader-${f}`).value])),
       sticking: document.querySelectorAll('.sticking span').length,
-      zoom: { scale: d.api.settings.display.scale, bars: d.api.settings.display.barsPerRow },
+      // The Layout group, as alphaTab ended up engraving it, and what the
+      // four faders say they asked for.
+      layout: {
+        scale: d.api.settings.display.scale,
+        bars: d.api.settings.display.barsPerRow,
+        stretch: d.api.settings.display.stretchForce,
+        gap: d.api.settings.display.systemPaddingTop * 2,
+      },
+      knobs: Object.fromEntries(
+        ['zoom', 'bars', 'spacing', 'gap'].map((k) => [
+          k,
+          { value: document.getElementById(k).value, out: document.getElementById(`${k}-out`).textContent },
+        ])
+      ),
+      // The engraved score against the box that clips it: bars packed onto a
+      // line have to still fit the width, not run off the side of the pane.
+      overflowX: box ? box.scrollWidth - box.clientWidth : 0,
+      // Bars actually on the first row, which is what barsPerRow asked for.
+      barsOnRow0: (d.scoreWindow.firstBarOfRow(1) ?? 0) - (d.scoreWindow.firstBarOfRow(0) ?? 0),
       // The letters are ours, not alphaTab's: they grow from a CSS variable.
       letterPx: (() => {
         const el = document.querySelector('.sticking span');
@@ -297,51 +315,119 @@ s = await snapshot();
 check(!s.zen, 'Z did not turn zen off');
 check(s.row === 1 && s.cursorInside, `after leaving zen the window is on row ${s.row}, cursor inside ${s.cursorInside}`);
 
-// 13. Zoom: + makes the notes bigger and gives them the room to be bigger in
-// (alphaTab scales the glyphs but not the page, so the same four bars would
-// have to share the same pixels), the window still holds the lines it was
+// 13. Size: + makes the notes bigger, the window still holds the lines it was
 // asked for so its box grows, the letters we draw ourselves grow with the
-// notes, - comes back, 0 goes home, and the rung is remembered.
+// notes, the fader in the rail reads the new percentage, - comes back, and
+// the rung is remembered. Bars a line is no longer along for the ride: it is
+// its own fader now (check 14), so + must leave it alone.
 await page.evaluate(() => window.drums.seekToBar(4));
 await page.waitForTimeout(400);
-const at100 = await snapshot();
-check(at100.zoom.scale === 1 && at100.zoom.bars === 4, `not at 100%/4 bars to start: ${JSON.stringify(at100.zoom)}`);
+const home = await snapshot();
+check(
+  home.layout.scale === 1 && home.layout.bars === 4 && home.layout.stretch === 1 && home.layout.gap === 20,
+  `not at the Layout defaults to start: ${JSON.stringify(home.layout)}`
+);
 await page.keyboard.press('Equal');
 await page.waitForTimeout(1500);
 s = await snapshot();
-console.log('zoom in:', JSON.stringify({ zoom: s.zoom, box: s.box.h, letterPx: s.letterPx, was: { box: at100.box.h, letterPx: at100.letterPx } }));
-check(s.zoom.scale > 1, `+ left the notation at ${s.zoom.scale}x`);
-check(s.zoom.bars < at100.zoom.bars, `+ left ${s.zoom.bars} bars a line, the same as at 100%`);
-check(s.box.h > at100.box.h + 10, `+ did not make the window taller (${at100.box.h} -> ${s.box.h}px)`);
-check(!s.overlap, 'the notation overlaps the picture when zoomed in');
-check(s.cursorInside, 'cursor not inside the window after zooming in');
-if (hasSticking) check(s.letterPx > at100.letterPx, `the sticking letters stayed ${s.letterPx}px through the zoom`);
+console.log('size up:', JSON.stringify({ layout: s.layout, knobs: s.knobs, box: s.box.h, letterPx: s.letterPx, was: { box: home.box.h, letterPx: home.letterPx } }));
+check(s.layout.scale > 1, `+ left the notation at ${s.layout.scale}x`);
+check(s.layout.bars === 4, `+ moved the line to ${s.layout.bars} bars; that is the Bars fader's job now`);
+check(s.knobs.zoom.out === `${Math.round(s.layout.scale * 100)}%`, `the Size fader reads ${s.knobs.zoom.out} at ${s.layout.scale}x`);
+check(s.box.h > home.box.h + 10, `+ did not make the window taller (${home.box.h} -> ${s.box.h}px)`);
+check(!s.overlap, 'the notation overlaps the picture when sized up');
+check(s.cursorInside, 'cursor not inside the window after sizing up');
+if (hasSticking) check(s.letterPx > home.letterPx, `the sticking letters stayed ${s.letterPx}px through the size change`);
 await page.screenshot({ path: out.replace(/\.png$/, '-zoom.png') });
 await page.keyboard.press('Minus');
 await page.waitForTimeout(1500);
 s = await snapshot();
-check(s.zoom.scale === 1 && s.zoom.bars === 4, `- did not come back to 100%/4 bars: ${JSON.stringify(s.zoom)}`);
-check(Math.abs(s.box.h - at100.box.h) <= 2, `- left the window at ${s.box.h}px (was ${at100.box.h}px)`);
+check(s.layout.scale === 1 && s.layout.bars === 4, `- did not come back to 100%/4 bars: ${JSON.stringify(s.layout)}`);
+check(Math.abs(s.box.h - home.box.h) <= 2, `- left the window at ${s.box.h}px (was ${home.box.h}px)`);
 await page.keyboard.press('Minus');
 await page.keyboard.press('Minus');
 await page.waitForTimeout(1500);
 s = await snapshot();
-console.log('zoom out:', JSON.stringify({ zoom: s.zoom, box: s.box.h }));
-check(s.zoom.scale < 1, `two - left the notation at ${s.zoom.scale}x`);
-check(s.zoom.bars === 4, `zooming out changed the line to ${s.zoom.bars} bars`);
-check(s.box.h < at100.box.h, `zooming out did not make the window shorter (${at100.box.h} -> ${s.box.h}px)`);
+console.log('size down:', JSON.stringify({ layout: s.layout, box: s.box.h }));
+check(s.layout.scale < 1, `two - left the notation at ${s.layout.scale}x`);
+check(s.layout.bars === 4, `sizing down changed the line to ${s.layout.bars} bars`);
+check(s.box.h < home.box.h, `sizing down did not make the window shorter (${home.box.h} -> ${s.box.h}px)`);
 const remembered = await page.evaluate(() => localStorage.getItem('zoom'));
-check(remembered === String(s.zoom.scale), `the zoom remembered ${remembered}, but is engraving at ${s.zoom.scale}x`);
+check(remembered === String(s.layout.scale), `the size remembered ${remembered}, but is engraving at ${s.layout.scale}x`);
+
+// 14. The other three faders in the Layout group. Each is dragged the way a
+// mouse drags one -- `input` moves the number, `change` re-engraves -- and
+// each has to reach alphaTab, be remembered, and leave the other two alone.
+const drag = async (id, value) => {
+  await page.evaluate(
+    ([id, value]) => {
+      const el = document.getElementById(id);
+      el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+    [id, value]
+  );
+  await page.waitForTimeout(1500);
+  return snapshot();
+};
+await page.keyboard.press('Digit0');
+await page.waitForTimeout(1500);
+
+// Bars a line: eight bars share the same row width, so the row holds eight
+// and the score still fits the pane rather than running off the side of it.
+s = await drag('bars', 8);
+console.log('bars 8:', JSON.stringify({ layout: s.layout, out: s.knobs.bars.out, barsOnRow0: s.barsOnRow0, overflowX: s.overflowX }));
+check(s.layout.bars === 8, `the Bars fader asked for 8 and alphaTab has ${s.layout.bars}`);
+check(s.knobs.bars.out === '8', `the Bars fader reads ${s.knobs.bars.out}`);
+check(s.barsOnRow0 === 8, `asked for 8 bars a line and the first row holds ${s.barsOnRow0}`);
+check(s.overflowX <= 2, `8 bars a line runs ${s.overflowX}px off the side of the pane`);
+check(s.layout.scale === 1, `the Bars fader moved the size to ${s.layout.scale}x`);
+await page.screenshot({ path: out.replace(/\.png$/, '-dense.png') });
+s = await drag('bars', 2);
+check(s.layout.bars === 2 && s.barsOnRow0 === 2, `asked for 2 bars a line and got ${s.layout.bars}/${s.barsOnRow0}`);
+await page.screenshot({ path: out.replace(/\.png$/, '-loose.png') });
+
+// Note spacing: alphaTab's stretchForce, as a percentage.
+s = await drag('spacing', 60);
+console.log('spacing 60:', JSON.stringify({ layout: s.layout, out: s.knobs.spacing.out }));
+check(s.layout.stretch === 0.6, `the Spacing fader asked for 60% and alphaTab has ${s.layout.stretch}`);
+check(s.knobs.spacing.out === '60%', `the Spacing fader reads ${s.knobs.spacing.out}`);
+
+// Line gap: air between the rows, which the window has to pay for in height.
+const beforeGap = s.box.h;
+s = await drag('gap', 48);
+console.log('gap 48:', JSON.stringify({ layout: s.layout, out: s.knobs.gap.out, box: s.box.h, was: beforeGap }));
+check(s.layout.gap === 48, `the Gap fader asked for 48 and alphaTab has ${s.layout.gap}`);
+check(s.knobs.gap.out === '48px', `the Gap fader reads ${s.knobs.gap.out}`);
+check(s.box.h > beforeGap, `a wider line gap did not make the window taller (${beforeGap} -> ${s.box.h}px)`);
+check(s.cursorInside, 'cursor not inside the window after the line gap widened');
+
+const kept = await page.evaluate(() => ({
+  bars: localStorage.getItem('bars'),
+  spacing: localStorage.getItem('noteSpacing'),
+  gap: localStorage.getItem('lineGap'),
+}));
+check(
+  kept.bars === '2' && kept.spacing === '60' && kept.gap === '48',
+  `the Layout group remembered ${JSON.stringify(kept)}`
+);
+
+// 0 puts the whole group back, not just the size.
 await page.keyboard.press('Digit0');
 await page.waitForTimeout(1500);
 s = await snapshot();
-console.log('zoom home:', JSON.stringify({ zoom: s.zoom, box: s.box.h, remembered }));
-check(s.zoom.scale === 1 && s.zoom.bars === 4, `0 did not go back to 100%/4 bars: ${JSON.stringify(s.zoom)}`);
-check(s.cursorInside, 'cursor not inside the window after the zoom went home');
+console.log('layout home:', JSON.stringify({ layout: s.layout, knobs: s.knobs, box: s.box.h }));
+check(
+  s.layout.scale === 1 && s.layout.bars === 4 && s.layout.stretch === 1 && s.layout.gap === 20,
+  `0 did not put the Layout group back: ${JSON.stringify(s.layout)}`
+);
+check(Math.abs(s.box.h - home.box.h) <= 2, `0 left the window at ${s.box.h}px (was ${home.box.h}px)`);
+check(s.cursorInside, 'cursor not inside the window after the Layout group went home');
 
 await page.evaluate(() => {
   document.getElementById('theme').click();
-  for (const key of ['theme', 'tabTheme', 'lines', 'sticking', 'rail', 'desk', 'zoom'])
+  for (const key of ['theme', 'tabTheme', 'lines', 'sticking', 'rail', 'desk', 'zoom', 'bars', 'noteSpacing', 'lineGap'])
     localStorage.removeItem(key);
 });
 

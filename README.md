@@ -165,26 +165,38 @@ There is nothing to seal: the newest drill at a tempo simply is that square.
    to make room for. The line being played is the top one, and the window moves
    down a line as soon as the cursor enters the next. Space plays and pauses,
    the arrow keys go a bar or a line back and forward, Home stops (rewinds to
-   the start of the song), `[` and `]` step the tempo, `+` and `-` zoom the
-   notation (`0` back to 100%), `1` `2` `3` mute and
+   the start of the song), `[` and `]` step the tempo, `+` and `-` size the
+   notation (`0` puts the whole Layout group back to its defaults), `1` `2` `3` mute and
    unmute the faders, `Z` is zen, a click on the score seeks there, and the
    mouse wheel over the notation browses it while paused. The faders mix the
    no-drums stem, the drums stem and a click on the beat map (the clock's own sound is muted: it
    is the full mix, and with no stem to play it is unmuted instead). Tempo
    slows all of it, pitch kept.
 
-   **Zoom is size and room at once.** `+` and `-` step a ladder from 60% to
-   200%, `0` goes back to 100%. alphaTab scales the glyphs but not the page,
-   and a row is stretched to the width it is given either way, so scale alone
-   would give the same four bars twice the notehead and the same pixels to
-   share -- a bar of sixteenths running into itself. So the ladder drops the
-   bars on a line as it climbs (four, three, two), keeping roughly the density
-   four bars have at 100%. Under 100% the line stays at four: the phrase you
-   practise in is four bars and there is no crowding left to relieve. A chosen
-   number of lines stays that number of lines, which means a taller window and
-   a smaller picture; on Fill the picture keeps its third and you see fewer
-   lines. The sticking letters and the extras lane are drawn by the page rather
-   than engraved by alphaTab, so they grow from a CSS variable the zoom sets.
+   **The Layout group fits the notation to your screen.** Four faders in the
+   left rail, each remembered as a default: **Size** (a ladder from 60% to
+   200%, also on `+` and `-`), **Bars a line** (1 to 8), **Note spacing**
+   (alphaTab's `stretchForce` as a percentage: how hard the springs between
+   the notes inside a bar push) and **Line gap** (the air between one row of
+   notation and the next, split across the two paddings that make it). `0`
+   puts all four back. They are screen-fitting, not song-fitting -- you set
+   them once against the monitor you practise in front of -- which is why they
+   are faders you nudge and look at rather than keys, and why the reading
+   waits for the mouse to be let go before re-engraving.
+
+   Size and Bars a line used to be one control: the zoom dropped bars off the
+   line as the scale climbed (four, three, two), on the reasoning that alphaTab
+   scales the glyphs but not the page and a row is stretched to the width it is
+   given either way, so scale alone would give the same four bars twice the
+   notehead and the same pixels to share. That is true, but the rate to trade
+   one for the other is a property of the screen, not of the score, and
+   guessing it took away the two settings worth asking for: six small bars on a
+   line, or two big ones. Since the row is stretched to its width whatever is
+   on it, Bars a line is really how much width one bar gets. A chosen number of
+   lines stays that number of lines, which means a taller window and a smaller
+   picture; on Fill the picture keeps its third and you see fewer lines. The
+   sticking letters and the extras lane are drawn by the page rather than
+   engraved by alphaTab, so they grow from a CSS variable Size sets.
 
    There are **two themes**, side by side in the rail's Theme group: one for
    the interface and one for the notation -- its paper, alphaTab's ink, the
@@ -210,8 +222,8 @@ There is nothing to seal: the newest drill at a tempo simply is that square.
    would re-engrave the whole score on every load. For the same reason none of
    this is animated. Zen is deliberately *not* remembered -- a page cannot ask
    for fullscreen without a gesture, so a remembered zen would come back
-   half-applied. Faders, lines, zoom, sticking, both themes and both rails are
-   remembered per browser.
+   half-applied. Faders, lines, the Layout group, sticking, both themes and
+   both rails are remembered per browser.
 
 ## Where things stand
 
@@ -755,13 +767,17 @@ collapses both rails -- asserting they reach one icon wide, that the stage
 takes the room, that the controls survive as icons and the grid does not, and
 that it is remembered across a reload -- enters zen, asserting the
 rails and the status line go, the grid drops to one column and an error on the
-status line is still shown, and finally zooms, asserting `+` both enlarges the
-notation and gives it the room (fewer bars on a line), that the window grows to
+status line is still shown, and finally works the Layout group: that `+`
+enlarges the notation and leaves Bars a line alone, that the window grows to
 keep the lines it was asked for, that the sticking letters grow with the notes,
-and that `-`, `0` and the remembered rung agree. Screenshots line 2 six times:
+that `-` and the remembered rung agree, that each of the other three faders
+reaches alphaTab and is remembered (eight bars a line really puts eight on the
+row and still fits the pane; a wider line gap makes the window taller), and
+that `0` puts all four back. Screenshots line 2 eight times:
 `<png>`, `<png minus
 .png>-dark.png`, `-dark-light-tabs.png` (the dark interface with light notation
-the two themes are for), `-icons.png`, `-zen.png` and `-zoom.png`), and
+the two themes are for), `-icons.png`, `-zen.png`, `-zoom.png`, `-dense.png`
+and `-loose.png`), and
 `check-sync.mjs` (seeks every bar both ways and asserts clock and cursor agree
 within 15 ms, then plays through the count-in), `check-mix.mjs` (plays at
 100% and 50% and asserts the stems stay within 20 ms of the clock and the

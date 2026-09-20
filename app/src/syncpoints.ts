@@ -74,3 +74,40 @@ export function barStartMs(grid: Grid, barIndex: number): number | undefined {
   const s = grid.beats[grid.bar_one_beat + barIndex * grid.meter.beats_per_bar];
   return s === undefined ? undefined : s * 1000;
 }
+
+/**
+ * A beat map for something nobody played: every beat exactly where the tempo
+ * says it should be.
+ *
+ * `Grid` was always "a file we load" -- a measured array of beat times off
+ * `grid.lock.json`. An exercise with no song has no recording and no measured
+ * beats, and practice-plan Q13 called making the grid constructible the
+ * largest structural consequence of the whole design. It is this function,
+ * because every consumer already goes through `slotToMixMs` and `barStartMs`
+ * and neither of them cares whether a drummer or a metronome put the beats
+ * where they are.
+ *
+ * Two details it would otherwise take an afternoon to find:
+ *
+ *  - **One beat more than the bars need.** A range ends where the bar *after*
+ *    its last bar begins, so `barStartMs(grid, bars)` has to answer -- a grid
+ *    with exactly `bars * beatsPerBar` beats refuses the very last bar with
+ *    "the beat map does not cover those bars".
+ *  - **`bar_one_beat` is 0 and there is no count-in in here.** The count-in a
+ *    loop plays is the `Click`'s, booked on the audio clock; this timeline
+ *    starts at the first note.
+ */
+export function syntheticGrid(bpm: number, beatsPerBar: number, bars: number, beatUnit = 4): Grid {
+  const beatS = 60 / bpm;
+  const beats = Array.from({ length: bars * beatsPerBar + 1 }, (_, i) => i * beatS);
+  return {
+    version: 1,
+    source: { audio_duration: beats[beats.length - 1] ?? 0 },
+    meter: { beats_per_bar: beatsPerBar, beat_unit: beatUnit },
+    bar_one_beat: 0,
+    count_in_bars: 0,
+    bar_count: bars,
+    score: { bpm },
+    beats,
+  };
+}

@@ -34,8 +34,14 @@ const FOOT: Record<string, Limb> = { kick: 'right_foot', hihat_pedal: 'left_foot
 export interface ChartHit {
   /** Sixteenths from the start of bar 1. */
   slot: number;
-  /** The MIDI key as laid out on the drum rack -- a song's `[midi_map]`. */
-  note: number;
+  /**
+   * The MIDI key as laid out on the drum rack -- a song's `[midi_map]`.
+   *
+   * Absent on hits that did not come out of a song's tab.mid: an exercise
+   * carries its own notes (exercise.ts) and the key one song happened to put
+   * them on says nothing about them. `instrument` is the identity.
+   */
+  note?: number;
   instrument: string;
   /** 1-127 as written in Ableton. Carried, never graded. */
   velocity: number;
@@ -54,6 +60,25 @@ export interface ExpectedNote {
   /** When it falls in the mix, in ms. */
   tMs: number;
   limb: Limb;
+}
+
+/**
+ * What a chart is, to anything that has to notice it changing.
+ *
+ * Every Ctrl+S in Ableton rewrites tab.mid, so a lock file, a take or an
+ * exercise can quietly come to describe a chart that no longer exists. Each of
+ * them records the hash it was made against; this is the other half of that
+ * check.
+ *
+ * It lives here rather than beside the sticking it was first written for
+ * because it is a fact about the chart, and because `exercise.ts` has to reach
+ * it from the pure half that `node --test` runs directly -- which cannot load
+ * a module with a class in it.
+ */
+export async function chartHash(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', bytes.slice().buffer as ArrayBuffer);
+  const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `sha256:${hex.slice(0, 16)}`;
 }
 
 /**
@@ -134,10 +159,12 @@ export function slotToMixMs(grid: Grid, slot: number): number | undefined {
  * hand rushes" is the sentence worth reading.
  */
 export function expectedNotes(
-  hits: ChartHit[],
+  hits: readonly ChartHit[],
   grid: Grid,
   bars: { start: number; end: number },
-  sticking?: StickingLock
+  // Only the strokes are read, so an exercise can hand over its own re-based
+  // ones without a whole `sticking.lock.json` around them.
+  sticking?: Pick<StickingLock, 'strokes'>
 ): ExpectedNote[] {
   const perBar = grid.meter.beats_per_bar * SLOTS_PER_BEAT;
   const limbs = new Map<string, Limb>();

@@ -14,6 +14,8 @@ import {
   ladder,
   nextSquare,
   parseExercise,
+  rebaseHits,
+  rebaseStrokes,
   scoreReps,
   sourceFor,
   tempoSeries,
@@ -246,9 +248,97 @@ test('an exercise written before the rest existed still reads, with one bar of i
 });
 
 test('a file from a version nobody here knows is refused rather than guessed at', () => {
-  assert.equal(parseExercise({ ...exercise(), version: 2 }), undefined);
+  assert.equal(parseExercise({ ...exercise(), version: 3 }), undefined);
   assert.equal(parseExercise(null), undefined);
-  assert.equal(parseExercise({ version: 1, id: 'x' }), undefined, 'no sources is not an exercise');
+  assert.equal(
+    parseExercise({ version: 1, id: 'x' }),
+    undefined,
+    'a v1 file has no notes of its own, so no sources is nothing to play'
+  );
+});
+
+// --- notes of its own (version 2) ----------------------------------------------------
+
+/** The smallest chart that is a chart: one note, one bar, a tempo, a meter. */
+const chart = (over = {}) => ({
+  bpm: 91,
+  meter: { beats_per_bar: 4, beat_unit: 4 },
+  bars: 1,
+  hits: [{ slot: 0, instrument: 'snare', velocity: 100 }],
+  hash: 'sha256:0000000000000000',
+  ...over,
+});
+
+test('a v2 exercise needs no source: its notes are its own', () => {
+  const solo = parseExercise({ ...exercise(), version: 2, sources: [], chart: chart() });
+  assert.equal(solo.sources.length, 0);
+  assert.equal(solo.chart.hits.length, 1);
+  assert.equal(solo.chart.bars, 1);
+});
+
+test('...but a v2 file with neither notes nor a source is still nothing to play', () => {
+  assert.equal(parseExercise({ ...exercise(), version: 2, sources: [] }), undefined);
+});
+
+test('a half-written chart is not half usable', () => {
+  const missing = (over) =>
+    parseExercise({ ...exercise(), version: 2, sources: [], chart: chart(over) });
+  assert.equal(missing({ hits: undefined }), undefined, 'no hits');
+  assert.equal(missing({ bpm: undefined }), undefined, 'no tempo');
+  assert.equal(missing({ bars: 0 }), undefined, 'no bars');
+  assert.equal(missing({ meter: undefined }), undefined, 'no meter');
+});
+
+test('the kit is the default for notes of its own, and the record for a cut', () => {
+  const solo = parseExercise({ ...exercise(), version: 2, sources: [], chart: chart() });
+  delete solo.backing;
+  assert.equal(
+    parseExercise({ ...exercise(), version: 2, sources: [], chart: chart(), backing: undefined })
+      .backing,
+    'kit'
+  );
+  // A file written before the kit existed still means the record by it.
+  assert.equal(parseExercise({ ...exercise(), backing: undefined }).backing, 'record');
+});
+
+test('hits are re-based so the first bar of the cut becomes bar 1', () => {
+  // Bars 3-4 of a 4/4 chart: sixteenths 32..63 become 0..31.
+  const hits = [
+    { slot: 16, instrument: 'kick', velocity: 100 },
+    { slot: 32, instrument: 'snare', velocity: 100 },
+    { slot: 48, instrument: 'kick', velocity: 90 },
+    { slot: 64, instrument: 'snare', velocity: 100 },
+  ];
+  const cut = rebaseHits(hits, 4, 3, 4);
+  assert.deepEqual(
+    cut.map((h) => [h.slot, h.instrument]),
+    [
+      [0, 'snare'],
+      [16, 'kick'],
+    ],
+    'the bar before and the bar after are both left behind'
+  );
+  assert.ok(
+    cut.every((h) => h.note === undefined),
+    "the song's drum-rack key means nothing away from that song"
+  );
+});
+
+test('the sticking moves with the notes, by whole bars', () => {
+  const strokes = [
+    { bar: 2, slot: 0, instrument: 'snare', limb: 'right_hand', velocity: 100 },
+    { bar: 3, slot: 4, instrument: 'kick', limb: 'right_foot', velocity: 100 },
+    { bar: 4, slot: 8, instrument: 'snare', limb: 'left_hand', velocity: 100 },
+    { bar: 5, slot: 0, instrument: 'snare', limb: 'right_hand', velocity: 100 },
+  ];
+  assert.deepEqual(
+    rebaseStrokes(strokes, 3, 4).map((s) => [s.bar, s.slot, s.limb]),
+    [
+      [1, 4, 'right_foot'],
+      [2, 8, 'left_hand'],
+    ],
+    'the bar number moves; the slot inside the bar does not'
+  );
 });
 
 test('a rest of nought is kept: a continuous loop is a real thing to want', () => {

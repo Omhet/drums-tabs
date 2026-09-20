@@ -14,6 +14,7 @@
 // `drums align` measured; practice is against the original track now, and a
 // video is a picture the timeline may or may not have.
 import type * as alphaTab from '@coderline/alphatab';
+import type { PlayClock, TransportEvent } from './clock';
 
 type Output = alphaTab.synth.IExternalMediaSynthOutput;
 
@@ -22,7 +23,7 @@ export interface MixClockOptions {
   onPlayError?: (error: unknown) => void;
 }
 
-export class MixClock implements alphaTab.synth.IExternalMediaHandler {
+export class MixClock implements PlayClock {
   private output: Output | undefined;
   private frame = 0;
   /** Where the smoothed clock was last pinned to the media, in ms. */
@@ -37,17 +38,29 @@ export class MixClock implements alphaTab.synth.IExternalMediaHandler {
   /** Used until the media's metadata has loaded and the true duration is known. */
   fallbackDurationMs = 0;
 
+  private readonly listeners = new Set<(event: TransportEvent) => void>();
+
   constructor(
     readonly el: HTMLMediaElement,
     private readonly options: MixClockOptions = {}
   ) {
-    el.addEventListener('play', () => this.startPump());
-    el.addEventListener('pause', () => this.stopPump());
-    el.addEventListener('ratechange', () => this.anchor());
+    el.addEventListener('play', () => {
+      this.startPump();
+      this.say('play');
+    });
+    el.addEventListener('pause', () => {
+      this.stopPump();
+      this.say('pause');
+    });
+    el.addEventListener('ratechange', () => {
+      this.anchor();
+      this.say('rate');
+    });
     // A seek moves the cursor even while paused.
     el.addEventListener('seeked', () => {
       this.anchor();
       this.push(this.el.currentTime * 1000);
+      this.say('seek');
     });
     // requestAnimationFrame stops in a background tab; the media keeps
     // playing and timeupdate keeps firing (about 4 Hz), enough to keep
@@ -57,11 +70,31 @@ export class MixClock implements alphaTab.synth.IExternalMediaHandler {
     });
   }
 
+  get running(): boolean {
+    return !this.el.paused;
+  }
+
+  onTransport(fn: (event: TransportEvent) => void): () => void {
+    this.listeners.add(fn);
+    return () => this.listeners.delete(fn);
+  }
+
+  private say(event: TransportEvent) {
+    for (const fn of this.listeners) fn(event);
+  }
+
   /** Attach to alphaTab's external-media output. Safe to call again. */
   attach(output: Output) {
     if (this.output === output) return;
     this.output = output;
     output.handler = this;
+  }
+
+  /** Let go: stop pushing positions at an output that is somebody else's now. */
+  detach() {
+    this.stopPump();
+    this.el.pause();
+    this.output = undefined;
   }
 
   // --- IExternalMediaHandler ------------------------------------------------

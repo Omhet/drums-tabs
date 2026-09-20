@@ -17,8 +17,12 @@ same set every run so that two runs can be compared, open across as many
 sittings as it takes and sealed by hand. The stretch of bars you actually need
 to drill is an **exercise** instead -- a few bars cut out of a chart and played
 on a loop with a bar of click between the reps, graded every time round, with a
-history of its own. Exercises live in a shared pool at the repo root and one can
-name several songs, because the same lick turns up in more than one tune. Two
+history of its own. An exercise **carries its own notes**, so it plays with no
+song loaded at all, on a clock counted out at its own tempo and a kit of drum
+samples; it also remembers the records it was cut from, and can be played
+against one of those instead. Exercises live in a shared pool at the repo root
+and one can name several songs, because the same lick turns up in more than one
+tune. Two
 things it needs: the dev server, because writing files is a Vite plugin's job here and not
 a built page's; and a MIDI port Chrome can open **while your sampler is already
 holding one** -- the kit is a controller for Superior Drummer in Ableton, so
@@ -60,16 +64,33 @@ an exercise can be played from several songs, and a file cannot live in two
 directories.
 
 ```
-exercises/<id>/exercise.json          what it is: kind, bars, rest, backing, every source
+exercises/<id>/exercise.json          what it is: kind, rest, backing, its own notes, every source
 exercises/<id>/drills/<when>-<pct>.json   one sitting at one tempo, every rep in it
+
+kit/samples/<instrument>.wav          what an exercise sounds like, played on its own
 ```
 
-A **source** is `{slug, section, startBar, endBar, chartHash}` -- somewhere in a
-real song this exercise can be played from. A song's page lists every exercise
-naming its slug, which is the whole of the many-to-many link and leaves nothing
-to keep in step. A **drill** is one sitting; it scores as the *median* of its
-complete reps and fills one square of the exercise's own 70/80/90/100 ladder.
-There is nothing to seal: the newest drill at a tempo simply is that square.
+A **chart** is the exercise's own notes, re-based so its first bar is bar 1,
+with the tempo and the meter it was written at. That is what makes it a thing
+rather than a view: with a chart it plays on a grid built at that tempo
+(`syntheticGrid`), a clock that is not a recording (`timer-clock.ts`) and a kit
+of one-shot samples (`kit.ts`), and no song is loaded at all.
+
+A **source** is `{slug, section, startBar, endBar, chartHash}` -- a record this
+same figure can *also* be played against, with the drummer's own feel under it.
+A song's page lists every exercise naming its slug, which is the whole of the
+many-to-many link and leaves nothing to keep in step. `backing` says which of
+the three you get: `kit` (its own notes), `record`, or `click` (the record with
+the stems down). The choice on the page is for the sitting, like the tempo; the
+file is not rewritten.
+
+A **drill** is one sitting; it scores as the *median* of its complete reps and
+fills one square of the exercise's own 70/80/90/100 ladder. There is nothing to
+seal: the newest drill at a tempo simply is that square.
+
+The sample bank is baked once, out of alphaTab's bundled soundfont, by
+`npm run bake-kit` in `app/`. It is tracked, it is twelve mono files, and
+replacing them is how you put your own kit under the exercises.
 
 ## Workflow
 
@@ -741,6 +762,91 @@ position -- the sync points, the sticking letters, the heatmap and
 notation window already gives by parking on the right row. The comment saying so
 is in `practice.ts`, because somebody will reach for it.
 
+**An exercise became a thing of its own (2026-09-19).** The pool was built a
+day earlier and immediately ran into the four things the user reported: cuts did
+not loop, "songs can share exercises" did not mean anything you could see, there
+was no way to delete one, and there was no link to the pool at all. Three of
+those turned out to be one cause. An exercise was *a pair of scissors, not
+notation* -- frozen decision 1 in `exercise.ts` -- so its notes came from the
+song's chart at the moment you played it. That made every exercise a view of a
+song, and the rest followed: it could not be played without one, its several
+sources were a link with nothing at either end, and the loop lived inside the
+recording path, so the one thing an exercise is for needed a kit plugged in and
+a dev server before it would happen.
+
+So decision 1 is reversed. An exercise is a small score now, and it remembers
+where it was cut from: the notes, the tempo and the meter are written into
+`exercise.json` (`version: 2`), re-based so its own first bar is bar 1. A
+`sources` entry stopped being where the notes come from and became *a record
+this can also be played against* -- which is what it was always described as.
+`backing` gained a third value, `kit`, and it is the default for a new cut.
+
+Six things learned, in the order they bit:
+
+- **The constructible grid cost about forty lines, not the rewrite it was
+  budgeted as.** Q13 called it "the single largest structural consequence in
+  Round 4", because everything in the app hangs off `grid.lock.json` and an
+  exercise with no recording has no measured beats. But everything already
+  funnels through `slotToMixMs` and `barStartMs`, and `Grid` is a plain
+  interface -- so `syntheticGrid` fills an array at a constant tempo and the
+  scorer, the heatmap, the sync points and the cursor all carry on without
+  knowing. The estimate was wrong because it counted the *reach* of the type
+  rather than the width of its interface.
+- **Fork at the clock, not at the player.** The obvious way to make a song-less
+  exercise sound is to hand alphaTab back the transport (`EnabledSynthesizer`
+  plus its bundled soundfont). That works, and it is the wrong shape: in
+  synthesizer mode `updateSyncPoints` is a no-op, so the layer that corrects
+  alphaTab's tick-to-ms truncation is gone and the written tempo becomes the
+  playing tempo; and `MidiIn` stamps every stroke through the clock. Staying in
+  `EnabledExternalMedia` for ever and swapping *which clock* it follows
+  (`clock.ts`, `timer-clock.ts`, `transport.ts`) keeps one transport, one set
+  of sync points and one scorer for both halves.
+- **...which left the sound to be solved by baking.** alphaTab's synthesizer
+  only makes sound when alphaTab owns the transport -- but `api.exportAudio`
+  renders offline, takes a soundfont explicitly, and is documented to work with
+  any player mode. Verified: peak 0.58, interleaved stereo, in
+  `EnabledExternalMedia` with no soundfont ever loaded into the player. So
+  `scripts/bake-kit.mjs` renders one bar per articulation and writes twelve
+  one-shots to `kit/samples/`, and `kit.ts` plays them on the audio clock with
+  `click.ts`'s own lookahead scheduler. A bank of one-shots booked on a clock
+  *is* a sampler, which is the shape the user's own sampler slots into: it
+  replaces a `Kit`, and nothing else moves.
+- **The end of the score is not the end of the media, and the loop only ever
+  watched for one of them.** `tick` closed a rep when the clock crossed
+  `endMs` -- fine on a song, where the mix runs on for minutes past the cut.
+  For a standalone exercise the score *is* the range, so alphaTab reached the
+  end, fired `playerFinished` and rewound to 0 before the 25 ms poll ever saw
+  the crossing. The clock sat at 0 and the loop never turned round. The end of
+  a rep is now told (`reachedEnd`) as well as watched for, which also fixes an
+  old stall on the song side: a cut whose last bar ran past the end of the
+  recording used to hang for exactly this reason.
+- **Grading was the loop's reason for existing, and should only have been a
+  property of it.** `Recording` became `Run` with a `grading` flag; four
+  already-isolated points fall out when it is off, and Play on an armed
+  exercise opens the same run unmarked -- same seek, same rest, same count-in,
+  nothing written down. The loop never needed MIDI or the dev server. Only the
+  button in front of it did.
+- **Delete had been finished for a day and had no button.** The route, the
+  client call and a confirm naming the drill count all existed; the only caller
+  in the repo was the headless check, through the DEV-only `window.drums`
+  handle. That is what a back door in a test costs: it looks like coverage of
+  the feature and it is coverage of the stack under it. `check-exercise` now
+  presses the real button.
+
+The nav header is the fourth thing, and it is unrelated to all of the above: a
+`<header id="nav">` spanning the grid, carrying Songs (the picker -- choosing
+one *is* the navigation) and Exercises, plus the two rail toggles and zen. The
+pool used to be reachable only from a button inside the song page's Exercises
+group, which CSS hides on the exercise page, so the pool and an exercise both
+had a way in and no way out.
+
+Deliberately not built: upgrading the six v1 exercises already on disk to carry
+their own notes. They parse, they play against the record exactly as before, and
+rewriting a tracked file on sight to add a field nothing is asking for is the
+kind of migration that is discovered in a diff rather than chosen. Adding a
+source to one gives it a chart, which is the one moment the notes are in hand
+anyway.
+
 What is left of M3 in `practice-plan.md` is the take-vs-take overlay. The
 per-cell trend lines it also asked for are done.
 
@@ -804,10 +910,24 @@ the record**, and that a stroke played past the end of the range **stays in the
 rep that asked for it, still as late as it was played**. It also asserts the
 drill on disk, the median rule, the ladder, that a click-only drill gives the
 faders back, that a reload does not lose the square, and that the trend reads a
-posted history. It deletes the exercise it made, drills and all. They
+posted history. It deletes the exercise it made, drills and all -- **through
+the button on the page**, because that is the only place delete is exercised.
+Before any of that, and before MIDI is ever enabled, it asserts the loop works
+with no kit in the room: Play alone turns it round, every time to the same
+millisecond, writing nothing. `check-solo.mjs` is the other half -- an exercise
+carrying its own notes, opened on a page whose first hash is that exercise, and
+asserting the four things that were not true before: no song is ever fetched
+(the mix element's `src` is still empty), the notes came with the file and the
+scorer marks against them, it loops on a clock that is not a recording, and it
+makes a sound of its own -- the kit bus, loud when it is up and silent at 0,
+measured on the graph's analyser. They
 launch the installed Chrome or Edge (`browser.mjs`): Playwright's own Chromium
 cannot decode the H.264 video. Each checks the first song in the list unless
 `SONG=<slug>` names another.
+
+There is also `bake-kit.mjs`, which is not a check: it renders one bar per
+articulation through alphaTab's bundled soundfont and writes `kit/samples/`. Run
+it once (`npm run bake-kit`); `check-solo` needs what it leaves behind.
 
 Tests that need no browser: `.venv/Scripts/python -m pytest -q tests` for the
 pipeline, and `npm test` in `app/` for the scorer, the chart reader, the routine

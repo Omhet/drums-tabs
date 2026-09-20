@@ -425,6 +425,78 @@ check(
 check(Math.abs(s.box.h - home.box.h) <= 2, `0 left the window at ${s.box.h}px (was ${home.box.h}px)`);
 check(s.cursorInside, 'cursor not inside the window after the Layout group went home');
 
+// 15. The header: the only part of the page that knows there is more than one
+// page. Every route has to be able to reach every other one from it -- before
+// it existed the pool was behind a button on the song page and neither the
+// pool nor an exercise page had any way back at all.
+const header = async () =>
+  page.evaluate(() => {
+    const nav = document.getElementById('nav');
+    const link = document.getElementById('nav-exercises');
+    return {
+      page: document.documentElement.dataset.page ?? 'song',
+      shown: getComputedStyle(nav).display !== 'none',
+      // The current page marks itself off [data-page]; `lit` is that marking,
+      // asked by the filled background, which is the one thing hovering the
+      // link does not also do.
+      lit: getComputedStyle(link).backgroundColor !== 'rgba(0, 0, 0, 0)',
+      song: !!document.getElementById('song'),
+      rails: !!document.getElementById('rail-toggle') && !!document.getElementById('desk-toggle'),
+      zen: !!document.getElementById('zen'),
+    };
+  });
+
+let h = await header();
+console.log('header on a song:', JSON.stringify(h));
+check(h.shown && h.song && h.rails && h.zen, `the header is missing controls on a song page: ${JSON.stringify(h)}`);
+check(!h.lit, 'Exercises is marked as the current page while on a song');
+
+// Song -> pool, from the header.
+await page.locator('#nav-exercises').click();
+await page.waitForTimeout(800);
+h = await header();
+console.log('header on the pool:', JSON.stringify(h));
+check(h.page === 'pool', `Exercises went to ${h.page}`);
+check(h.shown && h.song, 'the pool page lost the header');
+check(h.lit, 'the pool page does not mark Exercises as where you are');
+
+// Pool -> an exercise -> back out again. The exercise page is the one that
+// used to be a dead end: its own group is hidden there by [data-page].
+const first = page.locator('#pool .ex-open').first();
+if (await first.count()) {
+  await first.click();
+  await page.waitForTimeout(2500);
+  h = await header();
+  console.log('header on an exercise:', JSON.stringify(h));
+  check(h.page === 'exercise', `a pool row went to ${h.page}`);
+  check(h.shown && h.song, 'the exercise page lost the header');
+  check(h.lit, 'an exercise does not mark Exercises as where you are');
+  await page.locator('#nav-exercises').click();
+  await page.waitForTimeout(800);
+  check((await header()).page === 'pool', 'there is no way back to the pool from an exercise');
+} else {
+  console.log('header on an exercise: skipped, the pool is empty');
+}
+
+// ...and the song picker still navigates from its new home in the header.
+// The pointer goes somewhere neutral first: a link left under the mouse draws
+// its hover, and the marking has to be read with nothing else painting it.
+await page.mouse.move(0, 0);
+await page.selectOption('#song', { index: 0 });
+await page.waitForTimeout(2500);
+h = await header();
+console.log('header back to a song:', JSON.stringify(h));
+check(h.page === 'song', `the header's song picker left the page on ${h.page}`);
+check(!h.lit, 'Exercises is still marked after going back to a song');
+
+// Zen takes the header with the rails.
+await page.locator('#zen').click();
+await page.waitForTimeout(600);
+check(!(await header()).shown, 'zen left the header on screen');
+await page.keyboard.press('KeyZ');
+await page.waitForTimeout(600);
+check((await header()).shown, 'leaving zen did not bring the header back');
+
 await page.evaluate(() => {
   document.getElementById('theme').click();
   for (const key of ['theme', 'tabTheme', 'lines', 'sticking', 'rail', 'desk', 'zoom', 'bars', 'noteSpacing', 'lineGap'])

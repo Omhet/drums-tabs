@@ -76,8 +76,13 @@ export class StickingLetters {
     this.draw();
   }
 
-  /** Point it at a song's sticking, or at none. */
-  load(lock: StickingLock | undefined) {
+  /**
+   * Point it at a song's sticking, or at an exercise's own strokes, or at none.
+   *
+   * Only the strokes are read, so the letters work the same over a chart that
+   * was solved and over one that carries the answer with it.
+   */
+  load(lock: Pick<StickingLock, 'strokes'> | undefined) {
     this.byBeat.clear();
     for (const stroke of lock?.strokes ?? []) {
       const letter = LETTER[stroke.limb];
@@ -116,18 +121,4 @@ export class StickingLetters {
       }
     }
   }
-}
-
-/**
- * Whether a lock file was solved from the chart that is loaded.
- *
- * Every Ctrl+S in Ableton rewrites tab.mid, so sticking can quietly come to
- * describe a chart that no longer exists -- letters under notes that have
- * moved. The lock file records what it was solved from; this is the other half
- * of that check.
- */
-export async function chartHash(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', bytes.slice().buffer as ArrayBuffer);
-  const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
-  return `sha256:${hex.slice(0, 16)}`;
 }

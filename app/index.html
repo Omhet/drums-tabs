@@ -123,6 +123,12 @@
       #app {
         box-sizing: border-box; height: 100%;
         display: grid; grid-template-columns: var(--rail) minmax(0, 1fr) var(--desk);
+        /* The header, then everything else. `auto` rather than a fixed height
+           so the row is whatever the controls in it need, and minmax(0, 1fr)
+           because a grid row's default minimum is its content -- without it a
+           long score pushes the page taller than the window instead of
+           scrolling inside the rails. */
+        grid-template-rows: auto minmax(0, 1fr);
         gap: 12px; padding: 12px;
       }
       main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -176,11 +182,6 @@
       .fader { display: grid; grid-template-columns: 1fr auto; gap: 1px 8px; color: var(--muted); }
       .fader input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 0; }
       .fader output { text-align: right; font-size: 12px; }
-      /* The rail's own heading line: the title, and the button that folds the
-         rail away. The right rail has no title, so its button stands alone. */
-      .rail-head { display: flex; align-items: center; gap: 8px; }
-      .rail-head h1 { flex: 1; min-width: 0; }
-      #desk-toggle { align-self: flex-end; }
 
       /* --- the rails, one icon wide --------------------------------------- */
       /* The same controls, not a second set of them: a button keeps its word
@@ -206,7 +207,7 @@
          group comes out of the collapse as an empty panel. Asked as "a group
          with nothing left in it" rather than by name, so the next group made
          of faders does not need this rule written again. (The faders are still
-         on 1/2/3, and the tempo on [ and ].) */
+         on 1/2/3/4, and the tempo on [ and ].) */
       :root[data-rail="icons"] #rail .group:not(:has(button, select, input[type="checkbox"])),
       :root[data-desk="icons"] #desk .group:not(:has(button, select, input[type="checkbox"])) {
         display: none;
@@ -256,6 +257,53 @@
         content: "\266A"; position: absolute; right: 2px; bottom: 0;
         font-size: 9px; line-height: 1; color: var(--muted);
       }
+
+      /* --- the header ----------------------------------------------------- */
+      /* Where you are, and where else you can go. It spans all three columns
+         so the rails fold under it rather than beside it, and it is the only
+         part of the page that knows there is more than one page.
+
+         Songs is a picker and Exercises is a link, which is the honest shape
+         of the two: there is no songs page to go to -- choosing one *is* the
+         navigation -- while the pool is somewhere you stand. */
+      #nav {
+        grid-column: 1 / -1;
+        display: flex; align-items: center; gap: 12px;
+        padding: 7px 11px;
+        background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+      }
+      #nav h1 { margin: 0; }
+      #nav-pages { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+      #nav-song select { width: auto; min-width: 160px; max-width: 340px; }
+      #nav a {
+        padding: 4px 9px; border-radius: 6px; border: 1px solid transparent;
+        color: var(--muted); text-decoration: none; white-space: nowrap;
+      }
+      #nav a:hover { color: var(--fg); border-color: var(--border); }
+      /* The page you are on, marked from [data-page] rather than tracked in
+         the script -- the same arrangement as zen and the rails, for the same
+         reason: there is nothing to keep in step. An exercise is somewhere
+         inside the pool, so the pool stays lit while you are on one.
+
+         A filled background rather than a border, because a border is what
+         hovering already draws: "where you are" and "where the mouse is" have
+         to be two different pictures or neither of them says anything. */
+      :root[data-page="pool"] #nav-exercises,
+      :root[data-page="exercise"] #nav-exercises {
+        color: var(--fg); border-color: var(--muted); background: var(--bg);
+      }
+      /* The chrome: the two rails and zen. Always glyphs, because there is no
+         wide state here for them to spell a word in. `data-open` is what a
+         toggle shows while its rail is open and `data-icon` what it shows once
+         the rail is folded, so the glyph stays a function of the state. */
+      #nav-chrome { display: flex; align-items: center; gap: 6px; }
+      #nav-chrome button { width: 34px; padding: 5px 0; text-align: center; font-size: 0; }
+      #nav-chrome button::before {
+        content: attr(data-open);
+        font-size: 15px; font-weight: 600; line-height: 1.3; display: inline-block;
+      }
+      :root[data-rail="icons"] #rail-toggle::before,
+      :root[data-desk="icons"] #desk-toggle::before { content: attr(data-icon); }
 
       /* --- the stage ----------------------------------------------------- */
       /* The picture on top, the notation under it, neither on top of the
@@ -351,8 +399,11 @@
          them. The grid is collapsed to a single track rather than just having
          its rails hidden: with display: none the asides stop being grid items
          and <main> would place itself in the 232px first column. */
-      :root[data-zen] #app { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0; }
-      :root[data-zen] :is(#rail, #desk) { display: none; }
+      :root[data-zen] #app {
+        grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
+        gap: 0; padding: 0;
+      }
+      :root[data-zen] :is(#nav, #rail, #desk) { display: none; }
       :root[data-zen] #stage { gap: 0; }
       /* Edge to edge: a rounded corner against the side of the screen reads as
          a gap rather than as a detail. */
@@ -494,15 +545,28 @@
         content: "Nothing cut from this song yet.";
         color: var(--muted);
       }
-      #exercises .ex {
-        display: flex; align-items: center; gap: 8px; width: 100%;
-        padding: 5px 6px; margin: 3px 0; text-align: left; font: inherit;
+      /* A row is the exercise and the one thing you can do to it that is not
+         opening it. The row is the frame; `.ex-open` is everything the row
+         itself was before there was anything standing beside it. */
+      #exercises .ex, #pool .ex { display: flex; align-items: stretch; gap: 4px; }
+      #exercises .ex { margin: 3px 0; }
+      #exercises .ex-open {
+        display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
+        padding: 5px 6px; text-align: left; font: inherit;
         background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
         color: var(--fg); cursor: pointer;
       }
-      #exercises .ex:hover { border-color: var(--fg); }
-      #exercises .ex .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      #exercises .ex .bars, #pool .bars { color: var(--muted); font: 11px ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: nowrap; }
+      #exercises .ex-open:hover { border-color: var(--fg); }
+      #exercises .ex-open .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #exercises .ex-open .bars, #pool .bars { color: var(--muted); font: 11px ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: nowrap; }
+      /* Throwing one away is destructive and irreversible, so it is quiet
+         until you go near it and only then turns the colour of the thing it
+         does. The confirm behind it names the drills that go too. */
+      .ex-kill {
+        flex: none; padding: 0 9px; font: inherit; line-height: 1;
+        color: var(--muted);
+      }
+      .ex-kill:hover:not(:disabled) { color: var(--fail); border-color: var(--fail); }
       /* The four squares in miniature: a shape to recognise, not numbers to
          read. The numbers are on the exercise's own page. */
       .pips { display: flex; gap: 2px; }
@@ -523,16 +587,20 @@
         text-transform: uppercase; color: var(--muted);
       }
       #pool h2:first-child { margin-top: 0; }
-      #pool .ex {
+      #pool .ex { margin: 4px 0; }
+      #pool .ex-open {
         display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px;
-        width: 100%; padding: 8px 10px; margin: 4px 0; text-align: left; font: inherit;
+        flex: 1; min-width: 0; padding: 8px 10px; text-align: left; font: inherit;
         background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
         color: var(--fg); cursor: pointer;
       }
-      #pool .ex:hover { border-color: var(--fg); }
-      #pool .ex .note { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
-      #pool .ex .where { font-size: 12px; color: var(--muted); }
-      #pool .ex.orphan { opacity: 0.55; cursor: not-allowed; }
+      #pool .ex-open:hover { border-color: var(--fg); }
+      #pool .ex-open .note { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+      #pool .ex-open .where { font-size: 12px; color: var(--muted); }
+      /* A source whose song is gone: still a real exercise with a real
+         history, just nothing to play it against. Dimmed, not removed -- and
+         still deletable, which is the point of it being a row at all. */
+      #pool .ex-open.orphan { opacity: 0.55; cursor: not-allowed; }
       #pool .empty { color: var(--muted); }
       /* The reading after a take (practice.ts drawReport): three dials, a map
          of the bars, then the numbers folded away. Each dial answers exactly
@@ -604,27 +672,49 @@
   </head>
   <body>
     <div id="app">
-      <!-- The left rail: everything you set. Grouped by what it is for, and
-           narrow enough that the stage keeps the width. -->
-      <aside id="rail">
-        <div class="rail-head">
-          <h1>drums-tabs</h1>
-          <!-- Open it says «, collapsed the font-size: 0 rule swaps in
-               data-icon's ». The glyph is a function of the state and the
-               state is CSS, so there is nothing for the script to keep up. -->
+      <!-- The header: the only part of the page that knows there is more than
+           one page. Songs is the picker (choosing one is the navigation) and
+           Exercises is the pool, which is somewhere you stand -- and which had
+           no way in from anywhere but the song page, and no way out at all,
+           until this row existed. The chrome on the right folds either rail
+           down to icons or takes the whole window. -->
+      <header id="nav">
+        <h1>drums-tabs</h1>
+        <nav id="nav-pages">
+          <label id="nav-song">
+            <span>Songs</span>
+            <select id="song" title="Song" aria-label="Song"></select>
+          </label>
+          <a id="nav-exercises" href="#exercises" title="Every exercise in the pool">Exercises</a>
+        </nav>
+        <div id="nav-chrome">
+          <!-- Open it says «, folded the CSS swaps in data-icon's ». The
+               glyph is a function of the state and the state is an attribute
+               on the root, so there is nothing for the script to keep up. -->
           <button
             id="rail-toggle"
+            data-open="«"
             data-icon="»"
             aria-controls="rail"
             aria-expanded="true"
             aria-label="The controls"
-          >
-            «
-          </button>
+          ></button>
+          <button
+            id="desk-toggle"
+            data-open="»"
+            data-icon="«"
+            aria-controls="desk"
+            aria-expanded="true"
+            aria-label="Practice mode"
+          ></button>
+          <button id="zen" data-open="⤢" title="The picture and the notation only (Z)" aria-label="Zen mode"></button>
         </div>
+      </header>
+      <!-- The left rail: everything you set. Grouped by what it is for, and
+           narrow enough that the stage keeps the width. -->
+      <aside id="rail">
         <div class="group">
-          <h2>Song</h2>
-          <select id="song" title="Song" aria-label="Song"></select>
+          <h2>Transport</h2>
           <div class="row">
             <button id="play" class="grow" data-icon="▶" title="Play or pause" aria-label="Play or pause" disabled>
               Play
@@ -659,6 +749,15 @@
             <span>Click</span>
             <output id="fader-click-out">0%</output>
             <input id="fader-click" type="range" min="0" max="100" value="0" />
+          </div>
+          <!-- The written notes, sounded (kit.ts). Over a record it is a
+               comparison you ask for -- what is written against what was
+               played, which is how a mis-transcribed bar gives itself up. On
+               an exercise with no record behind it, it is the whole sound. -->
+          <div class="fader">
+            <span>Kit</span>
+            <output id="fader-kit-out">0%</output>
+            <input id="fader-kit" type="range" min="0" max="100" value="0" />
           </div>
         </div>
         <div class="group">
@@ -779,8 +878,8 @@
             <kbd>Space</kbd> play/pause &middot; <kbd>&larr;</kbd><kbd>&rarr;</kbd> a bar &middot;
             <kbd>&uarr;</kbd><kbd>&darr;</kbd> a line &middot; <kbd>Home</kbd> stop &middot;
             <kbd>[</kbd><kbd>]</kbd> tempo &middot; <kbd>+</kbd><kbd>&minus;</kbd> size
-            (<kbd>0</kbd> resets Layout) &middot; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> mute a
-            fader &middot; <kbd>Z</kbd> zen (<kbd>Esc</kbd> leaves) &middot; click the score to seek
+            (<kbd>0</kbd> resets Layout) &middot;
+            <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> mute a fader &middot; <kbd>Z</kbd> zen (<kbd>Esc</kbd> leaves) &middot; click the score to seek
             &middot; wheel over the notation to browse.
           </p>
         </details>
@@ -807,15 +906,6 @@
            (plugins/practice.ts). The reading's heatmap half is not here, it is
            on the notation itself (heatmap.ts). -->
       <aside id="desk">
-        <button
-          id="desk-toggle"
-          data-icon="«"
-          aria-controls="desk"
-          aria-expanded="true"
-          aria-label="Practice mode"
-        >
-          »
-        </button>
         <div class="group">
           <h2>MIDI</h2>
           <button id="midi-enable" data-icon="♪" title="Let the page read your kit" aria-label="Enable MIDI">
@@ -891,7 +981,6 @@
             <button id="exercise-new" data-icon="✂" title="Cut a stretch of bars into an exercise">
               Cut bars…
             </button>
-            <button id="exercise-pool" data-icon="☰" title="Every exercise in the pool">Pool</button>
           </div>
           <form id="exercise-form" hidden></form>
           <div id="exercises"></div>
@@ -902,10 +991,23 @@
         <div class="group" id="desk-drill">
           <h2>Drill</h2>
           <output id="drill-state"></output>
+          <!-- What the loop plays under you. Its own notes need no song, so
+               they are always there; the record and the click need one of its
+               sources to be a song that is still in songs/. A choice for the
+               sitting, not a change to the file. -->
+          <label id="drill-against-row">
+            <span>Play against</span>
+            <select id="drill-against" class="grow" title="What the loop plays under you"></select>
+          </label>
           <div id="ladder"></div>
           <div id="reps" hidden></div>
           <div class="row">
             <button id="drill-back" data-icon="↩" title="Back to the routine">Done</button>
+            <!-- Here as well as on the rows, because this is where you are
+                 standing when you decide an exercise was a bad idea. -->
+            <button id="drill-delete" data-icon="✕" title="Delete this exercise, drills and all">
+              Delete
+            </button>
           </div>
         </div>
         <div id="report" hidden></div>

@@ -1,0 +1,906 @@
+{
+ "version": 2,
+ "id": "one-for-the-road-groove-1",
+ "name": "One For The Road Groove 1",
+ "kind": "groove",
+ "restBars": 1,
+ "backing": "kit",
+ "chart": {
+  "bpm": 90.91,
+  "meter": {
+   "beats_per_bar": 4,
+   "beat_unit": 4
+  },
+  "bars": 8,
+  "hits": [
+   {
+    "slot": 0,
+    "instrument": "crash",
+    "velocity": 100
+   },
+   {
+    "slot": 0,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 2,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 4,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 4,
+    "instrument": "snare",
+    "velocity": 100
+   },
+   {
+    "slot": 6,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 8,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 12,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 12,
+    "instrument": "snare",
+    "velocity": 100
+   },
+   {
+    "slot": 16,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 16,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 18,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 20,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 20,
+    "instrument": "snare",
+    "velocity": 100
+   },
+   {
+    "slot": 22,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 24,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 28,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 28,
+    "instrument": "snare",
+    "velocity": 100
+   },
+   {
+    "slot": 32,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 32,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 34,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 36,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 36,
+    "instrument": "snare",
+    "velocity": 100
+   },
+   {
+    "slot": 38,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 40,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 44,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 44,
+    "instrument": "snare",
+    "velocity": 100
+   },
+   {
+    "slot": 48,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 48,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 50,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 52,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 52,
+    "instrument": "snare",
+    "velocity": 100
+   },
+   {
+    "slot": 54,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 56,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 60,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 60,
+    "instrument": "snare",
+    "velocity": 100
+   },
+   {
+    "slot": 64,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 64,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 66,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 68,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 68,
+    "instrument": "snare",
+    "velocity": 100
+   },
+   {
+    "slot": 70,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 72,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 76,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 76,
+    "instrument": "snare",
+    "velocity": 100
+   },
+   {
+    "slot": 80,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 80,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 82,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 84,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 84,
+    "instrument": "snare",
+    "velocity": 100
+   },
+   {
+    "slot": 86,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 88,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 92,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 92,
+    "instrument": "snare",
+    "velocity": 100
+   },
+   {
+    "slot": 96,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 96,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 98,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 100,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 100,
+    "instrument": "snare",
+    "velocity": 100
+   },
+   {
+    "slot": 102,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 104,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 108,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 108,
+    "instrument": "snare",
+    "velocity": 100
+   },
+   {
+    "slot": 112,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 112,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 114,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 116,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 116,
+    "instrument": "snare",
+    "velocity": 100
+   },
+   {
+    "slot": 118,
+    "instrument": "kick",
+    "velocity": 100
+   },
+   {
+    "slot": 120,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 124,
+    "instrument": "hihat_closed",
+    "velocity": 100
+   },
+   {
+    "slot": 124,
+    "instrument": "snare",
+    "velocity": 100
+   },
+   {
+    "slot": 125,
+    "instrument": "kick",
+    "velocity": 100
+   }
+  ],
+  "strokes": [
+   {
+    "bar": 1,
+    "slot": 0,
+    "instrument": "crash",
+    "limb": "left_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 1,
+    "slot": 0,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 1,
+    "slot": 2,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 1,
+    "slot": 4,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 1,
+    "slot": 4,
+    "instrument": "snare",
+    "limb": "left_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 1,
+    "slot": 6,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 1,
+    "slot": 8,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 1,
+    "slot": 12,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 1,
+    "slot": 12,
+    "instrument": "snare",
+    "limb": "left_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 2,
+    "slot": 0,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 2,
+    "slot": 0,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 2,
+    "slot": 2,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 2,
+    "slot": 4,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 2,
+    "slot": 4,
+    "instrument": "snare",
+    "limb": "left_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 2,
+    "slot": 6,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 2,
+    "slot": 8,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 2,
+    "slot": 12,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 2,
+    "slot": 12,
+    "instrument": "snare",
+    "limb": "left_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 3,
+    "slot": 0,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 3,
+    "slot": 0,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 3,
+    "slot": 2,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 3,
+    "slot": 4,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 3,
+    "slot": 4,
+    "instrument": "snare",
+    "limb": "left_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 3,
+    "slot": 6,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 3,
+    "slot": 8,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 3,
+    "slot": 12,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 3,
+    "slot": 12,
+    "instrument": "snare",
+    "limb": "left_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 4,
+    "slot": 0,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 4,
+    "slot": 0,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 4,
+    "slot": 2,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 4,
+    "slot": 4,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 4,
+    "slot": 4,
+    "instrument": "snare",
+    "limb": "left_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 4,
+    "slot": 6,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 4,
+    "slot": 8,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 4,
+    "slot": 12,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 4,
+    "slot": 12,
+    "instrument": "snare",
+    "limb": "left_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 5,
+    "slot": 0,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 5,
+    "slot": 0,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 5,
+    "slot": 2,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 5,
+    "slot": 4,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 5,
+    "slot": 4,
+    "instrument": "snare",
+    "limb": "left_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 5,
+    "slot": 6,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 5,
+    "slot": 8,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 5,
+    "slot": 12,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 5,
+    "slot": 12,
+    "instrument": "snare",
+    "limb": "left_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 6,
+    "slot": 0,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 6,
+    "slot": 0,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 6,
+    "slot": 2,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 6,
+    "slot": 4,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 6,
+    "slot": 4,
+    "instrument": "snare",
+    "limb": "left_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 6,
+    "slot": 6,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 6,
+    "slot": 8,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 6,
+    "slot": 12,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 6,
+    "slot": 12,
+    "instrument": "snare",
+    "limb": "left_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 7,
+    "slot": 0,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 7,
+    "slot": 0,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 7,
+    "slot": 2,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 7,
+    "slot": 4,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 7,
+    "slot": 4,
+    "instrument": "snare",
+    "limb": "left_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 7,
+    "slot": 6,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 7,
+    "slot": 8,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 7,
+    "slot": 12,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 7,
+    "slot": 12,
+    "instrument": "snare",
+    "limb": "left_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 8,
+    "slot": 0,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 8,
+    "slot": 0,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 8,
+    "slot": 2,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 8,
+    "slot": 4,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 8,
+    "slot": 4,
+    "instrument": "snare",
+    "limb": "left_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 8,
+    "slot": 6,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   },
+   {
+    "bar": 8,
+    "slot": 8,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 8,
+    "slot": 12,
+    "instrument": "hihat_closed",
+    "limb": "right_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 8,
+    "slot": 12,
+    "instrument": "snare",
+    "limb": "left_hand",
+    "velocity": 100
+   },
+   {
+    "bar": 8,
+    "slot": 13,
+    "instrument": "kick",
+    "limb": "right_foot",
+    "velocity": 100
+   }
+  ],
+  "hash": "sha256:efc37df3f723d4ed"
+ },
+ "sources": [
+  {
+   "slug": "arctic-monkeys-one-for-the-road-official-video",
+   "startBar": 10,
+   "endBar": 17,
+   "chartHash": "sha256:037f304855d37ffe"
+  }
+ ],
+ "createdAt": "2026-09-20T11:24:36.627Z"
+}

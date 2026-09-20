@@ -13,7 +13,9 @@
     "check-ui": "node scripts/check-ui.mjs",
     "check-practice": "node scripts/check-practice.mjs",
     "test": "node --import ./scripts/ts-resolve.mjs --test scripts/test-*.mjs",
-    "check-exercise": "node scripts/check-exercise.mjs"
+    "check-exercise": "node scripts/check-exercise.mjs",
+    "check-solo": "node scripts/check-solo.mjs",
+    "bake-kit": "node scripts/bake-kit.mjs"
   },
   "dependencies": {
     "@coderline/alphatab": "^1.8.4",

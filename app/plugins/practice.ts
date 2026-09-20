@@ -304,13 +304,25 @@ export function practice(songsDir: string, repoRoot: string): Plugin {
       }
       if (url.pathname === '/practice/exercise') {
         if (req.method === 'POST') {
-          const exercise = JSON.parse(await read(req)) as { id?: string; sources?: unknown };
+          const exercise = JSON.parse(await read(req)) as {
+            id?: string;
+            sources?: unknown;
+            chart?: { hits?: unknown };
+          };
           const bad = idProblem(exercise.id);
           if (bad) return json(res, 400, JSON.stringify({ error: bad }));
-          // An exercise with nowhere to be played from is not an exercise. It
-          // would sit in the pool for ever looking like a thing you could pick.
-          if (!Array.isArray(exercise.sources) || exercise.sources.length === 0) {
-            return json(res, 400, JSON.stringify({ error: 'an exercise needs at least one source' }));
+          // An exercise with no notes and nowhere to borrow them from is not an
+          // exercise. It would sit in the pool for ever looking like a thing
+          // you could pick. Either half is enough: its own chart makes it
+          // playable anywhere, and a source makes it playable against a record.
+          const hasChart = Array.isArray(exercise.chart?.hits) && exercise.chart.hits.length > 0;
+          const hasSource = Array.isArray(exercise.sources) && exercise.sources.length > 0;
+          if (!hasChart && !hasSource) {
+            return json(
+              res,
+              400,
+              JSON.stringify({ error: 'an exercise needs notes of its own or a source to play it from' })
+            );
           }
           const dir = join(exercises, exercise.id!);
           if (!dir.startsWith(exercises)) return json(res, 403, JSON.stringify({ error: 'bad id' }));

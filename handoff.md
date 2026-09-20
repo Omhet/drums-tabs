@@ -40,7 +40,12 @@ app/src/take.ts        the take format (Q8). The important one.
 app/src/heatmap.ts     noteheads coloured by verdict + the extras lane
 app/src/exercise.ts    the pool: what an exercise and a drill are. Pure; tested.
 app/src/exercises.ts   the panels: the song's list, the cutting form, the pool page
+app/src/clock.ts       what the page needs from a clock, whoever is counting
+app/src/timer-clock.ts a clock with no media behind it: an exercise's own line
+app/src/transport.ts   which of the two alphaTab follows, and the one swap
+app/src/kit.ts         the written notes, sounded. The seam a sampler slots into.
 exercises/<id>/        the pool itself, at the repo root: one dir per exercise
+kit/samples/           twelve one-shots; `npm run bake-kit` writes them
 kit.toml [input]       what your module sends (NOT the chart's numbering)
 pipeline/reference.py  measures the floor, writes reference.lock.json
 songs/<slug>/routines/ the runs. The open one has `sealedAt: null`.
@@ -51,16 +56,19 @@ songs/<slug>/routines/ the runs. The open one has `sealedAt: null`.
 From `app/`, with `npm run dev` running in its own terminal:
 
 ```
-npm run smoke · check-sync · check-mix · check-ui out.png · check-practice · check-exercise
-npm test                                   # scorer + chart + routine + exercise + bar_offset, 100, no browser
+npm run smoke · check-sync · check-mix · check-ui out.png · check-practice · check-exercise · check-solo
+npm test                                   # scorer + chart + routine + exercise + bar_offset, 106, no browser
 .venv/Scripts/python -m pytest -q tests    # 116, no browser
 cd app && npm run typecheck
 ```
 
-**Known-good as of 2026-09-19:** 116 pytest, 100 node tests, clean typecheck, and
+**Known-good as of 2026-09-19:** 116 pytest, 106 node tests, clean typecheck, and
 every browser check. Run the important ones once per song (`SONG=<slug>`).
 `check-practice` now records the whole song, so it takes about as long as the
-record does; `check-exercise` is the fast proof of the same path.
+record does; `check-exercise` is the fast proof of the same path, and
+`check-solo` is the other half of it -- an exercise on its own notes, with no
+song loaded at all. `check-solo` needs `kit/samples/`, so run `npm run bake-kit`
+once if the directory is not there.
 
 Gotchas, all previously bitten: the checks need **real Chrome or Edge** (bundled
 Chromium has no H.264); the Ableton plugin reloads the page on every `.als` save,
@@ -139,11 +147,15 @@ whole-song take logs two extras, which never touch accuracy.
 
 ### What the user still owes the work
 
-1. **Cut the first real exercises.** The pool is empty. Every fill in the two
-   prepared songs is already a `[[section]]` of its own, so `Cut bars…` on the
-   song page is one click each. Nothing about the loop's *feel* — chiefly
-   whether one bar of rest is the right amount — can be settled without playing
-   it, and `restBars` is per-exercise precisely so it can be argued with.
+1. **Cut the first real exercises.** The pool holds six near-duplicate test
+   cuts of bars 1-2 of One For The Road, made while the panels were being
+   tried. They are `version: 1` — from before the notes moved into the file —
+   so they play against the record only, and the ✕ on each row throws them
+   away. Every fill in the two prepared songs is already a `[[section]]` of its
+   own, so `Cut bars…` is one click each. Nothing about the loop's *feel* —
+   chiefly whether one bar of rest is the right amount, and whether the baked
+   samples are good enough to practise to — can be settled without playing it,
+   and `restBars` is per-exercise precisely so it can be argued with.
 2. **Play a run and seal it.** Nothing has been sealed yet on any song, so the
    trend row has never appeared outside a headless check. It needs one sealed
    run to show anything and three to start smoothing. A run is four cells now,
@@ -248,14 +260,17 @@ four sparklines became a reading rather than a wall.
 - **Step-by-step** (Q12) — transport paused, the cursor waits for you to play the
   next note. No scoring, no take, no calibration. Nearer to a play-along feature
   than a coaching one, and buildable on its own.
-- **Exercises** (Q13) — **the excerpt half is built** (2026-09-19). An exercise is
-  a few bars of a real chart, looped with a bar of click between the reps and
-  graded every time round; drills fill the exercise's own tempo ladder and touch
-  no routine cell. Because an excerpt keeps its song's `grid.lock.json`, the
-  constructible-grid cost Q13 warns about **did not arrive** — it is still owed
-  by the *generated* half, and only by it. What an agent writing exercises needs
-  now is the file format (`app/src/exercise.ts`) and `POST /practice/exercise`,
-  both of which exist.
+- **Exercises** (Q13) — **both halves are built** (2026-09-19). An exercise is a
+  few bars looped with a bar of click between the reps and graded every time
+  round; drills fill its own tempo ladder and touch no routine cell. The
+  constructible grid Q13 called the largest structural consequence **arrived and
+  was small**: `syntheticGrid` in `syncpoints.ts`, because everything already
+  goes through `slotToMixMs` and `barStartMs`. An exercise now carries its own
+  notes (`version: 2`, `ExerciseChart`) and plays with no song loaded, on
+  `TimerClock` and a bank of samples (`kit.ts`). What an agent writing exercises
+  needs is the file format (`app/src/exercise.ts`) and `POST /practice/exercise`
+  — and note it can now write the **notes** too, as a `chart` of re-based
+  `ChartHit`s rather than as alphaTex, which retires the heredoc hazard.
 
 **M5, the artifact.** Take → `.mid` warped onto the straight grid for Ableton
 (small, all the machinery exists); phone-video alignment by onset-envelope
@@ -268,10 +283,17 @@ lock. Explicitly last.
 
 **Small and unscheduled, but wanted:** the user has said the thing they actually
 value is playing along with the notation at different tempos. **Bigger notes**
-(2026-09-16) and **the loop** (2026-09-19, as an exercise drill) are done. What
-is left of that list is a **tempo ramp** across a drill's reps — the loop and
-the ladder both exist now, so it is a small thing on top of them — and a
-**count-in on a paused start**, which is still only inside a recording.
+(2026-09-16) and **the loop** are done — and the loop is no longer only a drill:
+Play on an armed exercise loops it with no MIDI and no dev server (2026-09-19).
+What is left of that list is a **tempo ramp** across a drill's reps — the loop
+and the ladder both exist now, so it is a small thing on top of them — and a
+**count-in on a paused start**, which is still only inside a run.
+
+**The avatar's input already exists.** `Kit.onNote` (`app/src/kit.ts`) fires per
+note as it is booked, carrying instrument, limb, velocity and the AudioContext
+time it will sound at — which is exactly what avatar-plan B1 asks for, and it is
+handed the whole part up front rather than as a stream. Whoever builds M6
+subscribes to `mixer.onNote` and needs nothing else from the transport.
 
 ---
 

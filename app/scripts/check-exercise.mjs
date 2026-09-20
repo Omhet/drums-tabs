@@ -161,6 +161,10 @@ await field('to').fill(String(range.endBar));
 await field('Name').fill(NAME);
 await field('Kind').selectOption('fill');
 await field('Rest bars').fill('1');
+// Against the record: this whole check is the record path -- the beat map, the
+// reference offset, the stems being held for a click-only drill. An exercise
+// on its own notes is check-solo.mjs.
+await field('Backing').selectOption('record');
 await page.locator('#exercise-form button[type="submit"]').click();
 await page.waitForTimeout(600);
 
@@ -168,7 +172,18 @@ check(existsSync(join(dir, 'exercise.json')), 'the exercise is a file on disk', 
 const written = existsSync(join(dir, 'exercise.json'))
   ? JSON.parse(readFileSync(join(dir, 'exercise.json'), 'utf-8'))
   : {};
-check(written.version === 1 && written.id === ID, 'it is a v1 exercise with the id the name made', written.id);
+check(written.version === 2 && written.id === ID, 'it is a v2 exercise with the id the name made', written.id);
+check(
+  written.chart?.hits?.length > 0 && written.chart.bars === range.endBar - range.startBar + 1,
+  'and it carries its own notes, re-based to its own bar 1',
+  `${written.chart?.hits?.length} notes over ${written.chart?.bars} bars`
+);
+check(
+  (written.chart?.hits ?? []).every((h) => h.slot < written.chart.bars * written.chart.meter.beats_per_bar * 4),
+  'every note of which is inside those bars',
+  `slots up to ${Math.max(...(written.chart?.hits ?? [{ slot: -1 }]).map((h) => h.slot))}`
+);
+check(written.backing === 'record', 'played against the record, as the form was told', written.backing);
 check(
   written.sources?.length === 1 && written.sources[0].slug === SLUG,
   'it names the song it was cut from',
@@ -196,16 +211,19 @@ check(listed.pips === 4, 'with its four squares in miniature', `${listed.pips} p
 
 await page.evaluate(() => (location.hash = '#exercises'));
 await page.waitForTimeout(800);
-const pool = await page.evaluate(() => ({
+// The pool is shared and the user's own exercises live in it, so this asks
+// where *this* one landed rather than that it is the only thing there.
+const pool = await page.evaluate((id) => ({
   page: document.documentElement.dataset.page,
   rows: document.querySelectorAll('#pool .ex').length,
+  mine: [...document.querySelectorAll('#pool .ex-kill')].filter((b) => b.dataset.id === id).length,
   shelves: [...document.querySelectorAll('#pool h2')].map((e) => e.textContent),
   stageHidden: getComputedStyle(document.getElementById('stage')).display === 'none',
   routineHidden: getComputedStyle(document.getElementById('routine').closest('.group')).display === 'none',
-}));
+}), ID);
 check(pool.page === 'pool' && pool.stageHidden, 'the pool takes over the stage', pool.page);
-check(pool.rows === 1, 'the exercise is in the pool', `${pool.rows}`);
-check(pool.shelves.join(' ') === 'Fills', 'it is shelved by kind', pool.shelves.join(' '));
+check(pool.mine === 1, 'the exercise it cut is in the pool, exactly once', `${pool.mine} of ${pool.rows}`);
+check(pool.shelves.includes('Fills'), 'it is shelved by kind', pool.shelves.join(' '));
 check(pool.routineHidden, 'the routine is not on the pool page: it belongs to a song');
 
 // --- arming ---------------------------------------------------------------------
@@ -244,6 +262,112 @@ check(armed.drillShown && armed.routineHidden, 'the desk shows the drill, not th
 check(armed.word === 'Drill', 'the transport says what it is aimed at', armed.word);
 check(armed.tempo === 1 && armed.speed === '100', 'picking a square sets the tempo', `${armed.speed}%`);
 check(armed.expected > 0, 'the range has notes to be marked on', `${armed.expected} notes`);
+
+// --- the loop, with nobody being marked on it --------------------------------------
+// Before MIDI is enabled, which is the whole of the point. The loop used to
+// live inside Record, so the one thing an exercise is for -- play it, wait,
+// play it again -- needed a kit plugged in and a dev server before it would
+// happen at all. Pressing Play has to do it, and write nothing down.
+
+const solo = await page.evaluate(() => {
+  const d = window.drums;
+  const p = d.practice;
+  const grid = d.current.grid;
+  const startMs = d.barStartMs(grid, p.armed.source.startBar - 1);
+  const endMs = d.barStartMs(grid, p.armed.source.endBar);
+  const barMs = (d.barStartMs(grid, p.armed.source.startBar) ?? startMs + 2000) - startMs;
+  return {
+    midi: p.midi.hasSource,
+    recordDisabled: document.getElementById('record').disabled,
+    why: document.getElementById('record').title,
+    at: Math.round(d.clock.mixTimeMs),
+    startMs: Math.round(startMs),
+    endMs: Math.round(endMs),
+    // One rep is the range plus its rest; the first one is preceded by a bar
+    // of count-in. All at the tempo it is being played at.
+    repMs: (endMs - startMs + barMs * p.armed.exercise.restBars) / p.armed.tempo,
+    countInMs: barMs / p.armed.tempo,
+  };
+});
+check(!solo.midi && solo.recordDisabled, 'with no kit connected there is nothing to Drill', solo.why);
+check(
+  Math.abs(solo.at - solo.startMs) < 80,
+  'arming parks the cursor on the first bar of the cut',
+  `${solo.at} vs ${solo.startMs} ms`
+);
+
+// A real key press: it is the user gesture an AudioContext needs before it
+// will make a sound, and `api.play()` from evaluate is not one.
+await page.keyboard.press('Space');
+await page.waitForTimeout(300);
+const started = await page.evaluate(() => ({
+  looping: window.drums.practice.looping,
+  play: document.getElementById('play').textContent.trim(),
+  recordDisabled: document.getElementById('record').disabled,
+}));
+check(started.looping, 'Play loops an armed exercise instead of running on past it');
+check(started.play === 'Pause', 'and the transport says so from the count-in on', started.play);
+check(started.recordDisabled, 'Drill is not offered from inside a play-only loop');
+
+// Watch the clock from inside the page and look for the sawtooth a loop
+// makes. Two turn-rounds, so "it came back" is a pattern and not a fluke.
+const SOLO_REPS = 2;
+await page.evaluate(() => {
+  window.__samples = [];
+  window.__watch = setInterval(() => window.__samples.push(Math.round(window.drums.clock.mixTimeMs)), 40);
+});
+const watchMs = solo.countInMs + SOLO_REPS * (solo.repMs + solo.countInMs) + 2500;
+console.log(`     about ${Math.ceil(solo.repMs / 1000)}s a rep; watching ${Math.ceil(watchMs / 1000)}s for ${SOLO_REPS}`);
+await page.waitForTimeout(watchMs);
+const samples = await page.evaluate(() => {
+  clearInterval(window.__watch);
+  return window.__samples;
+});
+
+// A turn-round is the clock going back to the top of the cut. Measured
+// against half the cut's own length rather than a few milliseconds, because
+// the pause at the end of every rep re-pins the smoothed clock to the media's
+// real position (media.ts) -- which is a small step backwards, and not a rep.
+const span = solo.endMs - solo.startMs;
+const backTo = [];
+for (let i = 1; i < samples.length; i++) {
+  if (samples[i] < samples[i - 1] - span / 2) backTo.push(samples[i]);
+}
+const furthest = Math.max(...samples);
+console.log(`     range ${Math.min(...samples)}..${furthest} ms, came back to ${backTo.join(', ') || 'nowhere'}`);
+check(backTo.length >= SOLO_REPS, 'the loop goes round without anyone being marked', `${backTo.length} turn-rounds`);
+check(
+  backTo.every((ms) => Math.abs(ms - solo.startMs) <= 40),
+  'every time round it comes back to the same millisecond of the record',
+  `${backTo.join(', ')} vs ${solo.startMs}`
+);
+check(
+  furthest <= solo.endMs + 250,
+  'and it never runs on past the bars that were cut',
+  `${furthest} vs ${solo.endMs} ms`
+);
+
+const unmarked = await page.evaluate(() => ({
+  chips: document.querySelectorAll('#reps .rep').length,
+  empty: [...document.querySelectorAll('#ladder .cell')].every((e) => e.textContent === '·'),
+}));
+check(unmarked.chips === 0, 'a loop nobody is marking draws no reps', `${unmarked.chips} chips`);
+check(unmarked.empty, 'and fills no square of the ladder');
+
+await page.keyboard.press('Space');
+await page.waitForTimeout(800);
+const stopped = await page.evaluate(() => ({
+  looping: window.drums.practice.looping,
+  play: document.getElementById('play').textContent.trim(),
+  armed: window.drums.practice.armed?.exercise.id ?? '',
+  recordDisabled: document.getElementById('record').disabled,
+}));
+check(!stopped.looping && stopped.play === 'Play', 'Space stops it again', stopped.play);
+check(stopped.armed === ID, 'and leaves the exercise armed, ready to go round again', stopped.armed);
+check(
+  !existsSync(join(dir, 'drills')) || readdirSync(join(dir, 'drills')).length === 0,
+  'nothing was written to disk: a listen is not a sitting'
+);
 
 // --- the drill --------------------------------------------------------------------
 // Strokes go in through MidiIn.inject; everything after that is the real thing.
@@ -584,10 +708,19 @@ check(trend.slow === '70%', 'the newest sitting is the square, not the best one'
 
 // --- cleaning up ------------------------------------------------------------------------
 
-await page.evaluate((id) => window.drums.exercises.remove(id), ID);
-// `remove` confirms first, and a dialog with nobody listening blocks the page.
-page.on('dialog', (d) => void d.accept());
-await page.waitForTimeout(600);
+// Through the button, not the back door. Deleting an exercise is something
+// the page has to be able to do -- the whole stack under it was finished and
+// unreachable for a while precisely because nothing here ever pressed it.
+let confirmText = '';
+page.on('dialog', (d) => {
+  confirmText = d.message();
+  void d.accept();
+});
+await page.locator('#drill-delete').click();
+await page.waitForTimeout(1500);
+check(/\b4 drills\b/.test(confirmText), 'the confirm says the drills go with it', confirmText);
+const landed = await page.evaluate(() => document.documentElement.dataset.page ?? 'song');
+check(landed === 'pool', 'deleting from its own page leaves you in the pool', landed);
 for (const name of existsSync(poolDir) ? readdirSync(poolDir) : []) {
   if (name.startsWith(ID)) rmSync(join(poolDir, name), { recursive: true, force: true });
 }

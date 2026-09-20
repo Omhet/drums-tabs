@@ -8,14 +8,29 @@
 //
 // Four decisions are frozen here:
 //
-//  1. **An exercise is a pair of scissors, not notation.** The notes come from
-//     a real song's chart at the moment you play it, so there is no alphaTex
-//     here and no grid to synthesise: the record is playing, `grid.lock.json`
-//     knows when every bar happens, and the loop is a seek.
-//  2. **Several sources.** The same lick turns up in more than one song, and
-//     practising it twice under two names is practising it twice. A song's page
-//     shows every exercise naming its slug -- that is the whole of the
-//     many-to-many link, with no table to keep in step.
+//  1. **An exercise was a pair of scissors. It is a small score now, and it
+//     remembers where it was cut from.** The first version took its notes from
+//     the song's chart at the moment you played it -- the record was playing
+//     anyway and `grid.lock.json` already knew when every bar happened, so the
+//     loop was a seek and there was nothing to synthesise. That made every
+//     exercise a *view* of a song, and three things followed from it that were
+//     not meant: it could not be played without one, the "several sources" of
+//     decision 2 never meant anything you could see, and the loop lived inside
+//     the recording path, so the one thing an exercise is for needed a kit
+//     plugged in before it would happen.
+//
+//     So the notes, the tempo and the meter are written into the file now
+//     (`ExerciseChart`), re-based so the exercise's first bar is bar 1, and a
+//     grid built at that tempo puts them in time. What did *not* change is
+//     that there is still one `Grid` and one `slotToMixMs`: a constructed grid
+//     and a measured one are the same shape, which is why this cost about
+//     forty lines rather than the rewrite it was budgeted as.
+//  2. **Several sources, and now they mean something.** The same lick turns up
+//     in more than one song, and practising it twice under two names is
+//     practising it twice. A source is no longer where the notes come from --
+//     it is a record you can *also* play this against. A song's page shows
+//     every exercise naming its slug, which is the whole of the many-to-many
+//     link, with no table to keep in step.
 //  3. **A drill scores as the median of its complete reps.** One rep you fell
 //     apart in should not decide a sitting, and neither should one you nailed.
 //     Not the *last* one either: unlike a take, a drill is many attempts at
@@ -26,10 +41,47 @@
 //
 // Everything above the `--- disk ---` line is pure, so `node --test` runs it
 // directly (scripts/test-exercise.mjs).
+import { chartHash, SLOTS_PER_BEAT, type ChartHit } from './chart';
 import type { Grade, TakeEvent } from './grade';
 import { median, PASS, TEMPOS } from './routine';
+import type { StickingStroke } from './sticking';
 
-/** Where an exercise can be played from: a stretch of bars in a real song. */
+/**
+ * The notes an exercise is made of, and enough about them to place them in
+ * time without a song.
+ *
+ * Hits rather than alphaTex, and the reason is one-way: the scorer wants
+ * `{slot, instrument, velocity}` and the staff wants alphaTex, and
+ * `hitsToAlphaTex` goes one way while nothing comes back. So the side that
+ * generates the other is the side that is written down. It also means an
+ * exercise an agent writes is a JSON array rather than a backslash-heavy
+ * string, which retires a standing hazard (practice-plan Q13, ground rule 11).
+ */
+export interface ExerciseChart {
+  /**
+   * The tempo it is written at, in BPM. Absolute, unlike everything else
+   * about an exercise: a cut takes the song's own `grid.score.bpm`, and the
+   * ladder's 70/80/90/100 are percentages of *this* rather than of a song.
+   */
+  bpm: number;
+  meter: { beats_per_bar: number; beat_unit: number };
+  /** How many bars long it is. Its own bar 1 is the first of them. */
+  bars: number;
+  /** Re-based: `slot` counts sixteenths from the exercise's own first bar. */
+  hits: ChartHit[];
+  /**
+   * Which limb plays what, re-based the same way.
+   *
+   * Shaped exactly like `sticking.lock.json`'s strokes so `expectedNotes`
+   * takes it unchanged -- the R/L letters and, later, the avatar both work
+   * with no new code.
+   */
+  strokes?: StickingStroke[];
+  /** The notes themselves, hashed: what a drill says it was graded against. */
+  hash: string;
+}
+
+/** Where an exercise can also be played: a stretch of bars in a real song. */
 export interface ExerciseSource {
   slug: string;
   /** The `[[section]]` it was cut from, for the label. Not its identity. */
@@ -50,11 +102,26 @@ export interface ExerciseSource {
 /** Grooves you sit in, fills you have to land. The pool's two shelves. */
 export type Kind = 'groove' | 'fill';
 
-/** What the loop plays under you. */
-export type Backing = 'record' | 'click';
+/**
+ * What the loop plays under you.
+ *
+ * `kit` is the exercise's own notes, sounded from its own chart -- the only
+ * one of the three that needs no song. `record` is the song it was cut from;
+ * `click` is that same record with the stems pulled down, so the metronome
+ * still ticks with the drummer's own feel rather than against a grid nobody
+ * played to. The last two need a source; the first does not.
+ */
+export type Backing = 'kit' | 'record' | 'click';
 
 export interface Exercise {
-  version: 1;
+  /**
+   * 2 since the notes moved into the file.
+   *
+   * Bumped rather than extended, because the meaning of `sources` changed with
+   * it: it stopped being required. A version-1 reader handed a file with no
+   * sources would draw a row with nothing to play.
+   */
+  version: 1 | 2;
   /** The directory name under `exercises/`. Made from the name; unique by construction. */
   id: string;
   /** What you call it. "the chorus fill", not "exercise 3". */
@@ -77,6 +144,14 @@ export interface Exercise {
    * with the record's own feel rather than against a grid nobody played to.
    */
   backing: Backing;
+  /**
+   * Its own notes. Present from version 2 on.
+   *
+   * Absent means an exercise cut before the notes moved into the file: still
+   * perfectly playable, just only against one of its `sources`.
+   */
+  chart?: ExerciseChart;
+  /** Records this same figure can also be played against. May be empty. */
   sources: ExerciseSource[];
   createdAt: string;
   /** Why this one is hard, in one line. Shown under the name. */
@@ -108,8 +183,20 @@ export interface Drill {
   exercise: string;
   startedAt: string;
   endedAt: string;
-  /** Which source it was played from, copied not referenced: sources can move. */
-  source: { slug: string; section?: string; startBar: number; endBar: number };
+  /**
+   * Which source it was played from, copied not referenced: sources can move.
+   *
+   * Absent when it was played on its own notes, with no record in the room.
+   */
+  source?: { slug: string; section?: string; startBar: number; endBar: number };
+  /**
+   * Set when there was no song behind it.
+   *
+   * Said out loud rather than inferred from the missing `source`: a file that
+   * lost a field and a file that never had one are different accidents, and a
+   * history should not need the difference guessed at.
+   */
+  standalone?: true;
   tempo: number;
   restBars: number;
   backing: Backing;
@@ -118,10 +205,11 @@ export interface Drill {
   calibrationNote?: number;
   referenceMs?: number;
   /**
-   * The source song's tab.mid.
+   * What it was graded against: the source song's tab.mid, or -- for a
+   * standalone sitting -- the exercise's own `chart.hash`.
    *
    * No `sectionsHash`: an exercise is bars, and moving a section boundary does
-   * not move them. Editing the chart does, which is why this is here.
+   * not move them. Editing the notes does, which is why this is here.
    */
   chartHash: string;
   /** The median accuracy over the complete reps: the number the square shows. */
@@ -179,6 +267,58 @@ export function uniqueId(name: string, taken: readonly string[] = []): string {
     const id = `${base}-${n}`;
     if (!taken.includes(id)) return id;
   }
+}
+
+/**
+ * A song's hits over a stretch of bars, moved so the first of them is bar 1.
+ *
+ * `slot` counts sixteenths from the start of the chart, so re-basing is one
+ * subtraction -- and doing it here, once, at the moment of the cut, is what
+ * lets everything downstream stay in one coordinate system. `note` is dropped:
+ * it is the *song's* drum-rack key and means nothing away from that song.
+ */
+export function rebaseHits(
+  hits: readonly ChartHit[],
+  beatsPerBar: number,
+  startBar: number,
+  endBar: number
+): ChartHit[] {
+  const perBar = beatsPerBar * SLOTS_PER_BEAT;
+  const from = (startBar - 1) * perBar;
+  const to = endBar * perBar;
+  return hits
+    .filter((hit) => hit.slot >= from && hit.slot < to)
+    .map(({ slot, instrument, velocity }) => ({ slot: slot - from, instrument, velocity }))
+    .sort((a, b) => a.slot - b.slot || a.instrument.localeCompare(b.instrument));
+}
+
+/**
+ * The sticking over the same bars, moved the same way.
+ *
+ * A stroke is addressed by (bar, slot-in-bar), so only the bar number moves --
+ * which is why this is a separate function and not a branch of the one above.
+ */
+export function rebaseStrokes(
+  strokes: readonly StickingStroke[],
+  startBar: number,
+  endBar: number
+): StickingStroke[] {
+  return strokes
+    .filter((stroke) => stroke.bar >= startBar && stroke.bar <= endBar)
+    .map((stroke) => ({ ...stroke, bar: stroke.bar - startBar + 1 }));
+}
+
+/**
+ * The notes themselves, hashed.
+ *
+ * Over a canonical spelling of the hits rather than the file, so re-saving an
+ * exercise with a new name or a new rest does not read as the notes having
+ * changed -- the hash answers "am I being marked on what I was marked on
+ * before", and only that.
+ */
+export function hashHits(hits: readonly ChartHit[]): Promise<string> {
+  const canonical = hits.map((h) => `${h.slot}:${h.instrument}:${h.velocity}`).join(',');
+  return chartHash(new TextEncoder().encode(canonical));
 }
 
 /**
@@ -290,9 +430,18 @@ export function sourceFor(ex: Exercise, slug?: string): ExerciseSource | undefin
  * record on screen is always this one -- and the full title of a song is long
  * enough to wrap the line it would be saying nothing on.
  */
-export function describeDrill(ex: Exercise, source: ExerciseSource, tempo: number): string {
-  const where =
-    source.startBar === source.endBar
+export function describeDrill(
+  ex: Exercise,
+  source: ExerciseSource | undefined,
+  tempo: number
+): string {
+  // Bar numbers are a song's, so without one they would be saying "bars 1-3"
+  // about a thing that is only ever three bars long -- which is a length, and
+  // reads better as one.
+  const bars = ex.chart?.bars ?? 1;
+  const where = !source
+    ? `${bars} bar${bars > 1 ? 's' : ''}`
+    : source.startBar === source.endBar
       ? `bar ${source.startBar}`
       : `bars ${source.startBar}-${source.endBar}`;
   return `${ex.name} · ${where} · ${Math.round(tempo * 100)}%`;
@@ -304,16 +453,55 @@ export function describeDrill(ex: Exercise, source: ExerciseSource, tempo: numbe
  * These are tracked files that outlive the code that wrote them, so the version
  * is checked rather than assumed, and `restBars` is defaulted rather than
  * required -- a file that predates the rest still describes a real exercise.
+ *
+ * A version-1 file has no notes of its own and must name at least one song to
+ * borrow them from; a version-2 file carries them and need not name anybody.
+ * Both keep working, and a v1 file is not rewritten on sight: it is still an
+ * accurate description of an exercise that is played against a record.
  */
 export function parseExercise(value: unknown): Exercise | undefined {
   const ex = value as Exercise | null;
-  if (!ex || typeof ex !== 'object' || ex.version !== 1) return undefined;
-  if (!ex.id || !Array.isArray(ex.sources)) return undefined;
+  if (!ex || typeof ex !== 'object') return undefined;
+  if (ex.version !== 1 && ex.version !== 2) return undefined;
+  if (!ex.id) return undefined;
+  const sources = Array.isArray(ex.sources) ? ex.sources : [];
+  const chart = parseChart(ex.chart);
+  if (ex.version === 1 && sources.length === 0) return undefined;
+  if (!chart && sources.length === 0) return undefined;
   return {
     ...ex,
+    sources,
+    ...(chart ? { chart } : {}),
     kind: ex.kind === 'groove' ? 'groove' : 'fill',
-    backing: ex.backing === 'click' ? 'click' : 'record',
+    backing: parseBacking(ex.backing, !!chart),
     restBars: Number.isFinite(ex.restBars) ? Math.max(0, Math.round(ex.restBars)) : 1,
+  };
+}
+
+/**
+ * The kit is the default for anything carrying its own notes, and `record` for
+ * anything that is still a cut -- so no file on disk changes meaning by being
+ * read by a newer build.
+ */
+function parseBacking(value: unknown, standalone: boolean): Backing {
+  if (value === 'kit' || value === 'click' || value === 'record') return value;
+  return standalone ? 'kit' : 'record';
+}
+
+/** Notes of its own, or nothing. A half-written chart is not half usable. */
+function parseChart(value: unknown): ExerciseChart | undefined {
+  const chart = value as ExerciseChart | null;
+  if (!chart || typeof chart !== 'object') return undefined;
+  if (!Array.isArray(chart.hits) || !Number.isFinite(chart.bpm)) return undefined;
+  const beats = chart.meter?.beats_per_bar;
+  if (!Number.isFinite(beats) || !Number.isFinite(chart.bars) || chart.bars < 1) return undefined;
+  return {
+    bpm: chart.bpm,
+    meter: { beats_per_bar: beats, beat_unit: chart.meter.beat_unit || 4 },
+    bars: Math.round(chart.bars),
+    hits: chart.hits,
+    ...(Array.isArray(chart.strokes) ? { strokes: chart.strokes } : {}),
+    hash: chart.hash ?? '',
   };
 }
 

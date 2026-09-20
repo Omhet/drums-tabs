@@ -3,7 +3,7 @@
 //
 // Reading the MIDI is `chart.ts`'s job and shared with the scorer, so that the
 // notes you are marked against are the notes on the page.
-import { readChart, SLOTS_PER_BEAT } from './chart';
+import { readChart, SLOTS_PER_BEAT, type ChartHit } from './chart';
 
 // alphaTab addresses percussion by articulation *name*; the number is where
 // the notehead lands, and alphaTab's numbering is not General MIDI (its kick
@@ -130,15 +130,38 @@ function renderVoice(
   return { text: tokens.join(' '), hidden };
 }
 
+/**
+ * A song's tab.mid, engraved.
+ *
+ * Two steps, and they are separable on purpose: reading the MIDI is the only
+ * part that needs a song, and an exercise that carries its own notes has
+ * already done it (`hitsToAlphaTex`).
+ */
 export function midiToAlphaTex(bytes: Uint8Array, opts: TabOptions): TabResult {
+  const { hits, unmapped } = readChart(bytes, opts.map);
+  return hitsToAlphaTex(hits, opts, unmapped);
+}
+
+/**
+ * Chart hits, engraved. Everything below here is `slot` arithmetic and knows
+ * nothing about where the notes came from.
+ *
+ * `unmapped` is carried through rather than computed: it is a fact about
+ * reading a particular MIDI file, and hits that arrived some other way have no
+ * such thing to report.
+ */
+export function hitsToAlphaTex(
+  read: readonly ChartHit[],
+  opts: TabOptions,
+  unmapped: number[] = []
+): TabResult {
   const slotsPerBar = opts.beatsPerBar * SLOTS_PER_BEAT;
-  const { hits: read, unmapped } = readChart(bytes, opts.map);
 
   // An instrument the kit knows but the staff cannot draw is dropped here
   // rather than in chart.ts: the scorer can still mark you on a cowbell that
   // alphaTab has no notehead for.
   const unknown = new Set<string>();
-  const hits = read.filter((hit) => {
+  const hits = [...read].filter((hit) => {
     if (ARTICULATION[hit.instrument]) return true;
     unknown.add(hit.instrument);
     return false;

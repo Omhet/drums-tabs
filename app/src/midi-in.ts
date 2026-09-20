@@ -19,7 +19,7 @@
 // `[input]` in kit.toml, which is the table this reads. Unmapped notes are
 // still emitted, with no instrument, because the fastest way to fix the table
 // is to hit the pad and read the number off the screen.
-import type { MixClock } from './media';
+import type { PlayClock } from './clock';
 
 /** One stroke, as it reached the browser. */
 export interface MidiHit {
@@ -67,9 +67,14 @@ export class MidiIn {
   private injected = false;
 
   constructor(
-    private readonly clock: MixClock,
+    private clock: PlayClock,
     private readonly options: MidiInOptions
   ) {}
+
+  /** Stamp strokes against a different timeline (transport.ts). */
+  setClock(clock: PlayClock) {
+    this.clock = clock;
+  }
 
   get state(): MidiState {
     return this._state;

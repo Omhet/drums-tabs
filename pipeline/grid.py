@@ -82,9 +82,9 @@ LOCAL_MEDIAN_WINDOW = 17
 class DrumSupport:
     """Kick- and snare-band onset envelopes from ``drums.wav``.
 
-    Not per-drum stems -- drumsep runs later in the pipeline. A frequency band on
-    the whole drum kit is a crude snare proxy, but the grid only asks it a
-    coarse question ("is there a backbeat here"), which it answers well enough.
+    Not per-drum stems -- this pipeline has none. A frequency band on the whole
+    drum kit is a crude snare proxy, but the grid only asks it a coarse question
+    ("is there a backbeat here"), which it answers well enough.
     """
 
     times: np.ndarray

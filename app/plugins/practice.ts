@@ -311,17 +311,15 @@ export function practice(songsDir: string, repoRoot: string): Plugin {
           };
           const bad = idProblem(exercise.id);
           if (bad) return json(res, 400, JSON.stringify({ error: bad }));
-          // An exercise with no notes and nowhere to borrow them from is not an
-          // exercise. It would sit in the pool for ever looking like a thing
-          // you could pick. Either half is enough: its own chart makes it
-          // playable anywhere, and a source makes it playable against a record.
+          // An exercise with no notes is not an exercise. It would sit in the
+          // pool for ever looking like a thing you could pick. `sources` is
+          // where else it can be played, which is a separate question.
           const hasChart = Array.isArray(exercise.chart?.hits) && exercise.chart.hits.length > 0;
-          const hasSource = Array.isArray(exercise.sources) && exercise.sources.length > 0;
-          if (!hasChart && !hasSource) {
+          if (!hasChart) {
             return json(
               res,
               400,
-              JSON.stringify({ error: 'an exercise needs notes of its own or a source to play it from' })
+              JSON.stringify({ error: 'an exercise needs notes of its own' })
             );
           }
           const dir = join(exercises, exercise.id!);

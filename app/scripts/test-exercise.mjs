@@ -34,14 +34,25 @@ const source = (slug = KILL_ME, startBar = 13, endBar = 15) => ({
   chartHash: 'sha256:chart',
 });
 
+/** The smallest chart that is a chart: one note, one bar, a tempo, a meter. */
+const chart = (over = {}) => ({
+  bpm: 91,
+  meter: { beats_per_bar: 4, beat_unit: 4 },
+  bars: 1,
+  hits: [{ slot: 0, instrument: 'snare', velocity: 100 }],
+  hash: 'sha256:0000000000000000',
+  ...over,
+});
+
 const exercise = (over = {}) => ({
-  version: 1,
+  version: 2,
   id: 'chorus-fill',
   name: 'the chorus fill',
   kind: 'fill',
   restBars: 1,
   backing: 'record',
   sources: [source()],
+  chart: chart(),
   createdAt: '2026-09-19T17:52:04.118Z',
   ...over,
 });
@@ -250,55 +261,34 @@ test('an exercise written before the rest existed still reads, with one bar of i
 test('a file from a version nobody here knows is refused rather than guessed at', () => {
   assert.equal(parseExercise({ ...exercise(), version: 3 }), undefined);
   assert.equal(parseExercise(null), undefined);
-  assert.equal(
-    parseExercise({ version: 1, id: 'x' }),
-    undefined,
-    'a v1 file has no notes of its own, so no sources is nothing to play'
-  );
+  assert.equal(parseExercise({ ...exercise(), version: 1 }), undefined, 'including the one before this');
 });
 
-// --- notes of its own (version 2) ----------------------------------------------------
+// --- notes of its own -----------------------------------------------------------------
 
-/** The smallest chart that is a chart: one note, one bar, a tempo, a meter. */
-const chart = (over = {}) => ({
-  bpm: 91,
-  meter: { beats_per_bar: 4, beat_unit: 4 },
-  bars: 1,
-  hits: [{ slot: 0, instrument: 'snare', velocity: 100 }],
-  hash: 'sha256:0000000000000000',
-  ...over,
-});
-
-test('a v2 exercise needs no source: its notes are its own', () => {
-  const solo = parseExercise({ ...exercise(), version: 2, sources: [], chart: chart() });
+test('an exercise needs no source: its notes are its own', () => {
+  const solo = parseExercise(exercise({ sources: [] }));
   assert.equal(solo.sources.length, 0);
   assert.equal(solo.chart.hits.length, 1);
   assert.equal(solo.chart.bars, 1);
 });
 
-test('...but a v2 file with neither notes nor a source is still nothing to play', () => {
-  assert.equal(parseExercise({ ...exercise(), version: 2, sources: [] }), undefined);
+test('...but a file with no notes at all is nothing to play', () => {
+  assert.equal(parseExercise(exercise({ sources: [], chart: undefined })), undefined);
+  assert.equal(parseExercise(exercise({ chart: undefined })), undefined, 'a source is not notes');
 });
 
 test('a half-written chart is not half usable', () => {
-  const missing = (over) =>
-    parseExercise({ ...exercise(), version: 2, sources: [], chart: chart(over) });
+  const missing = (over) => parseExercise(exercise({ sources: [], chart: chart(over) }));
   assert.equal(missing({ hits: undefined }), undefined, 'no hits');
   assert.equal(missing({ bpm: undefined }), undefined, 'no tempo');
   assert.equal(missing({ bars: 0 }), undefined, 'no bars');
   assert.equal(missing({ meter: undefined }), undefined, 'no meter');
 });
 
-test('the kit is the default for notes of its own, and the record for a cut', () => {
-  const solo = parseExercise({ ...exercise(), version: 2, sources: [], chart: chart() });
-  delete solo.backing;
-  assert.equal(
-    parseExercise({ ...exercise(), version: 2, sources: [], chart: chart(), backing: undefined })
-      .backing,
-    'kit'
-  );
-  // A file written before the kit existed still means the record by it.
-  assert.equal(parseExercise({ ...exercise(), backing: undefined }).backing, 'record');
+test('the kit is the default backing: every exercise has notes to sound', () => {
+  assert.equal(parseExercise(exercise({ backing: undefined })).backing, 'kit');
+  assert.equal(parseExercise(exercise({ backing: 'record' })).backing, 'record', 'and it is honoured');
 });
 
 test('hits are re-based so the first bar of the cut becomes bar 1', () => {

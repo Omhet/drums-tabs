@@ -31,7 +31,7 @@ from pipeline.separation.base import SeparationModel, SeparationResult
 
 # Anything within this many samples is model chunking noise, not a real
 # misalignment. 64 samples is 1.5 ms at 44.1 kHz -- well under an onset's
-# resolution, and far below the ~25 ms gating window in Phase 3.
+# own resolution.
 LENGTH_TOLERANCE_SAMPLES = 64
 
 _STEM_LABEL = re.compile(r"\(([^)]+)\)")

@@ -3,7 +3,7 @@
 Small, but the two places a mistake is expensive: a slug that Windows rejects
 fails only once a title happens to contain a colon, and a video id parsed wrong
 means re-fetching a song creates a second directory instead of reusing the first
--- which silently orphans a grid and the hand edits pinned to it.
+-- which silently orphans a grid and everything pinned to it.
 """
 
 from __future__ import annotations

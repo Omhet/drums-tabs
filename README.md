@@ -29,7 +29,9 @@ holding one** -- the kit is a controller for Superior Drummer in Ableton, so
 two applications want the same module. See `handoff.md` §1 for the test and
 the virtual-port fallback.
 
-The earlier automatic-transcription work lives on the `transcriber` branch. What
+The earlier automatic-transcription work is in this branch's own history, up to
+commit `a374a18` ("player plan", 2026-09-09); the files it added were deleted
+rather than merged away, so `git show a374a18:<path>` is how to read them. What
 is being built next is in [`practice-plan.md`](practice-plan.md) (practice mode,
 M0-M5) and [`avatar-plan.md`](avatar-plan.md) (the sticking solver and the 3D
 avatar). **Picking the work up: [`handoff.md`](handoff.md)** — where it stands,
@@ -45,6 +47,7 @@ calibration.local.json      (untracked) how late you play: this machine's
 
 songs/<slug>/
   song.toml                 what the song is (url, title, duration, sections)
+  analysis/raw.beats        what the beat tracker heard, before repair
   grid.lock.json            the real time of every beat the drummer played
   tab.mid                   your notation: constant-tempo MIDI, bar 1 = song bar 1
   sticking.lock.json        which hand plays what, and the hi-hat foot

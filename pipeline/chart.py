@@ -66,13 +66,3 @@ def chart_hash(midi_path: Path) -> str:
     then.
     """
     return "sha256:" + hashlib.sha256(midi_path.read_bytes()).hexdigest()[:16]
-
-
-def bar_of(slot: int, beats_per_bar: int) -> int:
-    """0-based bar holding ``slot``."""
-    return slot // (beats_per_bar * SLOTS_PER_BEAT)
-
-
-def in_bar(slot: int, beats_per_bar: int) -> int:
-    """Position of ``slot`` inside its bar, in sixteenths."""
-    return slot % (beats_per_bar * SLOTS_PER_BEAT)

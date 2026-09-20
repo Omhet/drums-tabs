@@ -77,6 +77,11 @@ departure: **the practice backing changes from the cover video to the original t
 
 ## 3. Facts established from the codebase (do not re-explore)
 
+> Read as a snapshot taken during the interview, not as current status: the
+> counts below have grown and `hayley-williams-kill-me-drum-cover` was replaced
+> by `hayley-williams-kill-me-official-visualizer` and deleted on 2026-09-20.
+> `README.md` "Where things stand" is the status log.
+
 ### Shape of the repo
 
 Two halves, no shared runtime. `app/` is a Vite + TypeScript browser player with **no

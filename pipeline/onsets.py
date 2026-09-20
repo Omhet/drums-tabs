@@ -1,15 +1,13 @@
 """Band-limited SuperFlux onset envelopes.
 
-Phase 1a needs only a fraction of what Phase 3 will: enough of a kick and snare
-proxy, computed straight off ``drums.wav``, to sanity-check the beat grid's
-tempo octave and downbeat phase. Per-drum stems (drumsep) don't exist yet at
-this point in the pipeline, so the "snare" here is a frequency band, not a
-source.
+Enough of a kick and snare proxy, computed straight off ``drums.wav``, to
+sanity-check the beat grid's tempo octave and downbeat phase, and to measure
+where the record's own drummer sits against it. There are no per-drum stems in
+this pipeline, so the "snare" here is a frequency band, not a source.
 
 SuperFlux rather than plain spectral flux because its maximum-filtered lag
 suppresses the decaying broadband content -- cymbal wash -- that produces most
-false onsets on a drum stem. The Phase 3 detector deepens this file; nothing
-here should need replacing, only extending.
+false onsets on a drum stem.
 """
 
 from __future__ import annotations
@@ -28,16 +26,13 @@ N_FFT = 2048
 # does in a loud chorus. Without this gate a room creak outranks a snare.
 GATE_RANGE_DB = 40.0
 
-# Frequency bands per instrument. Grid repair uses only kick and snare; the rest
-# are here because the ranges belong in one place, not scattered across callers.
+# The frequency bands grid repair reads (grid.py). Only these three: the wider
+# set that used to sit here served the automatic transcription that moved to the
+# `transcriber` branch. `reference.py` defines its own, single snare band.
 BANDS: dict[str, tuple[float, float]] = {
     "kick": (30.0, 120.0),
     "snare_body": (150.0, 400.0),
     "snare_crack": (2000.0, 6000.0),
-    "toms": (80.0, 350.0),
-    "hihat": (5000.0, 12000.0),
-    "ride": (3000.0, 10000.0),
-    "crash": (2000.0, 8000.0),
 }
 
 
@@ -99,86 +94,6 @@ def _level_gate(mel: np.ndarray) -> np.ndarray:
     level = librosa.power_to_db(mel.sum(axis=0), ref=np.max)
     loud = float(np.percentile(level, 95.0))
     return np.clip((level - (loud - GATE_RANGE_DB)) / GATE_RANGE_DB, 0.0, 1.0)
-
-
-def band_rms(
-    y: np.ndarray,
-    sr: int,
-    fmin: float,
-    fmax: float,
-    *,
-    hop: int = HOP_LENGTH,
-    spectrum: np.ndarray | None = None,
-) -> np.ndarray:
-    """Per-frame RMS level of one frequency band.
-
-    This is the *level* answer, where :func:`superflux` is the *change* answer.
-    Flux peak height is what a detector picks peaks on, but it makes a poor
-    velocity: it measures how abruptly the spectrum moved, which a neighbouring
-    drum's transient bleeding into this stem does just as sharply as a real hit.
-    How loud the drum actually is over the few tens of milliseconds *after* the
-    transient is a much better proxy for how hard it was struck -- and it's the
-    number a listener would call the volume.
-
-    Computed off the linear magnitude spectrum, not the dB mel one the flux uses,
-    because a level has to stay proportional to amplitude to be worth comparing
-    between two stems.
-    """
-    fmax = min(fmax, sr / 2 - 1)
-    if spectrum is None:
-        spectrum = magnitudes(y, hop=hop)
-    freqs = librosa.fft_frequencies(sr=sr, n_fft=N_FFT)
-    band = (freqs >= fmin) & (freqs <= fmax)
-    if not band.any():  # a band narrower than one FFT bin: take the nearest
-        band = np.zeros(freqs.shape, dtype=bool)
-        band[int(np.argmin(np.abs(freqs - fmin)))] = True
-    return np.sqrt((spectrum[band] ** 2).mean(axis=0)).astype(np.float32)
-
-
-def post_onset_level(
-    env: np.ndarray,
-    times: np.ndarray,
-    query: np.ndarray,
-    *,
-    lookback: float = 0.006,
-    lookahead: float = 0.040,
-) -> np.ndarray:
-    """Peak of a level envelope just after each onset, clipped at the next one.
-
-    The window opens slightly *before* the detected time because a peak-picked
-    onset can sit a frame late, and closes 40 ms after -- long enough to catch a
-    kick's body, short enough to stay inside the hit. Clipping at the following
-    onset matters on fast passages: without it a ghost note 50 ms before a
-    backbeat reads as loud as the backbeat, which is the one thing velocity must
-    never say.
-    """
-    if env.size == 0 or query.size == 0:
-        return np.zeros(query.shape, dtype=float)
-    step = float(times[1] - times[0]) if times.size > 1 else 1.0
-    following = np.append(query[1:], np.inf)
-    out = np.empty(query.shape, dtype=float)
-    for i, (centre, nxt) in enumerate(zip(query, following)):
-        lo = max(0, int(round((centre - lookback) / step)))
-        hi = int(round((min(centre + lookahead, nxt)) / step)) + 1
-        hi = min(env.size, max(hi, lo + 1))
-        out[i] = float(env[lo:hi].max()) if hi > lo else 0.0
-    return out
-
-
-def relative_to_loud(values: np.ndarray, *, percentile: float = 95.0) -> np.ndarray:
-    """Scale levels against a high percentile of themselves, clipped to [0, 1].
-
-    "How hard is this hit, for this drum, in this song" -- a quiet song is not a
-    song of ghost notes, and an absolute scale would say it was. The percentile
-    rather than the max because one crash-accompanied hit shouldn't define the
-    ceiling for the other four hundred.
-    """
-    if values.size == 0:
-        return values
-    reference = float(np.percentile(values, percentile))
-    if reference <= 1e-12:
-        return np.zeros_like(values)
-    return np.clip(values / reference, 0.0, 1.0)
 
 
 def envelope_times(n_frames: int, sr: int, *, hop: int = HOP_LENGTH) -> np.ndarray:
@@ -261,9 +176,11 @@ def pick_onsets(
 ) -> np.ndarray:
     """Peak-pick an onset envelope into event times.
 
-    Phase 1a uses this only for *display* -- the grid inspector's phase scatter --
-    so the parameters are loose on purpose. The detector that feeds the score
-    lives in Phase 3 and gets adaptive thresholds and per-instrument min-IOI.
+    The parameters are loose on purpose. Two callers want different things of
+    them and both pass their own: the grid inspector's phase scatter
+    (``audit.py``), which is display, and ``reference.py``, which matches
+    against notes the chart already says are there and so can afford a low
+    threshold.
     """
     if env.size < 3:
         return np.empty(0, dtype=float)

@@ -82,10 +82,6 @@ backslash-heavy content through a shell heredoc** — use an editor tool.
 | `hayley-williams-kill-me-official-visualizer` | 62 | 90.9 | 44 | +12.7 ms |
 | `blur-song-2-official-music-video` | 64 | 130.4 | 32 | +6.2 ms |
 | `arctic-monkeys-one-for-the-road-official-video` | 72 | 90.9 | 60 | +10.5 ms |
-| `hayley-williams-kill-me-drum-cover` | 62 | 90.9 | — | — |
-
-The cover is the original video-bound song and has no sections; it is kept
-because `VideoClock`'s two-timeline conversion is what M5 needs.
 
 **Song 2's Live set lives in the Kill Me project folder.** It was saved there,
 and moving a `.als` out of its Ableton project by hand breaks its sample links,

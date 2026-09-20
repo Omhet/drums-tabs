@@ -35,7 +35,6 @@ export const FEET = new Set(['kick', 'hihat_pedal']);
 
 export interface TabOptions {
   title: string;
-  subtitle?: string;
   bpm: number;
   /** MIDI key -> instrument name (keys of ARTICULATION). */
   map: Record<number, string>;
@@ -191,7 +190,6 @@ export function hitsToAlphaTex(
   const barCount = Math.max(opts.barCount, lastBar + 1);
   const lines: string[] = [
     `\\title ${JSON.stringify(opts.title)}`,
-    opts.subtitle ? `\\subtitle ${JSON.stringify(opts.subtitle)}` : '',
     `\\tempo ${Math.round(opts.bpm)}`,
     '\\hidedynamics',
     '\\track "Drums"',

@@ -3,7 +3,8 @@
 ``htdemucs_ft`` is the default: it's the fine-tuned bag-of-four variant, so it
 costs roughly 4x a single Demucs pass, which on this machine is still well under
 a minute. Buying the best drum stem available is the right trade -- every later
-stage (drumsep, onsets, hi-hat classification) inherits its quality ceiling.
+stage inherits its quality ceiling: the onset envelopes, the grid repair, and
+the reference measurement that says where the record's drummer sits.
 """
 
 from __future__ import annotations

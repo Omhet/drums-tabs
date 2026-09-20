@@ -125,7 +125,14 @@ def decode_mono(path: Path, sr: int = SAMPLE_RATE) -> np.ndarray:
     return np.frombuffer(result.stdout, dtype=np.float32)
 
 
-def load_mono(path: Path, sr: int = SAMPLE_RATE) -> np.ndarray:
+def read_mono_at(path: Path, sr: int = SAMPLE_RATE) -> np.ndarray:
+    """Read a file that is already at ``sr``, as mono. It does not resample.
+
+    Named apart from :func:`pipeline.onsets.load_mono`, which resamples happily
+    and hands back the rate it used. Here a rate that does not match is a bug in
+    whatever wrote the file, and correlating two differently-clocked signals
+    would give a plausible, wrong answer rather than an error.
+    """
     data, rate = sf.read(path, dtype="float32", always_2d=True)
     if rate != sr:
         raise StageError(f"{path} is {rate} Hz, expected {sr}")
@@ -137,7 +144,7 @@ def measure(song: paths.Song) -> AlignInfo:
         raise StageError(f"no video at {song.video} -- run `drums fetch` with video")
     if not song.mix.exists():
         raise StageError(f"no mix at {song.mix} -- run `drums fetch` first")
-    return measure_offset(decode_mono(song.video), load_mono(song.mix), SAMPLE_RATE)
+    return measure_offset(decode_mono(song.video), read_mono_at(song.mix), SAMPLE_RATE)
 
 
 def save(song: paths.Song, grid: Grid, info: AlignInfo) -> Path:

@@ -167,7 +167,8 @@ def fetch(
                 "duration": round(info.duration, 3),
             },
             # Per-song model overrides. Empty values mean "use the config default",
-            # which is what makes `compare-separation` a per-song decision later.
+            # so one song can be re-separated with a different model without
+            # touching the others.
             "models": {
                 "separation": existing_meta.get("models", {}).get("separation", ""),
             },

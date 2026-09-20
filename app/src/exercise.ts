@@ -114,14 +114,8 @@ export type Kind = 'groove' | 'fill';
 export type Backing = 'kit' | 'record' | 'click';
 
 export interface Exercise {
-  /**
-   * 2 since the notes moved into the file.
-   *
-   * Bumped rather than extended, because the meaning of `sources` changed with
-   * it: it stopped being required. A version-1 reader handed a file with no
-   * sources would draw a row with nothing to play.
-   */
-  version: 1 | 2;
+  /** 2 since the notes moved into the file. Version 1 is not read any more. */
+  version: 2;
   /** The directory name under `exercises/`. Made from the name; unique by construction. */
   id: string;
   /** What you call it. "the chorus fill", not "exercise 3". */
@@ -144,13 +138,8 @@ export interface Exercise {
    * with the record's own feel rather than against a grid nobody played to.
    */
   backing: Backing;
-  /**
-   * Its own notes. Present from version 2 on.
-   *
-   * Absent means an exercise cut before the notes moved into the file: still
-   * perfectly playable, just only against one of its `sources`.
-   */
-  chart?: ExerciseChart;
+  /** Its own notes. Every exercise has them, so none of them needs a song. */
+  chart: ExerciseChart;
   /** Records this same figure can also be played against. May be empty. */
   sources: ExerciseSource[];
   createdAt: string;
@@ -438,7 +427,7 @@ export function describeDrill(
   // Bar numbers are a song's, so without one they would be saying "bars 1-3"
   // about a thing that is only ever three bars long -- which is a length, and
   // reads better as one.
-  const bars = ex.chart?.bars ?? 1;
+  const bars = ex.chart.bars;
   const where = !source
     ? `${bars} bar${bars > 1 ? 's' : ''}`
     : source.startBar === source.endBar
@@ -448,32 +437,28 @@ export function describeDrill(
 }
 
 /**
- * Read an exercise written by an older build, or reject it.
+ * Read an exercise file, or reject it.
  *
  * These are tracked files that outlive the code that wrote them, so the version
  * is checked rather than assumed, and `restBars` is defaulted rather than
  * required -- a file that predates the rest still describes a real exercise.
  *
- * A version-1 file has no notes of its own and must name at least one song to
- * borrow them from; a version-2 file carries them and need not name anybody.
- * Both keep working, and a v1 file is not rewritten on sight: it is still an
- * accurate description of an exercise that is played against a record.
+ * An exercise carries its own notes and so needs no song; `sources` only says
+ * which records it can also be played against.
  */
 export function parseExercise(value: unknown): Exercise | undefined {
   const ex = value as Exercise | null;
   if (!ex || typeof ex !== 'object') return undefined;
-  if (ex.version !== 1 && ex.version !== 2) return undefined;
+  if (ex.version !== 2) return undefined;
   if (!ex.id) return undefined;
-  const sources = Array.isArray(ex.sources) ? ex.sources : [];
   const chart = parseChart(ex.chart);
-  if (ex.version === 1 && sources.length === 0) return undefined;
-  if (!chart && sources.length === 0) return undefined;
+  if (!chart) return undefined;
   return {
     ...ex,
-    sources,
-    ...(chart ? { chart } : {}),
+    sources: Array.isArray(ex.sources) ? ex.sources : [],
+    chart,
     kind: ex.kind === 'groove' ? 'groove' : 'fill',
-    backing: parseBacking(ex.backing, !!chart),
+    backing: parseBacking(ex.backing),
     restBars: Number.isFinite(ex.restBars) ? Math.max(0, Math.round(ex.restBars)) : 1,
   };
 }
@@ -483,9 +468,9 @@ export function parseExercise(value: unknown): Exercise | undefined {
  * anything that is still a cut -- so no file on disk changes meaning by being
  * read by a newer build.
  */
-function parseBacking(value: unknown, standalone: boolean): Backing {
+function parseBacking(value: unknown): Backing {
   if (value === 'kit' || value === 'click' || value === 'record') return value;
-  return standalone ? 'kit' : 'record';
+  return 'kit';
 }
 
 /** Notes of its own, or nothing. A half-written chart is not half usable. */

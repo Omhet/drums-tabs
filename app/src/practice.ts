@@ -812,7 +812,7 @@ export class Practice {
       // that these two cases are one coordinate system and not two.
       const bars = armed.source
         ? { startBar: armed.source.startBar, endBar: armed.source.endBar }
-        : { startBar: 1, endBar: armed.exercise.chart?.bars ?? 1 };
+        : { startBar: 1, endBar: armed.exercise.chart.bars };
       return {
         ...bars,
         tempo: armed.tempo,

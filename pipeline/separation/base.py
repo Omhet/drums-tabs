@@ -7,11 +7,10 @@ changing.
 
 Models register themselves in :data:`REGISTRY` at import time; the CLI's
 ``--model`` flag and ``song.toml``'s ``models.separation`` both select by key.
-That indirection is what makes ``compare-separation`` a loop over the registry
-rather than a pile of branches.
+That indirection keeps the choice a lookup rather than a pile of branches, and
+it is what ``drums models`` lists.
 
-**On the plan's default.** PLAN.md names a Mel-Band RoFormer drums model as the
-first choice. ``audio-separator`` 0.47's registry has no such model -- filtering
+**On the default.** A Mel-Band RoFormer drums model would be the first choice. ``audio-separator`` 0.47's registry has no such model -- filtering
 it by the ``drums`` stem returns only Demucs variants and two weak MDX-Net
 models. So the default here is ``htdemucs_ft`` (drums SDR 10.0, the best drums
 stem actually available). When a drums RoFormer appears upstream, adding it is

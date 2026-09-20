@@ -149,11 +149,10 @@ export class Exercises {
   backingOf(id: string): Backing {
     const ex = this.exerciseOf(id);
     const chosen = this.against.get(id) ?? ex?.backing ?? 'record';
-    // A choice the exercise cannot honour is not a choice. Without notes of
-    // its own it cannot use the kit; without a song still in `songs/` it
-    // cannot use the record, and its own notes are the only thing left.
-    if (chosen === 'kit' && !ex?.chart) return 'record';
-    if (chosen !== 'kit' && !this.playableSources(id).length) return ex?.chart ? 'kit' : chosen;
+    // A choice the exercise cannot honour is not a choice: without a song
+    // still in `songs/` it cannot use the record, and its own notes -- which
+    // every exercise has -- are the only thing left.
+    if (chosen !== 'kit' && !this.playableSources(id).length) return ex ? 'kit' : chosen;
     return chosen;
   }
 
@@ -240,7 +239,7 @@ export class Exercises {
     select.replaceChildren();
     if (!ex) return;
     const options: { value: Backing; label: string }[] = [];
-    if (ex.chart) options.push({ value: 'kit', label: 'its own notes' });
+    options.push({ value: 'kit', label: 'its own notes' });
     if (this.playableSources(id).length) {
       options.push({ value: 'record', label: 'the record' });
       options.push({ value: 'click', label: 'click only' });
@@ -266,7 +265,7 @@ export class Exercises {
     const armed = this.practice.armed;
     const squares = ladder(file.drills);
     const source = this.standaloneOpen ? undefined : sourceFor(file.exercise, this.song?.slug);
-    const bars = file.exercise.chart?.bars ?? 0;
+    const bars = file.exercise.chart.bars;
 
     // Bar numbers belong to a song. Played on its own it is a length, which is
     // the true thing to say about three bars that came from nowhere in
@@ -445,12 +444,6 @@ export class Exercises {
     const ex = file.exercise;
     const button = document.createElement('button');
     button.className = 'ex-open';
-    // A source whose song is gone used to make an exercise unplayable. It does
-    // not any more: one carrying its own notes needs nobody, so only a cut with
-    // no notes and no song left is an orphan.
-    const playable = ex.sources.filter((s) => this.songs.some((song) => song.slug === s.slug));
-    const orphan = playable.length === 0 && !ex.chart;
-    if (orphan) button.classList.add('orphan');
 
     const left = document.createElement('div');
     const name = document.createElement('b');
@@ -470,15 +463,11 @@ export class Exercises {
     const against = ex.sources
       .filter((source) => this.songs.some((song) => song.slug === source.slug))
       .map((source) => `${this.title(source.slug)} ${source.startBar}-${source.endBar}`);
-    if (ex.chart) against.unshift(`${ex.chart.bars} bar${ex.chart.bars > 1 ? 's' : ''} of its own`);
-    where.textContent = against.length ? against.join(' · ') : 'nowhere to play it';
+    against.unshift(`${ex.chart.bars} bar${ex.chart.bars > 1 ? 's' : ''} of its own`);
+    where.textContent = against.join(' · ');
 
     button.append(left, where, pips(ladder(file.drills)));
-    if (orphan) {
-      button.title = 'The song this was cut from is not in songs/ any more, and it has no notes of its own.';
-    } else {
-      button.addEventListener('click', () => this.goTo(`#exercise/${ex.id}`));
-    }
+    button.addEventListener('click', () => this.goTo(`#exercise/${ex.id}`));
     return this.wrap(ex, button);
   }
 
@@ -660,13 +649,10 @@ export class Exercises {
       // is a claim that can be checked. A warning and never a refusal, for the
       // same reason `chartHash` warns and never refuses: the same lick played
       // a little differently in another song is still the same exercise.
-      differs = countDifferences(existing.chart?.hits, chart.hits);
+      differs = countDifferences(existing.chart.hits, chart.hits);
       exercise = {
         ...existing,
         sources: [...existing.sources, source],
-        // An exercise cut before the notes moved into the file gets them now,
-        // from the bars being added. It had none, and these are real.
-        ...(existing.chart ? {} : { version: 2 as const, chart }),
       };
     } else {
       exercise = {
@@ -751,8 +737,8 @@ function parseBackingChoice(value: string): Backing {
  * the notes moved into the file has nothing to be measured against, and
  * inventing a difference would be worse than saying nothing.
  */
-function countDifferences(a: readonly ChartHit[] | undefined, b: readonly ChartHit[]): number {
-  if (!a || a.length === 0) return 0;
+function countDifferences(a: readonly ChartHit[], b: readonly ChartHit[]): number {
+  if (a.length === 0) return 0;
   const spell = (h: ChartHit) => `${h.slot}:${h.instrument}`;
   const left = new Set(a.map(spell));
   const right = new Set(b.map(spell));

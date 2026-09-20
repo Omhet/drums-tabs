@@ -42,6 +42,11 @@ MATCH_MS = 90.0
 
 #: A kick and a snare do not share a frequency range, and one broadband envelope
 #: would let the louder of them mask the other.
+#:
+#: One wide snare band here, rather than the body/crack split in
+#: :data:`pipeline.onsets.BANDS`. That split is there to tell a snare from a
+#: floor tom, which the grid repair has to do unaided; this already knows which
+#: note is a snare, because the chart names it.
 BANDS: dict[str, tuple[float, float]] = {
     "kick": (30.0, 120.0),
     "snare": (180.0, 1200.0),

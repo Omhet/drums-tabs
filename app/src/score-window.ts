@@ -98,10 +98,6 @@ export class ScoreWindow {
     return this.topRow;
   }
 
-  get rowCount(): number {
-    return this.rows.length;
-  }
-
   /** The row that holds bar `barIndex`, or undefined before the first render. */
   rowOf(barIndex: number): number | undefined {
     return this.rowOfBar[barIndex];

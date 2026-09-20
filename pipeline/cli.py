@@ -173,8 +173,10 @@ def grid(
     """Repair the beat grid and pin it to grid.lock.json.
 
     The lock file is the keystone: bar indices must stay stable across pipeline
-    runs, because every hand edit in edits.yaml is bar-scoped. So an existing
-    grid is never silently replaced -- --regrid is the deliberate act.
+    runs, because everything downstream is bar-scoped -- the sections in
+    song.toml, the bar range an exercise was cut from, the cell a take filled.
+    So an existing grid is never silently replaced -- --regrid is the
+    deliberate act.
     """
     target = _resolve(song)
     if target.grid_lock.exists() and not regrid:

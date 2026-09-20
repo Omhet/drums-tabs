@@ -358,6 +358,13 @@
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
       #status.err { color: var(--fail); }
+      /* Under the Kit fader, and only when there is something to say: an
+         unbaked bank, or a drum the chart asks for that it cannot play. The
+         fader is otherwise a control that silently does nothing. */
+      #kit-note {
+        margin: 5px 2px 0; color: var(--fail); font-size: 11px; line-height: 1.35;
+      }
+      #kit-note code { font-size: 11px; }
       /* The sticking letters (sticking.ts): one per beat the hands play,
          placed under the staff from alphaTab's own bounds. The overlay is
          inside alphaTab's element so it scrolls with the score; each letter is
@@ -749,15 +756,19 @@
             <output id="fader-click-out">0%</output>
             <input id="fader-click" type="range" min="0" max="100" value="0" />
           </div>
-          <!-- The written notes, sounded (kit.ts). Over a record it is a
-               comparison you ask for -- what is written against what was
-               played, which is how a mis-transcribed bar gives itself up. On
-               an exercise with no record behind it, it is the whole sound. -->
+          <!-- The written notes, sounded (kit.ts), from the bank
+               `drums kit-bake` renders out of a drum plugin. Over a record it
+               is a comparison you ask for -- what is written against what was
+               played, which is how a mis-transcribed bar gives itself up --
+               and it is also how you play a song's part yourself: drop Drums
+               to nothing, bring this up, and the chart plays over No drums.
+               On an exercise with no record behind it, it is the whole sound. -->
           <div class="fader">
             <span>Kit</span>
             <output id="fader-kit-out">0%</output>
             <input id="fader-kit" type="range" min="0" max="100" value="0" />
           </div>
+          <p id="kit-note" hidden></p>
         </div>
         <div class="group">
           <h2>Notation</h2>

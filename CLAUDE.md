@@ -22,7 +22,7 @@ actually played. It cannot be regenerated, it is never rewritten, and its older
 shapes are tolerated on read — see the rules at the top of `app/src/take.ts`.
 Everything else is derived and can be rebuilt: `grid.lock.json`,
 `sticking.lock.json`, `reference.lock.json`, `tab.mid` (from the Ableton set),
-`exercise.json`, and `kit/samples/` (`npm run bake-kit`).
+`exercise.json`, and `kit/samples/` (`drums kit-bake`).
 
 ## Where things are written down
 

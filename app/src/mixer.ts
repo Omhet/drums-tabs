@@ -29,6 +29,7 @@ import { Click } from './click';
 import { Follower } from './follow';
 import type { ExpectedNote } from './chart';
 import type { PlayClock, TransportEvent } from './clock';
+import { Bank } from './bank';
 import { SampleKit, type PlayedNote } from './kit';
 
 export type StemName = 'nodrums' | 'drums';
@@ -80,6 +81,15 @@ export class Mixer {
   private clickGain: GainNode | undefined;
   private kitGain: GainNode | undefined;
   private kit: SampleKit | undefined;
+  /**
+   * The recordings the kit plays (bank.ts).
+   *
+   * Held here rather than on the kit because it needs no AudioContext: it can
+   * fetch and decode from the moment the page loads, so the bank is warm by
+   * the time a click builds the graph, and the page can say "no kit baked"
+   * without waiting for one.
+   */
+  readonly bank = new Bank();
   private stemGain = new Map<StemName, GainNode>();
   // The kit starts at zero for the same reason the click does: over a record
   // it is a comparison you ask for, not a thing that should start happening.
@@ -146,6 +156,11 @@ export class Mixer {
     };
     document.addEventListener('pointerdown', unlock);
     document.addEventListener('keydown', unlock);
+
+    // Decoding needs no gesture and no graph, so it starts now rather than on
+    // that first click: a few hundred recordings off localhost take a moment,
+    // and the moment to spend is while the page is still being read.
+    void this.bank.ready();
   }
 
   /**
@@ -273,12 +288,13 @@ export class Mixer {
     this.kitGain = ctx.createGain();
     this.kitGain.gain.value = this.levels.kit;
     this.kitGain.connect(master);
-    this.kit = new SampleKit(ctx, this.kitGain);
+    this.kit = new SampleKit(ctx, this.kitGain, this.bank);
     this.kit.onNote((note) => {
       for (const fn of this.noteListeners) fn(note);
     });
-    // Fetched once and kept. Not awaited: a note whose buffer has not arrived
-    // is skipped, and the bank is a few hundred kilobytes off localhost.
+    // Already fetching since the page loaded (see `bank`); this only makes
+    // sure of it. Not awaited: a note whose recording has not arrived is
+    // skipped rather than delaying the transport.
     void this.kit.ready();
     if (this.pending) this.kit.load(this.pending);
     this.click.load(this.beats, this.accent);

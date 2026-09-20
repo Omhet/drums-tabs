@@ -16,6 +16,14 @@ songs/*/*.mp4
 songs/*/*.webm
 songs/*/debug/
 
+# The sampler's bank, rendered out of a drum plugin you own by
+# `drums kit-bake`. Large, regenerable, and not ours to redistribute -- the
+# same reasoning as songs/*/stems/ above. kit.toml, which says what to render
+# and how to play it, is tracked; none of what it produces is.
+kit/samples/
+kit/render/
+kit/kit.lock.json
+
 # Fonts and soundfonts copied out of node_modules by the alphaTab vite plugin;
 # recreated by `npm run build` / `npm run dev`.
 app/public/

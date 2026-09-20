@@ -105,14 +105,21 @@ repeat_below_ms = 260
 
 # What your module sends, and which instrument each note means.
 #
-# This is the other half of a song's `[midi_map]`, and the two are easy to
-# confuse because they are both "MIDI note -> instrument" and they disagree
-# about almost every number. `[midi_map]` describes the **drum rack in
-# Ableton** that the notation is authored on -- chromatic from 36, so 38 is
-# the hi-hat. This describes the **module you actually hit**, which sends
-# Roland's layout, where 38 is the snare head. Nothing translates between
-# them: a take stores the raw numbers the module sent, and this table is what
-# reads them as instruments for scoring.
+# This is one of **four** tables that all read "MIDI note -> instrument" and all
+# disagree about almost every number, so name the one you mean:
+#
+#   `[midi_map]` in a song.toml   the drum rack in Ableton the notation is
+#                                 authored on -- chromatic from 36, so 38 is
+#                                 the hi-hat
+#   `[input.note]`, here          the module you actually hit, which sends
+#                                 Roland's layout, where 38 is the snare head
+#   `[render.articulation]`,      the sampler plugin a kit is rendered from,
+#   here                          which listens on a layout of its own again
+#   alphaTab's articulation       a per-score index that is none of the above
+#   index                         (app/src/midi-tab.ts)
+#
+# Nothing translates between them: a take stores the raw numbers the module
+# sent, and this table is what reads them as instruments for scoring.
 #
 # The numbers below are Roland's factory layout, shared by the TD-17/27/50.
 # Do not trust them -- the practice panel lists every note it receives and
@@ -175,3 +182,181 @@ same_drum = [["hihat_closed", "hihat_open"]]
 51 = "ride"           # ride bow
 59 = "ride"           # ride edge
 53 = "ride"           # ride bell
+
+# What your kit sounds like, and where those sounds come from.
+#
+# `kit/samples/` is a bank of one-shots rendered out of a drum plugin you own
+# -- Superior Drummer 3 by default -- by `drums kit-bake`, which hosts the
+# plugin headless, plays it the notes described below, and slices the result.
+# Nothing here is committed: the bank is rebuilt from software on this machine,
+# and `kit/` is ignored for exactly that reason.
+#
+# **The bank is keyed by articulation, not by instrument.** Everywhere else in
+# the project an instrument *is* the identity -- a chart cannot say "snare, but
+# struck on the rim", and `kit.toml`'s own `[input.note]` folds a rim shot into
+# `snare` on purpose. The sampler is the one place that can afford to know the
+# difference, so it is built knowing it: each articulation names the instrument
+# it sounds for, and one per instrument is the `default` that gets picked when
+# nothing asks for anything else. Today every instrument has exactly one and
+# nothing downstream can tell. When the notation, `[midi_map]`, `[input.note]`,
+# the sticking solver and the scorer eventually learn a rim shot -- which is
+# the expensive half, and all of it has to move at once -- the sampler will
+# already be waiting, and adding it here is three lines and a `--only` re-bake.
+[render]
+# The drum plugin to render from. `drums kit-bake` hosts it headless -- no DAW
+# is opened and no audio device is touched -- so this is a path on this machine
+# in the same way `[input] port` is a socket on this machine. Addictive Drums 2
+# is installed too and works the same way if SD3 ever misbehaves offline:
+# `drums kit-bake --plugin "C:/Program Files/Common Files/VST3/Addictive Drums 2.vst3"`.
+plugin = "C:/Program Files/Common Files/VST3/Toontrack/Superior Drummer 3.vst3"
+
+# Defaults. Any [render.articulation.*] may override them.
+layers = 6            # velocity layers: how many different strikes are sampled
+round_robin = 4       # takes per layer, so the same note twice is two recordings
+tail_s = 2.0          # how much of the decay to keep, in seconds
+stereo = false        # fold to mono unless the ambience is the point
+# The velocities the layers are spread across. Not 1..127: the charts on disk
+# live between 50 and 102, and two notes in three are exactly 100, so layers
+# spread over the full range would put most of themselves where nothing lands.
+# Widen this as the Ableton authoring gets more dynamic.
+velocity_low = 20
+velocity_high = 120
+
+# On `tail_s`: these are longer than a dry sample would need, because what is
+# rendered is the plugin's *mixer* output -- room and overheads included -- and
+# a room rings for a good while after the drum has stopped. The first guesses
+# were made from dry lengths and cut a closed hi-hat off at -19 dB, which is
+# not a tail, it is the sound. `drums kit-bake` prints the longest sample per
+# articulation; when that number is exactly `tail_s`, the cut is arbitrary and
+# the real decay is longer than this.
+
+# Which note the plugin listens on. These are Superior Drummer 3's defaults,
+# which are broadly Roland/GM -- but a kit that maps something differently
+# shows up in `drums kit-bake`'s report as the wrong length or the wrong peak
+# (a "crash" lasting 0.4 s is not a crash), and the fix is one number here.
+# `drums kit-bake --audition` writes one labelled wav per articulation when the
+# numbers are not enough and you need to hear it.
+
+[render.articulation.kick]
+instrument = "kick"
+default = true
+note = 36
+tail_s = 1.0
+
+[render.articulation.snare]
+instrument = "snare"
+default = true
+note = 38
+# The most layers of anything: the snare is where the dynamics live. A ghost
+# note and a backbeat are different strikes, not one strike at two volumes,
+# and this is the drum where hearing that matters most.
+layers = 10
+tail_s = 1.4
+
+[render.articulation.sidestick]
+instrument = "sidestick"
+default = true
+note = 37
+layers = 3
+tail_s = 0.6
+
+[render.articulation.hihat_closed]
+instrument = "hihat_closed"
+default = true
+note = 42
+layers = 8
+tail_s = 1.5
+
+[render.articulation.hihat_open]
+instrument = "hihat_open"
+default = true
+note = 46
+layers = 6
+round_robin = 3
+tail_s = 2.5
+stereo = true
+# Rings long enough to still be sounding when the next hat lands, so it is the
+# one that gets cut short -- see [sampler] choke below.
+ring = true
+
+[render.articulation.hihat_pedal]
+instrument = "hihat_pedal"
+default = true
+note = 44
+layers = 3
+round_robin = 3
+tail_s = 1.0
+
+[render.articulation.tom_high]
+instrument = "tom_high"
+default = true
+note = 48
+tail_s = 1.8
+
+[render.articulation.tom_mid]
+instrument = "tom_mid"
+default = true
+note = 45
+tail_s = 2.2
+
+[render.articulation.tom_floor]
+instrument = "tom_floor"
+default = true
+note = 43
+tail_s = 2.5
+
+[render.articulation.ride]
+instrument = "ride"
+default = true
+note = 51
+tail_s = 3.5
+stereo = true
+
+[render.articulation.crash]
+instrument = "crash"
+default = true
+note = 49
+layers = 4
+round_robin = 3
+tail_s = 3.5
+stereo = true
+
+[render.articulation.crash2]
+instrument = "crash2"
+default = true
+note = 57
+layers = 4
+round_robin = 3
+tail_s = 3.5
+stereo = true
+
+# Not rendered, and here as a worked example of what "the sampler is already
+# waiting" means. Uncomment, run `drums kit-bake --only snare_rimshot`, and the
+# bank has it in about a minute -- no format change, nothing else re-rendered.
+# It will not *sound* until the notation can write one, which is the other and
+# much larger half of the job.
+#
+# [render.articulation.snare_rimshot]
+# instrument = "snare"
+# note = 40
+#
+# Others already sitting in [input.note] as notes that currently collapse:
+# ride bell (53), ride edge (59), crash edge (55 and 52), the tom rims
+# (50, 47, 58) and the hi-hat foot splash (21).
+
+# How the bank is played, as opposed to how it was made.
+#
+# This is taste, so it lives here in the file you author rather than in
+# `kit/kit.lock.json`, which `drums kit-bake` overwrites every time it runs.
+[sampler]
+# A hit on any member of a group cuts short a member of the same group that is
+# still sounding -- but only one marked `ring`, above. A closed hi-hat is half
+# a second long and dies on its own, and cutting those off too sounds tighter
+# than any drummer plays. An open hat sings through the whole bar, and *that*
+# is the giveaway that nobody is actually sitting at the kit.
+choke = [["hihat_closed", "hihat_open", "hihat_pedal"]]
+
+# Per-instrument trim in dB, for when a drum comes out louder than you want it.
+# The render already carries the plugin's own balance, so this should stay
+# small; reach for it when the hats are wearing you out, not to remix the kit.
+[sampler.trim]

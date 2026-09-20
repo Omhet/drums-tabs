@@ -91,9 +91,12 @@ A **drill** is one sitting; it scores as the *median* of its complete reps and
 fills one square of the exercise's own 70/80/90/100 ladder. There is nothing to
 seal: the newest drill at a tempo simply is that square.
 
-The sample bank is baked once, out of alphaTab's bundled soundfont, by
-`npm run bake-kit` in `app/`. It is tracked, it is twelve mono files, and
-replacing them is how you put your own kit under the exercises.
+The sample bank is rendered once, out of a drum plugin you own, by
+`drums kit-pick` and then `drums kit-bake`. It is 255 recordings -- velocity
+layers, and several takes of each so the same note twice is two different
+recordings -- and none of it is tracked: `kit.toml`'s `[render]` says what to
+ask the plugin for and `[sampler]` says how to play the result, and those are
+the two things worth keeping.
 
 ## Workflow
 
@@ -107,6 +110,17 @@ replacing them is how you put your own kit under the exercises.
    drums sticking <slug>         # work out which hand plays what
    drums reference <slug>        # how far behind the chart the record itself plays
    ```
+
+   And once per machine, not per song -- what the written notes sound like:
+
+   ```
+   drums kit-pick                # open the drum plugin, choose a kit (one window)
+   drums kit-bake                # render kit/samples/: layers, takes, manifest
+   ```
+
+   `kit-bake` is headless and takes a few minutes. Nothing it writes is
+   tracked; `kit.toml`'s `[render]` and `[sampler]`, which say what to render
+   and how to play it, are.
 
    Listen to `debug/straight_click.wav`: a click that sits on every hit for the
    whole song means the beat map is right. `align` pins `video_offset_ms` in
@@ -861,6 +875,110 @@ control next to Lines), and a **count-in on a paused start**. Step-by-step mode
 (Q12) belongs with them rather than with M4: it needs no scoring, no take format
 and no calibration.
 
+**The kit became a sampler (2026-09-20).** `kit/samples/` was twelve mono
+one-shots baked out of alphaTab's bundled soundfont, one per drum, played at
+`(v/127)²` gain. Every snare in a bar was byte-identical, a ghost note was a
+backbeat turned down, and an open hi-hat rang straight through the closed hats
+that followed it. `handoff.md` had "whether the baked samples are good enough
+to practise to" down as an open question; they were not, and the reason was
+structural rather than a matter of finding a better soundfont.
+
+They are now rendered out of **Superior Drummer 3**, which is the plugin the
+module is monitored through anyway -- 255 recordings, ten velocity layers on
+the snare and eight on the closed hat, four takes of each so the same note
+twice is two different recordings. No DAW is involved and nothing is exported
+by hand: `drums kit-bake` hosts the VST3 headless through DawDreamer, plays it
+every strike `kit.toml`'s `[render]` describes, and slices the result in
+memory. About nine minutes of audio, rendered in roughly two, and none of it
+touches disk except the 255 files at the end.
+
+The one step you take part in is `drums kit-pick`, once: a drum plugin's kit
+lives in its internal state rather than in any parameter, so the plugin's own
+interface opens, you choose a kit, and the state is saved. After that a window
+still flashes up for ten seconds at the start of every bake, and nobody has to
+do anything about it -- see the second point below.
+
+The app side is `bank.ts` -- which recording, and how loud -- next to a `kit.ts`
+that is now only about *when*. Three things arrived with it that a bag of
+one-shots never needed: choking, so a closed hi-hat cuts a ringing open one
+short; a voice limit, because a song's whole chart now goes in at once; and
+somewhere to put taste, which is `[sampler]` in `kit.toml`.
+
+That last part is the other half of the change. A song page hands the kit the
+**whole** chart on load, not the armed range, so dropping Drums to nothing and
+bringing Kit up plays the written part over the nodrums stem all the way
+through. There is no mode and no new button: the faders were always able to do
+this, and the only thing missing was that nobody had ever handed the kit the
+notes.
+
+Eight things learned:
+
+- **Superior Drummer's samples cannot be read off disk, and it did not
+  matter.** The library is `.obw` containers with a SQLite index beside them
+  that holds nothing but byte offsets into the proprietary format. Rendering
+  the plugin is better anyway, and not as a consolation: what comes back is
+  SD3's *mixer* output, so every one-shot arrives carrying its own room and
+  overheads. That single fact does more for how it sounds than every Web Audio
+  effect put together, which is why there is no reverb in the chain -- the
+  samples have a room, the nodrums stem has a room, and a third would be mud.
+- **A VST3 can be hosted straight from the pipeline.** DawDreamer loads the
+  plugin with no DAW and no audio device, and renders about 65 times faster
+  than real time -- ten minutes of audio in ten seconds. Two catches, and the
+  second is the one that cost the afternoon. First, **a drum plugin boots with
+  no kit loaded and renders perfect silence**, and which kit to load is not a
+  parameter that can be set from code; Addictive Drums 2 behaves identically,
+  so it is the rule rather than SD3 being awkward. Hence `kit-pick`.
+- **Handing the plugin back its saved state does nothing on its own.** This is
+  the part that looked like a dead end. `kit-pick` saves 83 KB of VST3 state,
+  `kit-bake` loads it into a fresh instance, and the render comes back silent
+  -- not quietly wrong, *exactly* silent, and it stays that way however long
+  you wait or whatever order you load the graph in. The state is not the
+  problem: **restoring it queues a load that only the plugin's message loop
+  services**, and an offline host never runs one. Opening the editor is the
+  only thing in DawDreamer that does. So `bake.wake()` opens the window and a
+  watchdog thread posts `WM_CLOSE` to it ten seconds later, with nobody
+  touching it, and then plays one note to prove the kit arrived before nine
+  minutes are spent on the assumption. That is why a window flashes up during
+  a bake, and why `kit-bake` escalates to 25 and 45 seconds before giving up.
+- **Everything about this fails as silence rather than as an error**, which is
+  why there are three separate guards and not one: `kit-pick` will not save a
+  state that does not sound, `wake` will not hand on a plugin that does not
+  sound, and `kit-bake` renders twelve samples and checks every one before
+  starting the real run. Each of them is the difference between finding out in
+  twenty seconds and finding out in ten minutes, or not at all.
+- **Tails have to be measured, not guessed.** The first bake cut every sample
+  at exactly its configured `tail_s`, which is the tell that the cap and not
+  the decay was deciding -- and the closed hi-hat, the most-played drum there
+  is, was being cut at **-19 dB**. That is not a tail, it is the sound. The
+  numbers had been guessed from dry samples; what is rendered is the plugin's
+  mixer output, so every hit carries a room that goes on ringing well after
+  the drum has stopped. Doubling the hats and lengthening the ride and toms
+  put every cut below -37 dB, and cost 3 MB.
+- **The velocity curve moved out of the app and into the render.** The old bank
+  had one sample per drum and squared velocity to fake dynamics. A layer
+  already carries the loudness the plugin gave that velocity, so squaring on
+  top would have buried the ghost notes twice over. All that is left in
+  `bank.ts` is the gap between a note's velocity and the nearest layer's --
+  about a decibel, and clamped to half a layer either way.
+- **The bank is keyed by articulation although nothing upstream has more than
+  one per instrument.** `ExpectedNote` has no room for "snare, but on the rim",
+  and teaching it one means moving the notation, both MIDI maps, the sticking
+  solver and the scorer together -- which is exactly what a cross-stick cost
+  two days earlier. Keying the bank this way cost one indirection and a
+  parameter nothing passes, and means the sampler is the one end that will
+  *not* need touching when that day comes: three lines of `kit.toml` and
+  `drums kit-bake --only snare_rimshot`.
+- **Round-robin is currently doing more work than the velocity layers are.**
+  The charts on disk sit at velocity 100 for two notes in three (One For The
+  Road 77%, Song 2 68%, Kill Me every note), so most of ten layers have
+  nothing landing on them. They are still right to have -- 50 against 100 is
+  the ghost-versus-accent distinction the old bank got wrong -- but the layers
+  pay off as the Ableton authoring gets more dynamic, not on the day they
+  shipped. The layer velocities are spread over 20..120 rather than 1..127 for
+  the same reason. `kit-bake` reports how different the takes of each layer
+  actually are, because a kit whose round-robin is off machine-guns and would
+  otherwise pass silently.
+
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections
 "Transport", "Sync points", "Notation window").
@@ -928,9 +1046,19 @@ launch the installed Chrome or Edge (`browser.mjs`): Playwright's own Chromium
 cannot decode the H.264 video. Each checks the first song in the list unless
 `SONG=<slug>` names another.
 
-There is also `bake-kit.mjs`, which is not a check: it renders one bar per
-articulation through alphaTab's bundled soundfont and writes `kit/samples/`. Run
-it once (`npm run bake-kit`); `check-solo` needs what it leaves behind.
+`check-solo` also asserts the three things about the sampler that fail
+silently and show up in no screenshot: the bank loaded, one note picks more
+than one recording and never the same twice running, and a closed hi-hat knows
+it cuts a ringing open one short. `check-mix` asserts the other half -- that a
+song page hands the kit the whole chart, so the written part plays over the
+nodrums stem with Drums down. Both need a bank, so run `drums kit-pick` and
+`drums kit-bake` once before them.
+
+`check-nokit.mjs` is the odd one out: it hides `kit/kit.lock.json`, reloads,
+and asserts the page says why the Kit fader is silent and which command fixes
+it -- then puts the manifest back in a `finally`. It is the only way to see
+that message, because baking a kit is what makes it unreachable, and it is the
+state every fresh checkout starts in.
 
 Tests that need no browser: `.venv/Scripts/python -m pytest -q tests` for the
 pipeline, and `npm test` in `app/` for the scorer, the chart reader, the routine

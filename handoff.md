@@ -43,9 +43,12 @@ app/src/exercises.ts   the panels: the song's list, the cutting form, the pool p
 app/src/clock.ts       what the page needs from a clock, whoever is counting
 app/src/timer-clock.ts a clock with no media behind it: an exercise's own line
 app/src/transport.ts   which of the two alphaTab follows, and the one swap
-app/src/kit.ts         the written notes, sounded. The seam a sampler slots into.
+app/src/kit.ts         the written notes, sounded: when each one fires
+app/src/bank.ts        ...and which recording it fires, and how loud
 exercises/<id>/        the pool itself, at the repo root: one dir per exercise
-kit/samples/           twelve one-shots; `npm run bake-kit` writes them
+kit/samples/           the bank: 255 recordings; `drums kit-bake` writes it
+kit.toml [render]      what to render it from (NOT the module's numbering)
+kit.toml [sampler]     chokes and trims: how the bank is played
 kit.toml [input]       what your module sends (NOT the chart's numbering)
 pipeline/reference.py  measures the floor, writes reference.lock.json
 songs/<slug>/routines/ the runs. The open one has `sealedAt: null`.
@@ -67,8 +70,10 @@ every browser check. Run the important ones once per song (`SONG=<slug>`).
 `check-practice` now records the whole song, so it takes about as long as the
 record does; `check-exercise` is the fast proof of the same path, and
 `check-solo` is the other half of it -- an exercise on its own notes, with no
-song loaded at all. `check-solo` needs `kit/samples/`, so run `npm run bake-kit`
-once if the directory is not there.
+song loaded at all. `check-solo` and `check-mix` need a baked bank, so run
+`drums kit-pick` and `drums kit-bake` once if `kit/samples/` is not there;
+`check-nokit` is the opposite, and hides the bank to read the message a fresh
+checkout gets.
 
 Gotchas, all previously bitten: the checks need **real Chrome or Edge** (bundled
 Chromium has no H.264); the Ableton plugin reloads the page on every `.als` save,
@@ -149,9 +154,12 @@ whole-song take logs two extras, which never touch accuracy.
    so they play against the record only, and the ✕ on each row throws them
    away. Every fill in the two prepared songs is already a `[[section]]` of its
    own, so `Cut bars…` is one click each. Nothing about the loop's *feel* —
-   chiefly whether one bar of rest is the right amount, and whether the baked
-   samples are good enough to practise to — can be settled without playing it,
-   and `restBars` is per-exercise precisely so it can be argued with.
+   chiefly whether one bar of rest is the right amount, and whether the kit is
+   good enough to practise to now that it is rendered out of SD3 — can be
+   settled without playing it, and `restBars` is per-exercise precisely so it
+   can be argued with. The soundfont one-shots it used to be were not good
+   enough; whether ten velocity layers and four takes of each are is the
+   question that replaced it.
 2. **Play a run and seal it.** Nothing has been sealed yet on any song, so the
    trend row has never appeared outside a headless check. It needs one sealed
    run to show anything and three to start smoothing. A run is four cells now,

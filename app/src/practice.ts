@@ -345,6 +345,9 @@ export class Practice {
     this.at = this.cells[0]?.id ?? '';
     this.showCell();
     this.drawGrid();
+    // The kit gets the whole part up front. Nothing is armed yet, so this is
+    // what the Kit fader plays on a song page.
+    this.mixer.loadKit(this.wholeSong());
     // No song, no routine: an exercise has a ladder of its own and fills no
     // cell of anybody's grid.
     if (!loaded.song) {
@@ -615,6 +618,9 @@ export class Practice {
     this.el.reps.replaceChildren();
     this.showCell();
     this.drawGrid();
+    // Arming swapped the song's part for the exercise's; put it back, or the
+    // Kit fader would stay stuck on eight bars of a song that has hundreds.
+    this.mixer.loadKit(this.wholeSong());
   }
 
   /**
@@ -693,6 +699,26 @@ export class Practice {
       loaded.hits,
       loaded.grid,
       { start: at.startBar, end: at.endBar },
+      loaded.sticking
+    );
+  }
+
+  /**
+   * Every note in the song, for the kit to sound under whatever is playing.
+   *
+   * Deliberately not `expected()`, which is the armed range. Turning the Kit
+   * fader up on a song page should play the written part all the way through
+   * -- that is what makes it a thing you can practise to over the nodrums
+   * stem -- rather than falling silent the moment the cursor leaves whichever
+   * cell happens to be selected.
+   */
+  wholeSong(): ExpectedNote[] {
+    const loaded = this.loaded;
+    if (!loaded?.grid) return [];
+    return expectedNotes(
+      loaded.hits,
+      loaded.grid,
+      { start: 1, end: Number.POSITIVE_INFINITY },
       loaded.sticking
     );
   }

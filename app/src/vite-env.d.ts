@@ -39,6 +39,45 @@ declare module 'virtual:kit' {
     /** Groups of instruments that are one drum in different states. */
     same_drum: string[][];
   }
+  /** How the bank is played: taste, read live from kit.toml's [sampler]. */
+  export interface KitSampler {
+    /** Groups of articulations that cut each other off. */
+    choke: string[][];
+    /** Per-instrument trim in dB. */
+    trim: Record<string, number>;
+    /** Articulations that ring long enough to need cutting off. */
+    ring: string[];
+  }
+
+  /** One velocity layer: the velocity it was rendered at, and its takes. */
+  export interface BankLayer {
+    velocity: number;
+    peak: number;
+    /** Paths under kit/samples/, served at /kit/samples/<file>. */
+    files: string[];
+  }
+
+  export interface BankArticulation {
+    instrument: string;
+    /** The one picked when nothing asks for a particular strike. */
+    default: boolean;
+    stereo: boolean;
+    /** Quietest first. */
+    layers: BankLayer[];
+  }
+
+  /** What `drums kit-bake` rendered, from kit/kit.lock.json. */
+  export interface Bank {
+    name: string;
+    sampleRate: number;
+    gain: number;
+    renderedAt: string;
+    articulations: Record<string, BankArticulation>;
+  }
+
   const input: KitInput;
   export default input;
+  export const sampler: KitSampler;
+  /** Null when no kit has been baked -- which is not the same as an empty one. */
+  export const bank: Bank | null;
 }

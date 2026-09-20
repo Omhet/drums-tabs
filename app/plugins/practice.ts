@@ -9,9 +9,14 @@
 //
 // Two things live here:
 //
-//   `virtual:kit`            kit.toml, for `[input]` -- which note the module
-//                            sends for which drum. The geometry in the same
-//                            file is the Python pipeline's business.
+//   `virtual:kit`            kit.toml, three ways. The default export is
+//                            `[input]` -- which note the module sends for which
+//                            drum. `sampler` is `[sampler]` plus which
+//                            articulations ring, which is how the kit is
+//                            played. `bank` is kit/kit.lock.json: what
+//                            `drums kit-bake` actually rendered, or null when
+//                            nothing has been. The geometry in the same file is
+//                            the Python pipeline's business.
 //   POST /practice/take      songs/<slug>/takes/<id>.json, tracked in git: the
 //                            progress history, and what the coaching agent
 //                            reads (Q8).
@@ -56,6 +61,92 @@ export interface KitInput {
   note: Record<number, string>;
   /** Groups of instruments that are one drum in different states. */
   same_drum: string[][];
+}
+
+export interface KitSampler {
+  /** Groups of articulations that cut each other off. */
+  choke: string[][];
+  /** Per-instrument trim in dB. */
+  trim: Record<string, number>;
+  /** Articulations that ring long enough to need cutting off. */
+  ring: string[];
+}
+
+/** One velocity layer: the velocity it was rendered at, and its takes. */
+export interface BankLayer {
+  velocity: number;
+  peak: number;
+  /** Paths under kit/samples/, served at /kit/samples/<file>. */
+  files: string[];
+}
+
+export interface BankArticulation {
+  instrument: string;
+  /** The one picked when nothing asks for a particular strike. */
+  default: boolean;
+  stereo: boolean;
+  /** Quietest first. */
+  layers: BankLayer[];
+}
+
+export interface Bank {
+  name: string;
+  sampleRate: number;
+  gain: number;
+  renderedAt: string;
+  articulations: Record<string, BankArticulation>;
+}
+
+/**
+ * How the bank is played: taste, read live rather than baked into the manifest.
+ *
+ * A choke group or a trim is something you argue with while listening, and
+ * `drums kit-bake` takes nine minutes. Keeping these in kit.toml means
+ * changing one is a page reload.
+ */
+export function readKitSampler(kitPath: string): KitSampler {
+  if (!existsSync(kitPath)) return { choke: [], trim: {}, ring: [] };
+  const toml = parseToml(readFileSync(kitPath, 'utf-8')) as Record<string, unknown>;
+  const sampler = (toml.sampler ?? {}) as { choke?: unknown; trim?: Record<string, unknown> };
+  const render = (toml.render ?? {}) as { articulation?: Record<string, { ring?: unknown }> };
+
+  const choke = Array.isArray(sampler.choke) ? sampler.choke : [];
+  const trim: Record<string, number> = {};
+  for (const [name, db] of Object.entries(sampler.trim ?? {})) {
+    const n = Number(db);
+    if (Number.isFinite(n)) trim[name] = n;
+  }
+  const ring = Object.entries(render.articulation ?? {})
+    .filter(([, spec]) => Boolean(spec?.ring))
+    .map(([name]) => name);
+
+  return {
+    choke: choke
+      .filter((group): group is unknown[] => Array.isArray(group))
+      .map((group) => group.map(String)),
+    trim,
+    ring,
+  };
+}
+
+/**
+ * What `drums kit-bake` rendered, or null if it never has.
+ *
+ * Null rather than an empty bank on purpose: "no kit has been baked" and "a
+ * kit was baked and has no snare in it" are different problems, and the page
+ * says so differently.
+ */
+export function readBank(repoRoot: string): Bank | null {
+  const manifest = join(repoRoot, 'kit', 'kit.lock.json');
+  if (!existsSync(manifest)) return null;
+  try {
+    return JSON.parse(readFileSync(manifest, 'utf-8')) as Bank;
+  } catch (err) {
+    // Said out loud: "no kit baked" and "the manifest is unreadable" look
+    // identical on the page, and only one of them is worth panicking about.
+    console.log(`[practice] kit.lock.json could not be read: ${String(err)}`);
+    return null;
+  }
 }
 
 export function readKitInput(kitPath: string): KitInput {
@@ -377,20 +468,36 @@ export function practice(songsDir: string, repoRoot: string): Plugin {
       return id === VIRTUAL_ID ? RESOLVED_ID : undefined;
     },
     load(id) {
-      return id === RESOLVED_ID ? `export default ${JSON.stringify(readKitInput(kitPath))};` : undefined;
+      if (id !== RESOLVED_ID) return undefined;
+      return [
+        `export default ${JSON.stringify(readKitInput(kitPath))};`,
+        `export const sampler = ${JSON.stringify(readKitSampler(kitPath))};`,
+        `export const bank = ${JSON.stringify(readBank(repoRoot))};`,
+      ].join('\n');
     },
     configureServer(server: ViteDevServer) {
       server.middlewares.use(handle);
       // An edit to the input map should take effect by hitting the pad again,
       // not by restarting the dev server.
+      const manifestPath = join(repoRoot, 'kit', 'kit.lock.json');
+      const watched = [kitPath, manifestPath].map((p) => p.replace(/\\/g, '/').toLowerCase());
       server.watcher.add(kitPath);
-      server.watcher.on('change', (path: string) => {
-        if (path.replace(/\\/g, '/').toLowerCase() !== kitPath.replace(/\\/g, '/').toLowerCase()) return;
+      server.watcher.add(manifestPath);
+      // All three events, not just 'change': a first bake *adds* kit.lock.json
+      // where there was none, and deleting a bank *unlinks* it. Both change
+      // what `virtual:kit` should say, and a page still holding the old module
+      // would insist there are 255 recordings that are no longer on disk.
+      const reread = (path: string, what: string) => {
+        const hit = watched.indexOf(path.replace(/\\/g, '/').toLowerCase());
+        if (hit < 0) return;
         const mod = server.moduleGraph.getModuleById(RESOLVED_ID);
         if (mod) server.moduleGraph.invalidateModule(mod);
-        console.log('[practice] kit.toml changed, reloading');
+        console.log(`[practice] ${hit === 0 ? 'kit.toml' : 'the kit'} ${what}, reloading`);
         server.ws.send({ type: 'full-reload' });
-      });
+      };
+      server.watcher.on('change', (path: string) => reread(path, 'changed'));
+      server.watcher.on('add', (path: string) => reread(path, 'was baked'));
+      server.watcher.on('unlink', (path: string) => reread(path, 'went away'));
     },
   };
 }

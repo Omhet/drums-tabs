@@ -11,6 +11,7 @@ still resolves.
 
 from __future__ import annotations
 
+import json
 from typing import NoReturn
 
 import typer
@@ -19,6 +20,7 @@ from rich.table import Table
 
 from pipeline import align as align_mod
 from pipeline import audit as audit_mod
+from pipeline import bake as bake_mod
 from pipeline import beats as beats_mod
 from pipeline import chart as chart_mod
 from pipeline import doctor as doctor_mod
@@ -609,3 +611,129 @@ def _print_grid(song: paths.Song, built: grid_mod.Grid) -> None:
         f"coverage {built.score.coverage:.0%}",
     )
     console.print(table)
+
+
+@app.command("kit-pick")
+def kit_pick(
+    plugin: str = typer.Option(None, "--plugin", help="Override kit.toml's [render] plugin"),
+) -> None:
+    """Choose which kit the sampler is baked from, in the plugin's own window.
+
+    The one step with a window in it. A drum plugin's kit is not a parameter
+    that can be set from code -- it lives in the plugin's internal state -- so
+    this opens the real interface once and keeps whatever it is holding when
+    you close it. `drums kit-bake` is headless from then on.
+    """
+    kit = kit_mod.load()
+    try:
+        bake_mod.pick_kit(plugin or kit.render.plugin, log=console.print)
+    except StageError as exc:
+        _fail(exc)
+    console.print("[green]kit saved[/green]  now run [bold]drums kit-bake[/bold]")
+
+
+@app.command("kit-bake")
+def kit_bake(
+    only: str = typer.Option(None, "--only", help="Re-render one articulation, keep the rest"),
+    smoke: bool = typer.Option(False, "--smoke", help="Stop after the 20-second check"),
+    audition: bool = typer.Option(False, "--audition", help="Also write one wav per articulation"),
+    plugin: str = typer.Option(None, "--plugin", help="Override kit.toml's [render] plugin"),
+) -> None:
+    """Render kit/samples/ from the drum plugin: velocity layers and round-robins.
+
+    Hosts the plugin offline -- no DAW, no audio device -- plays it every strike
+    described by kit.toml's [render], slices the result and writes the bank.
+    A short smoke render runs first: a plugin that streams its samples from disk
+    can be outrun by an offline render, and that shows up as silence rather than
+    as an error, so it is worth half a minute to find out early.
+    """
+    kit = kit_mod.load()
+    chosen = plugin or kit.render.plugin
+
+    try:
+        console.print("[bold]smoke test[/bold]  3 articulations, 12 samples")
+        smoke_plan = bake_mod.build_plan(kit.render, only=only, smoke=True)
+        # One plugin, woken once, for both renders: waking costs ten seconds
+        # and puts a window on the screen.
+        session = bake_mod.Session(
+            chosen, bake_mod.STATE, smoke_plan.mark_note, log=console.print
+        )
+        audio = session.render(smoke_plan)
+        cuts = bake_mod.slice_render(audio, smoke_plan)
+        bake_mod.check_audible(cuts)
+        console.print(
+            "  [green]all audible[/green] "
+            + ", ".join(f"{c.slot.stem} {c.seconds:.2f}s" for c in cuts[:3])
+            + " ..."
+        )
+        if smoke:
+            return
+
+        plan = bake_mod.build_plan(kit.render, only=only)
+        bake_mod.RENDER_DIR.mkdir(parents=True, exist_ok=True)
+        bake_mod.PLAN.write_text(json.dumps(plan.to_json(), indent=2) + "\n", encoding="utf-8")
+        console.print(
+            f"\n[bold]baking[/bold]  {len(plan.slots)} samples, "
+            f"{plan.duration_s / 60:.1f} min to render"
+        )
+        audio = session.render(plan)
+        cuts = bake_mod.slice_render(audio, plan)
+        bake_mod.check_audible(cuts)
+
+        gain = None
+        if only is not None:
+            if not bake_mod.MANIFEST.exists():
+                _fail(StageError("--only needs an existing bank to merge into; bake it all first"))
+            gain = json.loads(bake_mod.MANIFEST.read_text(encoding="utf-8"))["gain"]
+        manifest = bake_mod.write_bank(
+            cuts, kit, gain=gain, merge=only is not None, log=console.print
+        )
+        if audition:
+            bake_mod.write_audition(cuts, log=console.print)
+    except StageError as exc:
+        _fail(exc)
+
+    table = Table(show_header=True, header_style="bold", box=None, pad_edge=False)
+    table.add_column("articulation", style="bold")
+    table.add_column("layers", justify="right")
+    table.add_column("takes", justify="right")
+    table.add_column("longest", justify="right")
+    table.add_column("round-robin", justify="right")
+
+    spread = bake_mod.round_robin_spread(cuts)
+    flat = []
+    for name, spec in sorted(manifest["articulations"].items()):
+        group = [c for c in cuts if c.slot.articulation == name]
+        if not group:
+            continue
+        variation = spread.get(name)
+        # A round-robin that never varies is the failure this bank exists to
+        # avoid, so it is called out rather than left in a column of numbers.
+        if variation is None:
+            shown = "[dim]one take[/dim]"
+        elif variation < 0.02:
+            shown = f"[red]{variation:.0%} -- identical[/red]"
+            flat.append(name)
+        else:
+            shown = f"{variation:.0%}"
+        table.add_row(
+            name,
+            str(len(spec["layers"])),
+            str(len(group)),
+            f"{max(c.seconds for c in group):.2f}s",
+            shown,
+        )
+    console.print()
+    console.print(table)
+
+    if flat:
+        console.print(
+            f"\n[yellow]{', '.join(flat)}: every take came back the same recording.[/yellow]\n"
+            "[yellow]The kit you picked has no round-robin on those, so they will[/yellow]\n"
+            "[yellow]machine-gun. Velocity layers still vary.[/yellow]"
+        )
+    console.print(
+        f"\n[green]{manifest['name']}[/green]  "
+        f"{sum(len(l['files']) for a in manifest['articulations'].values() for l in a['layers'])}"
+        f" samples -> kit/samples/"
+    )

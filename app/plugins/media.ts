@@ -1,16 +1,19 @@
-// Serves the untracked media under songs/ (video, stems) at /media/<slug>/...
+// Serves the untracked files that live outside Vite's root.
 //
-// The song directories sit outside Vite's root. Vite's own /@fs/ route would
-// work in dev, but it bakes an absolute machine path into the page and does
-// not exist in `vite preview`, so the app gets one stable URL scheme instead.
+// Two mounts, for the same reason: songs/ holds the video and stems, kit/
+// holds the sampler's bank, and both are large, regenerable and ignored by
+// git. Vite's own /@fs/ route would work in dev, but it bakes an absolute
+// machine path into the page and does not exist in `vite preview`, so the app
+// gets one stable URL scheme instead.
+//
 // Range requests are mandatory: without 206 responses the browser cannot seek
-// an 80 MB mp4, and the player is nothing but seeking.
+// an 80 MB mp4, and the player is nothing but seeking. The kit's samples are a
+// few tens of kilobytes each and never seek, but they come down the same path
+// because there is no reason to write a second one.
 import { createReadStream, statSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { extname, resolve, sep } from 'node:path';
 import type { Plugin } from 'vite';
-
-const PREFIX = '/media/';
 
 const TYPES: Record<string, string> = {
   '.mp4': 'video/mp4',
@@ -20,17 +23,25 @@ const TYPES: Record<string, string> = {
   '.ogg': 'audio/ogg',
   '.opus': 'audio/ogg',
   '.wav': 'audio/wav',
+  // The sampler's bank. Lossless, and about half the size of the wav it came
+  // from; Chrome decodes it through decodeAudioData like anything else.
+  '.flac': 'audio/flac',
 };
 
-export function songMedia(songsDir: string): Plugin {
-  const root = resolve(songsDir);
+/**
+ * @param mounts URL prefix (with both slashes) -> directory it serves.
+ */
+export function untrackedFiles(mounts: Record<string, string>): Plugin {
+  const roots = Object.entries(mounts).map(([prefix, dir]) => [prefix, resolve(dir)] as const);
 
   const handle = (req: IncomingMessage, res: ServerResponse, next: () => void) => {
     const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
-    if (!pathname.startsWith(PREFIX)) return next();
+    const mount = roots.find(([prefix]) => pathname.startsWith(prefix));
+    if (!mount) return next();
+    const [prefix, root] = mount;
 
-    const file = resolve(root, decodeURIComponent(pathname.slice(PREFIX.length)));
-    // Path containment: a decoded '..' must not climb out of songs/.
+    const file = resolve(root, decodeURIComponent(pathname.slice(prefix.length)));
+    // Path containment: a decoded '..' must not climb out of the mount.
     if (!file.startsWith(root + sep)) return end(res, 403);
     const type = TYPES[extname(file).toLowerCase()];
     if (!type) return end(res, 404);
@@ -77,7 +88,7 @@ export function songMedia(songsDir: string): Plugin {
   };
 
   return {
-    name: 'drums-song-media',
+    name: 'drums-untracked-files',
     configureServer(server) {
       server.middlewares.use(handle);
     },

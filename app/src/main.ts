@@ -2,7 +2,7 @@ import * as alphaTab from '@coderline/alphatab';
 import songs from 'virtual:songs';
 import { say } from './icons';
 import { MixClock } from './media';
-import { ARTICULATION, hitsToAlphaTex, midiToAlphaTex, type TabResult } from './midi-tab';
+import { hitsToAlphaTex, midiToAlphaTex, type TabResult } from './midi-tab';
 import { FADERS, Mixer, type Fader } from './mixer';
 import { Practice, readPracticeSong } from './practice';
 import { chartHash } from './chart';
@@ -616,6 +616,31 @@ const showStatus = () =>
     practiceError
   );
 
+// The Kit fader's own line, shown only when there is something wrong with it.
+//
+// It has its own place rather than joining the status above because the thing
+// it reports is a property of the *bank*, not of the song: a fader that has
+// nothing to play looks exactly like a fader turned down, and there is no
+// other way to tell them apart.
+const kitNoteEl = document.getElementById('kit-note') as HTMLParagraphElement;
+
+async function showKitNote() {
+  await mixer.bank.ready();
+  const bank = mixer.bank;
+  const lines: string[] = [];
+  if (!bank.baked) {
+    lines.push('No kit baked, so this fader is silent. Run <code>drums kit-bake</code>.');
+  } else {
+    const cannot = mixer.unplayable(practice.wholeSong());
+    if (cannot.length) lines.push(`No sample for: ${cannot.join(', ')}.`);
+    if (bank.missing.length) {
+      lines.push(`${bank.missing.length} recording${bank.missing.length > 1 ? 's' : ''} failed to load.`);
+    }
+  }
+  kitNoteEl.innerHTML = lines.join('<br>');
+  kitNoteEl.hidden = lines.length === 0;
+}
+
 // --- practice mode ----------------------------------------------------------------
 // What you play, marked against what is written (practice.ts). Everything it
 // needs is already on the page: the clock stamps the hits, the mixer's graph
@@ -906,6 +931,7 @@ async function load(slug: string) {
   // Not awaited: it ends by reading the open routine off the dev server, and
   // the page should finish loading whether or not there is one to read.
   void practice.load(await readPracticeSong(song, bytes, grid, lock, reference));
+  void showKitNote();
   // The pool, for the same reason and off the same server: which exercises name
   // this song, and how their ladders stand.
   void exercises.load(song);
@@ -1002,6 +1028,7 @@ async function loadExercise(exercise: Exercise): Promise<boolean> {
     reference: undefined,
     referenceMs: 0,
   });
+  void showKitNote();
 
   stemsMissing = [];
   pictureFailed = '';
@@ -1258,11 +1285,6 @@ if (import.meta.env.DEV) {
     stop,
     songs: playable,
     midiToAlphaTex,
-    // For scripts/bake-kit.mjs, which renders one bar per articulation
-    // through the same engraver the page uses.
-    hitsToAlphaTex,
-    articulations: ARTICULATION,
-    parseTex,
     mix: mixEl,
     video: videoEl,
     clock,

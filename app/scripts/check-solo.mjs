@@ -17,8 +17,13 @@
 //  4. **It makes a sound of its own** -- the kit bus, silent at 0 and loud when
 //     it is up, measured on the graph's analyser the way check-mix does.
 //
-// Needs `npm run dev`, an installed Chrome/Edge, and `kit/samples/` (run
-// `node scripts/bake-kit.mjs` once).
+// And since the bank became a real sampler (bank.ts), three more, because all
+// three fail silently and none of them is audible in a screenshot: the bank
+// loaded at all, the same note twice is two different recordings, and a hit
+// that should cut an open hi-hat short knows that it should.
+//
+// Needs `npm run dev`, an installed Chrome/Edge, and a baked bank (run
+// `drums kit-bake` once).
 //
 // Usage: node scripts/check-solo.mjs
 import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
@@ -133,6 +138,49 @@ check(cold.unplayable.length === 0, 'and the kit can play all of them', cold.unp
 check(cold.against === 'kit', 'the page says what it is playing against', cold.against);
 check(cold.recordDisabled, 'with no kit connected there is still nothing to Drill');
 
+// --- the bank is a sampler, not a bag of one-shots ----------------------------------
+// Every one of these fails as silence or as a machine gun, and neither shows
+// up in any other check here.
+const bank = await page.evaluate(() => {
+  const b = window.drums.mixer.bank;
+  // The same note twenty times over. A sampler answers with several different
+  // recordings and never the same one twice running; a bag of one-shots
+  // answers with one buffer, twenty times.
+  const picks = [];
+  for (let i = 0; i < 20; i++) picks.push(b.pick('snare', 100));
+  const buffers = picks.map((p) => p && p.buffer);
+  const distinct = new Set(buffers.filter(Boolean)).size;
+  let repeated = 0;
+  for (let i = 1; i < buffers.length; i++) if (buffers[i] && buffers[i] === buffers[i - 1]) repeated++;
+
+  // A ghost note and an accent must not be the same recording turned down.
+  const soft = b.pick('snare', 40);
+  const hard = b.pick('snare', 115);
+
+  return {
+    baked: b.baked,
+    name: b.name,
+    size: b.size,
+    missing: b.missing.length,
+    distinct,
+    repeated,
+    layered: Boolean(soft && hard && soft.buffer !== hard.buffer),
+    softSeconds: soft ? soft.buffer.duration : 0,
+    chokes: b.chokes('hihat_closed'),
+  };
+});
+console.log(`     bank "${bank.name}": ${bank.size} recordings`);
+check(bank.baked && bank.size > 0, 'the bank loaded', `${bank.size} recordings, ${bank.missing} missing`);
+check(bank.missing === 0, 'and every recording the manifest promised arrived', `${bank.missing} missing`);
+check(bank.distinct > 1, 'one note picks more than one recording', `${bank.distinct} distinct in 20 picks`);
+check(bank.repeated === 0, 'and never the same one twice running', `${bank.repeated} repeats`);
+check(bank.layered, 'a ghost note is a different recording from an accent, not a quieter one');
+check(
+  bank.chokes.includes('hihat_open'),
+  'a closed hi-hat knows it cuts a ringing open one short',
+  bank.chokes.join(', ') || 'nothing'
+);
+
 // --- it loops, and it sounds -------------------------------------------------------
 // A real key press: it is the user gesture an AudioContext needs.
 await page.keyboard.press('Space');
@@ -207,6 +255,11 @@ const quiet = await page.evaluate(async () => {
   document.getElementById('fader-click').dispatchEvent(new Event('input', { bubbles: true }));
   const a = window.drums.mixer.analyser;
   const buf = new Float32Array(a.fftSize);
+  // Let the fader's ramp finish and the analyser's window clear before asking.
+  // `setLevel` ramps over about 10 ms and the analyser holds 2048 samples --
+  // some 46 ms -- so reading it straight away reads the bar that was playing a
+  // moment ago, not the silence that followed it.
+  await new Promise((r) => setTimeout(r, 300));
   let peak = 0;
   for (let i = 0; i < 100; i++) {
     a.getFloatTimeDomainData(buf);

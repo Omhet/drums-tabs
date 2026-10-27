@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>cover tab strip</title>
+    <link rel="icon" href="data:," />
+    <!-- The tab strip under a cover video, engraved for a screenshot: no app,
+         no chrome, white paper and black ink. Driven by scripts/render-tab.mjs;
+         see src/cover-tab.ts for the query parameters. -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #fff;
+        color: #000;
+      }
+      #score {
+        background: #fff;
+      }
+      #status {
+        font: 12px sans-serif;
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        color: #888;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="score"></div>
+    <div id="status">Loading…</div>
+    <script type="module" src="/src/cover-tab.ts"></script>
+  </body>
+</html>

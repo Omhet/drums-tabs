@@ -36,3 +36,8 @@ app/shots/
 # project. Every take stamps the value it used, so takes stay comparable
 # across machines without this being shared (practice-plan Q9).
 calibration.local.json
+
+# A recorded cover's media and Live project: camera files run to gigabytes.
+songs/*/covers/
+# Saved Superior Drummer states for re-rendering a cover take.
+kit/cover-kits/

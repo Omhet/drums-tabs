@@ -14,7 +14,8 @@
     "check-practice": "node scripts/check-practice.mjs",
     "test": "node --import ./scripts/ts-resolve.mjs --test scripts/test-*.mjs",
     "check-exercise": "node scripts/check-exercise.mjs",
-    "check-solo": "node scripts/check-solo.mjs"
+    "check-solo": "node scripts/check-solo.mjs",
+    "render-tab": "node scripts/render-tab.mjs"
   },
   "dependencies": {
     "@coderline/alphatab": "^1.8.4",

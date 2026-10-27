@@ -979,6 +979,54 @@ Eight things learned:
   actually are, because a kit whose round-robin is off machine-guns and would
   otherwise pass silently.
 
+**A cover can be recorded and cut into a video (2026-10-26).** The `cover-*`
+commands turn a played take of a song into a finished video to send to people.
+In it, the webcam fills the frame, the iPhone's view of the right foot sits in
+a bordered corner, the written chart scrolls or flips 4 bars at a time along
+the bottom, and the sound is a mix of SD3 over the stems. Everything lives in
+one session folder, `songs/<slug>/covers/<name>/`, which is also the Live
+project the set is generated into:
+
+    drums cover-audio <song>                 stretched stems + click tracks
+    drums cover-session <song> --timing straight|original --open
+    drums cover-take <song>                  OBS + MIDI log; play, retake freely
+    drums cover-import <song>                iPhone video over USB
+    drums cover-attempts <song> --save       pick the attempt (default: last full one)
+    drums cover-mix <song> [--kit a,b]       mix, timing report, kit re-render
+    drums cover-sync <song>                  find each camera on the timeline
+    drums cover-render <song> --all          16:9 / 9:16 x scroll / flip
+
+`drums cover-fake-session` builds a whole session where every answer is known:
+SD3-rendered attempts with a false start, a fake webcam and a fake HEVC iPhone
+with its own drift, and a flash on every true hit. `tests/test_cover_e2e.py`
+(`-m slow`) runs the chain on it. Both timings pass: the planted offsets are
+recovered to within 2 ms and the drift to within 7 ppm, and the flash, the
+audio and the tab playhead agree within a frame.
+
+Four things learned:
+
+- **Live's metronome can't follow a band, so the click is an audio track.**
+  Song 2 drifts about 1%, and a flat 130 BPM metronome ends up as much as
+  257 ms off the record. There are two timings. *Straight* stretches the stems
+  to 130 with the pitch kept: Rubber Band in ffmpeg, with the tempo set beat
+  by beat, accurate to about 1 ms over 1377 hits. *Original* leaves the stems
+  alone and makes the click follow `grid.lock.json`. Either way the click is
+  one more track the mix leaves out.
+- **A Live set can be generated rather than built by hand.** `live_set.py`
+  copies only XML that Live itself wrote in some real set, and never writes
+  the practice set it starts from. A directory counts as a Live project only
+  if it holds an `Ableton Project Info` folder. Without one, Live may record
+  into its temp folder.
+- **An SD3 kit can be lifted out of a Live set.** The VST3 state buffers in
+  the `.als`, rewrapped as JUCE's `VST3PluginState`, load into DawDreamer
+  byte for byte. So any kit used in Live can re-render a take offline, which
+  is how kits get compared after the fact.
+- **The cameras' own microphones are enough to sync them.** Matching their
+  onset envelopes against the dry kit audio finds a short attempt inside a
+  long session. What it locks onto is the room mic, so the picture comes out
+  early by the mic's acoustic delay, about 10 ms. `nudge_ms` in `cover.toml`
+  is there for that.
+
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections
 "Transport", "Sync points", "Notation window").

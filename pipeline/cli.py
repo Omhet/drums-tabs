@@ -737,3 +737,9 @@ def kit_bake(
         f"{sum(len(l['files']) for a in manifest['articulations'].values() for l in a['layers'])}"
         f" samples -> kit/samples/"
     )
+
+
+# The cover-recording commands live in their own modules, one per stage, and
+# register themselves on `app` when imported. Imported last: they reach back
+# into this module for `app`, `console`, `_resolve` and `_fail`.
+from pipeline import cover_cli_audio, cover_cli_capture, cover_cli_fake, cover_cli_mix, cover_cli_set, cover_cli_video  # noqa: E402,F401

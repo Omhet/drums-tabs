@@ -24,6 +24,11 @@ kit/samples/
 kit/render/
 kit/kit.lock.json
 
+# Downloaded on first use by the cover video's face emoji (cover_face.py):
+# Noto Emoji PNGs, and the pose and face detection models.
+kit/emoji/
+kit/models/
+
 # Fonts and soundfonts copied out of node_modules by the alphaTab vite plugin;
 # recreated by `npm run build` / `npm run dev`.
 app/public/

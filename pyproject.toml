@@ -17,6 +17,7 @@ dependencies = [
     "obsws-python>=1.7",
     "pedalboard>=0.9",
     "pyloudnorm>=0.1",
+    "mediapipe>=1.1.1",
 ]
 
 [project.scripts]

@@ -1144,6 +1144,47 @@ Five things learned:
   the everyday set has them too and opens fine. Every sample a clip plays
   exists.
 
+**An emoji covers the player's face, and follows it (2026-10-27).** Before,
+`main_crop` cut the face out, which cost the top of the shot. Now
+`face_emoji = "😎"` in `cover.toml [layout]` lays a Noto Emoji over the face
+in the main picture, and the crop can keep the head. `face_scale` sets the
+size against the face (2 by default) and `face_dx`/`face_dy` nudge it. dev-s
+is set up this way, with the inset moved top left at 380. `pipeline/cover_face.py`
+does the tracking. The first render runs detection, about two minutes for a
+two-minute take, and caches it in `work/face-track.json`; after that a render
+costs no more than before. The emoji PNGs and the two models download into
+`kit/emoji/` and `kit/models/`, and git ignores both. On dev-s's take, 60
+random frames of the finished video were checked against a fresh detection on
+the same source frame. The face's box was under the emoji in all 55 where a
+face detector could see one, and all eleven head points were under it in all 60.
+
+- **The body finds the face better than a face detector.** MediaPipe's pose
+  landmarker found the head in every frame of dev-s. YuNet, a face detector,
+  missed one frame in eight: looking down at the kit, turned away, or in
+  headphones. So the pose places the emoji, at the mean of its eleven head
+  points. That point sat within a twentieth of a face of YuNet's box centre,
+  and moved less than any single point. YuNet only sets the size: one median
+  for the whole video, because the player sits at one distance.
+- **The emoji is round and the face's box is not.** At 1.6 times the face, the
+  box's corners showed past the disc about a quarter of the time. At 2 they
+  almost never do, and the emoji is then about the head's width with the
+  headphones.
+- **The picture starts one frame in.** The first phone frame after a seek lies
+  up to a frame past the seek point, and `fps` rounds up, so the main picture's
+  first timestamp is 1/60 s, not 0. The output repeats that frame to fill frame 0.
+  The render matches the strip to the picture by timestamp, and the emoji's
+  `sendcmd` commands go by timestamp too. Numbering detections by their order
+  in the decode put the track a frame behind. They are now numbered by
+  timestamp, from `first_frame`, and a test renders an emoji that moves 10 px a
+  frame and checks every frame.
+- **Noto moved its PNGs.** They now live under `2D/png/512/` in the repository.
+  The old `png/512/` path survives only in tagged releases, so the jsdelivr
+  mirror is pinned to v2.047. Flags were never among them.
+- **Some `--preview` stills have no foot inset.** This is old behaviour and
+  happens with the emoji off too, for example at 96.05 s on dev-s. A
+  one-frame render can end before the foot phone's first frame arrives. The
+  videos are not affected.
+
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections
 "Transport", "Sync points", "Notation window").

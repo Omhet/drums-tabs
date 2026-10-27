@@ -22,7 +22,9 @@ One ffmpeg run per video. Its inputs:
   *upright* picture;
 * the tab strip, drawn here frame by frame by :class:`cover_strip.Strip` and
   piped in on stdin as raw RGB;
-* ``work/mix.wav`` (or ``mix-<kit>.wav``), which is on the timeline already.
+* ``work/mix.wav`` (or ``mix-<kit>.wav``), which is on the timeline already;
+* with ``face_emoji`` set in ``[layout]``, an emoji's PNG, laid over the
+  player's face and moved with it every frame (:mod:`pipeline.cover_face`).
 
 The video runs from ``preroll_s`` before the song's bar 1 (or before the
 attempt, if it starts later than that) to ``tail_s`` after the attempt: the
@@ -52,7 +54,7 @@ import re
 import subprocess
 import tempfile
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import soundfile as sf
@@ -68,6 +70,7 @@ BORDER_PX = 6
 BORDER_COLOR = "white"
 MARGIN_PX = 24
 MAIN_HEADROOM = 0.25  # share of the main phone's spare height kept above the default crop
+FACE_OVERLAY = "overlay@face"  # the emoji's overlay, by the name its sendcmd file addresses
 
 
 @dataclass(frozen=True)
@@ -95,6 +98,17 @@ class Camera:
 
 
 @dataclass(frozen=True)
+class Emoji:
+    """The emoji over the face (:mod:`pipeline.cover_face`): a square PNG laid
+    on the main picture, moved every frame by a ``sendcmd`` file."""
+
+    image: Path
+    side: int  # in output pixels
+    commands: Path
+    at: tuple[int, int]  # its top-left on the first frame
+
+
+@dataclass(frozen=True)
 class Frame:
     """Where everything goes, and how long the video is."""
 
@@ -107,6 +121,7 @@ class Frame:
     corner: str = "top-right"
     inset: int | None = None  # overrides the layout's inset size
     audio_start: float = 0.0  # timeline second of output 0 (negative: the mix starts later)
+    emoji: Emoji | None = None
 
     @property
     def inset_px(self) -> int:
@@ -149,6 +164,12 @@ def _foot_crop(box: tuple[int, int, int, int] | None) -> str:
     return _box_crop(box) if box else "crop=w='min(iw,ih)':h='min(iw,ih)'"
 
 
+def _filter_path(path: Path) -> str:
+    """A file path as a filter option: quoted for the graph, the drive's colon
+    escaped for the option (``'C\\:/Users/...'``)."""
+    return "'" + path.as_posix().replace(":", "\\:") + "'"
+
+
 def _fill(w: int, h: int) -> list[str]:
     """Scale to cover ``w`` x ``h`` and centre-crop what spills over."""
     return [f"scale={w}:{h}:force_original_aspect_ratio=increase", f"crop={w}:{h}", "setsar=1"]
@@ -157,17 +178,26 @@ def _fill(w: int, h: int) -> list[str]:
 def filter_graph(frame: Frame, main: Camera, foot: Camera | None, *, audio: bool = True) -> str:
     """The ``-filter_complex`` string. Inputs, in order: the main phone, the
     foot phone (if any), the strip pipe, the mix (unless ``audio`` is off, for
-    a still). Outputs ``[v]`` and ``[a]``."""
+    a still), the emoji's PNG (if the frame has one). Outputs ``[v]`` and ``[a]``."""
     L = frame.layout
     foot_i = 1 if foot else None
     strip_i = 2 if foot else 1
     audio_i = strip_i + 1
+    emoji_i = audio_i + 1 if audio else audio_i
 
-    chains = [
-        f"[0:v]{_retime(main, frame.fps)},{_main_crop(main.crop, L.width, L.main_h)},"
-        f"{','.join(_fill(L.width, L.main_h))}[main]",
-        f"[main]pad={L.width}:{L.height}:0:0:color=black[base]",
-    ]
+    camera = (f"[0:v]{_retime(main, frame.fps)},{_main_crop(main.crop, L.width, L.main_h)},"
+              f"{','.join(_fill(L.width, L.main_h))}")  # fmt: skip
+    if frame.emoji:
+        # the commands ride on the picture's frames, so each lands on its own
+        e = frame.emoji
+        chains = [
+            f"{camera},sendcmd=f={_filter_path(e.commands)}[camera]",
+            f"[{emoji_i}:v]scale={e.side}:{e.side}:flags=lanczos,format=rgba[emoji]",
+            f"[camera][emoji]{FACE_OVERLAY}=x={e.at[0]}:y={e.at[1]}[main]",
+        ]
+    else:
+        chains = [f"{camera}[main]"]
+    chains.append(f"[main]pad={L.width}:{L.height}:0:0:color=black[base]")
     last = "base"
 
     # the foot inset, bordered, in a corner of the main picture
@@ -218,6 +248,8 @@ def command(frame: Frame, main: Camera, foot: Camera | None, mix: Path, out: Pat
     cmd += strip_input(frame)
     if not still:
         cmd += ["-i", str(mix)]
+    if frame.emoji:
+        cmd += ["-i", str(frame.emoji.image)]
     cmd += ["-filter_complex", filter_graph(frame, main, foot, audio=not still), "-map", "[v]"]
     if still:
         return [*cmd, "-frames:v", "1", "-update", "1", str(out)]
@@ -382,21 +414,24 @@ def build(
     session.ensure_dirs()
     lay = session.settings().get("layout", {})
     mix = mix_path(session, kit)
-    if preview_t is None:
-        start, end = attempt_range(session, mix)
-        # An attempt opens with the count-in, which is silence once the click
-        # is left out of the mix; the video starts just before the song does.
-        start = max(start, session.clock().bar_start(1))
-        t0 = start - float(lay.get("preroll_s", PREROLL_S))
-        duration = end + float(lay.get("tail_s", TAIL_S)) - t0
-    else:
-        t0, duration = float(preview_t), 1.0 / int(lay.get("fps", FPS))
+    start, end = attempt_range(session, mix)
+    # An attempt opens with the count-in, which is silence once the click
+    # is left out of the mix; the video starts just before the song does.
+    start = max(start, session.clock().bar_start(1))
+    video_t0 = start - float(lay.get("preroll_s", PREROLL_S))
+    video = (video_t0, end + float(lay.get("tail_s", TAIL_S)) - video_t0)
+    t0, duration = video if preview_t is None else (float(preview_t), 1.0 / int(lay.get("fps", FPS)))
     frame = frame_for(session, duration, audio_start=t0)
     cams = cameras(session, t0)
     out = out or output_path(session, tab, kit, preview_t)
     out.parent.mkdir(parents=True, exist_ok=True)
+    count = 1 if preview_t is not None else int(round(duration * frame.fps)) + 1
+    if lay.get("face_emoji"):
+        from pipeline import cover_face
+
+        cmd_file = session.work / f"{out.stem}-face.cmd"
+        frame = replace(frame, emoji=cover_face.emoji_for(session, video, t0, count, frame.fps, cmd_file))
     strip = strip or make_strip(session, tab)
     cmd = command(frame, cams["main"], cams.get("foot"), mix, out, still=preview_t is not None)
-    count = 1 if preview_t is not None else int(round(duration * frame.fps)) + 1
     run(cmd, strip, t0, frame.fps, count)
     return out

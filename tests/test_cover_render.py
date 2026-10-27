@@ -11,8 +11,8 @@ import pytest
 import soundfile as sf
 from PIL import Image
 
-from pipeline import cover, cover_render, paths
-from pipeline.cover_render import Camera, Frame, filter_graph
+from pipeline import cover, cover_face, cover_render, paths
+from pipeline.cover_render import Camera, Emoji, Frame, filter_graph
 from pipeline.proc import StageError
 
 
@@ -30,6 +30,24 @@ def test_graph_with_both_phones():
     assert "[2:v]setpts=PTS-STARTPTS[strip]" in g
     assert "overlay=x=0:y=1500" in g
     assert "[3:a]atrim=start=4.0000" in g and "adelay" not in g
+    assert "sendcmd" not in g and "overlay@face" not in g  # no face_emoji, no emoji
+
+
+def test_graph_with_the_emoji():
+    """The emoji rides on the main picture, moved by a sendcmd on the picture's own frames."""
+    emoji = Emoji(Path("C:/k/emoji_u1f60e.png"), 265, Path("C:/s/work/face.cmd"), (700, 480))
+    frame = Frame(duration=10.0, emoji=emoji)
+    main = Camera(Path("m.mov"), seek_s=12.0, rate=1.0, crop=(100, 150, 950, 1320))
+    foot = Camera(Path("f.mov"), seek_s=3.0, rate=1.0)
+    g = filter_graph(frame, main, foot)
+    assert r"crop=1080:1500,setsar=1,sendcmd=f='C\:/s/work/face.cmd'[camera]" in g
+    assert "[4:v]scale=265:265:flags=lanczos,format=rgba[emoji]" in g  # after the mix
+    assert "[camera][emoji]overlay@face=x=700:y=480[main]" in g
+    assert "[main]pad=1080:1920:0:0:color=black[base]" in g
+    assert "[3:a]atrim" in g
+    assert "[3:v]scale=265:265" in filter_graph(frame, main, foot, audio=False)  # a still has no mix
+    cmd = cover_render.command(frame, main, foot, Path("mix.wav"), Path("o.mp4"), still=False)
+    assert [cmd[i + 1] for i, a in enumerate(cmd) if a == "-i"] == ["m.mov", "f.mov", "-", "mix.wav", str(emoji.image)]
 
 
 def test_default_main_crop_keeps_the_top():
@@ -134,6 +152,36 @@ def test_preview_still(session):
         assert b > 200 and r < 60
         assert px.getpixel((1080 - 24 - 2, 24 + 100)) == (255, 255, 255)  # its white border, top right
         assert px.getpixel((5, 1920 - 50))[0] > 200  # the strip is at the bottom
+
+
+def test_emoji_moves_on_the_frame_it_is_meant_for(session, tmp_path):
+    """Through the real render: the overlay is where the command file puts it
+    for that very picture, not the one before or after (10 px a frame apart).
+
+    The commands go by timestamp, as the track's detections are numbered.
+    The picture's first is mostly a frame in (cover_face.first_frame); the
+    output repeats it to fill frame 0."""
+    L = cover_render.LAYOUT
+    Image.new("RGBA", (8, 8), (0, 255, 0, 255)).save(tmp_path / "square.png")
+    n = 30
+    xs, ys = [100 + 10 * k for k in range(n + 2)], [200 + 40 * (k % 3) for k in range(n + 2)]
+    moves = tmp_path / "face.cmd"
+    moves.write_text(cover_face.commands(xs, ys, 60), encoding="utf-8")
+    frame = Frame(duration=n / 60, emoji=Emoji(tmp_path / "square.png", 40, moves, (xs[0], ys[0])))
+    cams = cover_render.cameras(session, 2.0)
+    first = cover_face.first_frame(cams["main"], 60)
+    assert first in (0, 1)
+    out = tmp_path / "moving.mp4"
+    cmd = cover_render.command(frame, cams["main"], cams["foot"], session.work / "mix.wav", out, still=False)
+    cover_render.run(cmd, DummyStrip(L.width, L.strip_h), 2.0, 60, n + 1)
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(out), "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+                         capture_output=True, check=True).stdout  # fmt: skip
+    frames = np.frombuffer(raw, np.uint8).reshape(-1, L.height, L.width, 3)[:n].astype(int)
+    for k, px in enumerate(frames):
+        green = (px[..., 1] > 150) & (px[..., 0] < 120)
+        rows, cols = np.nonzero(green)
+        at = max(k, first)
+        assert abs(cols.min() - xs[at]) <= 2 and abs(rows.min() - ys[at]) <= 2, f"frame {k}"
 
 
 def test_no_main_phone_is_an_error(session):

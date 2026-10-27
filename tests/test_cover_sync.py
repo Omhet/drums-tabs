@@ -117,12 +117,12 @@ def test_sync_session_writes_settings_and_frames(tmp_path):
     subprocess.run(
         ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
          f"testsrc2=s=320x180:r=30:d={seconds:.2f}", "-i", str(cam), "-c:v", "libx264", "-preset", "ultrafast",
-         "-c:a", "aac", "-b:a", "128k", "-shortest", str(sess.raw / "iphone.mp4")],
+         "-c:a", "aac", "-b:a", "128k", "-shortest", str(sess.raw / "foot.mp4")],
         check=True,
     )  # fmt: skip
     results = cover_sync.sync_session(sess)
-    assert set(results) == {"iphone"}
+    assert set(results) == {"foot"}
     sync = sess.settings()["sync"]
-    assert abs(sync["iphone_offset_s"] - 21.25) * 1000 < 5  # AAC's priming is trimmed by ffmpeg
-    assert sync["iphone_file"] == "iphone.mp4" and sync["iphone_nudge_ms"] == 0.0
+    assert abs(sync["foot_offset_s"] - 21.25) * 1000 < 5  # AAC's priming is trimmed by ffmpeg
+    assert sync["foot_file"] == "foot.mp4" and sync["foot_nudge_ms"] == 0.0
     assert (sess.work / "foot-frame.png").exists()

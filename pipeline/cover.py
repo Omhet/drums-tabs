@@ -8,7 +8,7 @@ generated set is saved into -- so Live's own recordings land in its
     cover.toml              settings and every measured number (offsets, crops)
     <name>.als              the generated Live set
     Samples/Recorded/       what Live recorded (audio passes)
-    raw/                    camera files and the raw MIDI log
+    raw/                    main.* and foot.* (the two phones) and the raw MIDI log
     work/                   intermediates: mix, renders, tab strip, frames
     out/                    the finished videos
 
@@ -19,11 +19,18 @@ the offset ``cover-sync`` measures.
 
 **Two timings** (see ``Timing``) differ only in where the song's beats fall on
 that timeline, which is what :class:`Clock` holds.
+
+**The count-in** is a fact of the session, not of the code: ``cover.toml
+[session]`` holds ``count_in_bars`` and the ``stem_start_beats`` it led to
+(:func:`stem_start_for`), and everything that places the song on the timeline
+-- the clock, the backing, the Live set -- reads them from there. A session
+recorded with one count-in keeps it whatever the default becomes.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import tomllib
 from dataclasses import dataclass
 from enum import Enum
@@ -37,24 +44,23 @@ from pipeline.proc import StageError
 TICKS_PER_BEAT = 480  # tab.mid's resolution, as app/plugins/ableton.ts writes it
 BEATS_PER_BAR = 4
 LIVE_TEMPO = 130.0  # the generated set's tempo, for both timings
+#: A new session's count-in, in bars of the click.
+COUNT_IN_BARS = 2
+#: The two cameras, by role: the side-front shot of the player, and the right
+#: foot on the kick pedal. Each is ``raw/<role>.<ext>``.
+CAMERAS = ("main", "foot")
 
 
 class Timing(str, Enum):
     """How the song's beats are laid on the arrangement.
 
     ``straight``: the pitch-kept stretched stems at a constant tempo, starting
-    one bar in so the click can count in. ``original``: the stems untouched at
-    1|1|1, with a click that follows the record's own beat map.
+    after the count-in. ``original``: the stems untouched, with a click that
+    follows the record's own beat map, starting as early as the count-in allows.
     """
 
     straight = "straight"
     original = "original"
-
-
-# Where the song's bar 1 sits on the arrangement, in Live beats, per timing.
-# Straight: one bar of count-in before it. Original: the stems start at 1|1|1
-# and bar 1 is wherever the record has it (2.02 s into Song 2).
-STRAIGHT_LEAD_BEATS = BEATS_PER_BAR
 
 
 @dataclass(frozen=True)
@@ -106,13 +112,33 @@ def original_beats(song: paths.Song) -> np.ndarray:
     return beats
 
 
-def clock_for(song: paths.Song, timing: Timing) -> Clock:
+def stem_start_for(song: paths.Song, timing: Timing, count_in_bars: int) -> float:
+    """Where a new session's song stems start on the arrangement, in Live beats.
+
+    Straight: right after the count-in, ``count_in_bars`` bars of the click at
+    ``LIVE_TEMPO``. Original: the count-in runs at the record's opening beat
+    spacing and has to fit before bar 1 -- Song 2's bar 1 is 2.02 s into the
+    stems, room for one bar at its 0.46 s a beat but not for two -- so the
+    stems start at the fewest whole Live bars that make it fit.
+    """
+    if count_in_bars < 1:
+        raise StageError(f"a count-in of {count_in_bars} bars: it needs at least one")
+    if timing is Timing.straight:
+        return float(count_in_bars * BEATS_PER_BAR)
+    beats = original_beats(song)
+    need_s = count_in_bars * BEATS_PER_BAR * (beats[1] - beats[0]) - beats[0]
+    bar_s = BEATS_PER_BAR * 60.0 / LIVE_TEMPO
+    return float(max(0, math.ceil(need_s / bar_s - 1e-9)) * BEATS_PER_BAR)
+
+
+def clock_for(song: paths.Song, timing: Timing, stem_start_beats: float) -> Clock:
+    """The chart's beats on the arrangement, the stems starting at ``stem_start_beats``."""
+    start = stem_start_beats * 60.0 / LIVE_TEMPO
     if timing is Timing.straight:
         bpm = straight_bpm(song)
-        start = STRAIGHT_LEAD_BEATS * 60.0 / LIVE_TEMPO
         count = original_beats(song).size
         return Clock(start + np.arange(count, dtype=np.float64) * 60.0 / bpm)
-    return Clock(original_beats(song))
+    return Clock(start + original_beats(song))
 
 
 def stretched(song: paths.Song, name: str) -> Path:
@@ -120,27 +146,47 @@ def stretched(song: paths.Song, name: str) -> Path:
     return song.stems_dir / f"stretched-{name}.wav"
 
 
-def click_track(song: paths.Song, timing: Timing) -> Path:
-    return song.stems_dir / f"click-{timing.value}.wav"
+def click_track(song: paths.Song, timing: Timing, count_in_bars: int) -> Path:
+    return song.stems_dir / f"click-{timing.value}-{count_in_bars}bar.wav"
 
 
-def backing(song: paths.Song, timing: Timing) -> dict[str, Path]:
+def backing(song: paths.Song, timing: Timing, count_in_bars: int) -> dict[str, Path]:
     """The audio tracks a cover set plays, by track name, click last.
 
-    Each file starts at :func:`stem_start_beats` on the arrangement except the
-    click, which always starts at 1|1|1 and carries its own count-in.
+    Each file starts at the session's ``stem_start_beats`` on the arrangement
+    except the click, which always starts at 1|1|1 and carries its own count-in.
     """
     if timing is Timing.straight:
         tracks = {"nodrums": stretched(song, "nodrums"), "drums": stretched(song, "drums")}
     else:
         tracks = {"nodrums": song.nodrums, "drums": song.drums}
-    tracks["click"] = click_track(song, timing)
+    tracks["click"] = click_track(song, timing, count_in_bars)
     return tracks
 
 
-def stem_start_beats(timing: Timing) -> float:
-    """Where the song stems' clips start on the arrangement, in Live beats."""
-    return float(STRAIGHT_LEAD_BEATS) if timing is Timing.straight else 0.0
+#: What :func:`readable_recording` says when Live holds a file. ">" rather than
+#: an arrow: piped, Windows' cp1252 stdout cannot encode one, and the message
+#: would become a crash.
+LIVE_HOLDS_RECORDINGS = (
+    "Live is holding this session's recordings — close the set in Live "
+    "(quit Live or File > New), then run this again."
+)
+
+
+def readable_recording(path: Path) -> Path:
+    """``path``, once it is known to open for reading.
+
+    While a set is open Live keeps its recordings open with no sharing, so
+    reading one raises ``PermissionError`` -- which soundfile reports only as
+    "System error" and ffmpeg as a failed decode. Every reader of
+    ``Samples/Recorded`` comes through here first.
+    """
+    try:
+        with open(path, "rb"):
+            pass
+    except PermissionError as exc:
+        raise StageError(f"{LIVE_HOLDS_RECORDINGS}\n  ({Path(path).name})") from exc
+    return path
 
 
 # --- the session folder ------------------------------------------------------
@@ -197,16 +243,39 @@ class Session:
         paths.write_toml(self.toml, current)
         return current
 
+    def _session_value(self, key: str):
+        section = self.settings().get("session", {})
+        if key not in section:
+            raise StageError(f"{self.toml} has no [session] {key}; make the session with `drums cover-session`")
+        return section[key]
+
     @property
     def timing(self) -> Timing:
-        return Timing(self.settings()["session"]["timing"])
+        return Timing(self._session_value("timing"))
+
+    @property
+    def count_in_bars(self) -> int:
+        return int(self._session_value("count_in_bars"))
+
+    @property
+    def stem_start_beats(self) -> float:
+        """Where the song stems start on the arrangement, in Live beats."""
+        return float(self._session_value("stem_start_beats"))
+
+    def backing(self) -> dict[str, Path]:
+        return backing(self.song, self.timing, self.count_in_bars)
 
     def clock(self) -> Clock:
-        return clock_for(self.song, self.timing)
+        return clock_for(self.song, self.timing, self.stem_start_beats)
 
 
 def covers_dir(song: paths.Song) -> Path:
     return song.root / "covers"
+
+
+def sessions(song: paths.Song) -> list[Session]:
+    """Every session of a song that has a ``cover.toml``."""
+    return [Session(song, p.parent.name) for p in sorted(covers_dir(song).glob("*/cover.toml"))]
 
 
 def session(song: paths.Song, name: str | None = None) -> Session:

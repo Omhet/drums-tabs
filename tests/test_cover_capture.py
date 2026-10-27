@@ -1,6 +1,8 @@
 import configparser
 import json
 
+import pytest
+
 from pipeline import cover_capture as cap
 
 FFMPEG_DEVICES = """\
@@ -140,3 +142,54 @@ def test_newest_video():
     ]
     assert cap.newest_video(items)["name"] == "IMG_0003"
     assert cap.newest_video(items[:1]) is None
+
+
+def test_several_phones_are_refused():
+    answer = cap.explain({"error": "several", "phones": ["Apple iPhone", "Apple iPhone"]})
+    assert answer["error"].endswith(cap.ONE_AT_A_TIME)
+    assert "2 iPhones" in answer["error"]
+    assert cap.explain({"phone": "Apple iPhone", "items": []}) == {"phone": "Apple iPhone", "items": []}
+
+
+def test_role_target(tmp_path):
+    assert cap.role_target(tmp_path, "foot", ".MOV") == tmp_path / "foot.mov"
+    assert cap.role_target(tmp_path, "main", "") == tmp_path / "main.mov"
+
+
+IPHONE_STREAM = {"codec_name": "hevc", "width": 1920, "height": 1080, "r_frame_rate": "60/1",
+                 "avg_frame_rate": "60/1", "side_data_list": [{"rotation": -90}]}  # fmt: skip
+
+
+def test_video_check_an_upright_60fps_phone():
+    pts = [k / 60 for k in range(600)]
+    check = cap.video_check(IPHONE_STREAM, 10.0, pts)
+    assert (check.width, check.height, check.rotation) == (1080, 1920, -90)
+    assert check.vertical and check.fps == pytest.approx(60.0)
+    assert check.irregular == 0.0 and check.warnings() == []
+    assert "1080x1920 upright" in check.summary()
+
+
+def test_video_check_warns_on_30fps_landscape_and_uneven_frames():
+    flat = {**IPHONE_STREAM, "side_data_list": []}
+    check = cap.video_check(flat, 10.0, [k / 30 for k in range(300)])
+    text = " ".join(check.warnings())
+    assert "not vertical" in text and "30.00 fps, not 60" in text
+    # Auto FPS: a stretch at 30 among 60
+    pts = [k / 60 for k in range(300)] + [5 + k / 30 for k in range(1, 60)]
+    check = cap.video_check(IPHONE_STREAM, 7.0, pts)
+    assert check.fps == pytest.approx(60.0)
+    assert any("Auto FPS" in w for w in check.warnings())
+
+
+def test_check_video_reads_a_real_rotated_file(tmp_path):
+    import subprocess
+
+    flat, phone = tmp_path / "flat.mov", tmp_path / "phone.mov"
+    run = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"]
+    subprocess.run([*run, "-f", "lavfi", "-i", "testsrc2=s=180x320:r=60:d=2", "-vf", "transpose=2",
+                    "-c:v", "libx265", "-tag:v", "hvc1", "-x265-params", "log-level=error", str(flat)], check=True)  # fmt: skip
+    subprocess.run([*run, "-display_rotation", "-90", "-i", str(flat), "-c", "copy", str(phone)], check=True)
+    check = cap.check_video(phone)
+    assert (check.width, check.height, check.rotation, check.codec) == (180, 320, -90, "hevc")
+    assert check.fps == pytest.approx(60.0, abs=0.01) and check.warnings() == []
+    assert check.duration_s == pytest.approx(2.0, abs=0.05)

@@ -2,7 +2,7 @@
 // and save the picture plus where every beat landed on it.
 //
 //   node scripts/render-tab.mjs --song <slug> --layout scroll|flip \
-//        --scale 1.4 --width 1920 [--bars-per-row 4] --out <dir>
+//        --scale 1.3 --width 1080 [--bars-per-row 4] --out <dir>
 //
 // Writes into <dir>:
 //   tab.json         the page's `coverTab`: beats (tick, bar, x, row), bars,
@@ -27,7 +27,7 @@ const opt = args();
 const song = opt.song;
 const layout = opt.layout === 'flip' ? 'flip' : 'scroll';
 const scale = Number(opt.scale ?? 1);
-const width = Number(opt.width ?? 1920);
+const width = Number(opt.width ?? 1080);
 const barsPerRow = Number(opt['bars-per-row'] ?? 4);
 const outDir = resolve(opt.out ?? '.');
 const base = opt.base ?? 'http://localhost:5173/';

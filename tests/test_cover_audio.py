@@ -36,27 +36,67 @@ def test_straight_click_is_steady_from_zero_with_downbeats_accented():
     np.testing.assert_allclose(np.diff(times), period)
     assert times[0] == 0.0
     assert accents.tolist() == [True, False, False, False] * 2 + [True, False, False]
-    # The count-in is the first bar; the stems start on the next downbeat.
-    assert times[cover.STRAIGHT_LEAD_BEATS] == pytest.approx(cover.stem_start_beats(cover.Timing.straight) * period)
-    assert accents[cover.STRAIGHT_LEAD_BEATS]
 
 
-def test_original_click_follows_the_beats_with_count_in_and_tail():
-    beats = 2.0 + np.array([0.0, 0.46, 0.93, 1.40, 1.86, 2.33, 2.80, 3.27, 3.75])
-    times, accents = cover_audio.original_clicks(beats)
+@pytest.mark.parametrize("count_in", [1, 2])
+def test_straight_click_counts_in_whole_bars_and_the_stems_start_on_the_next_downbeat(tmp_path, count_in):
+    from pipeline import paths
+
+    song = paths.Song("x", tmp_path / "x")
+    period = 60.0 / cover.LIVE_TEMPO
+    start = cover.stem_start_for(song, cover.Timing.straight, count_in)  # needs no files for straight
+    assert start == count_in * cover.BEATS_PER_BAR
+    times, accents = cover_audio.straight_clicks(20 * period)
+    lead = count_in * cover.BEATS_PER_BAR
+    assert times[lead] == pytest.approx(start * period)
+    assert accents[lead] and accents[0]
+
+
+@pytest.mark.parametrize("count_in", [1, 2])
+def test_original_click_follows_the_beats_with_count_in_and_tail(count_in):
+    beats = 4.0 + np.array([0.0, 0.46, 0.93, 1.40, 1.86, 2.33, 2.80, 3.27, 3.75])
+    times, accents = cover_audio.original_clicks(beats, count_in)
+    lead = 4 * count_in
     head, tail = beats[1] - beats[0], beats[-1] - beats[-2]
-    np.testing.assert_allclose(times[:4], beats[0] - head * np.array([4, 3, 2, 1]))
-    np.testing.assert_allclose(times[4 : 4 + beats.size], beats)
-    np.testing.assert_allclose(times[4 + beats.size :], beats[-1] + tail * np.arange(1, 9))
-    assert times.size == 4 + beats.size + 8
-    # Count-in downbeat, bar 1 downbeat, and every fourth beat after.
+    np.testing.assert_allclose(times[:lead], beats[0] - head * np.arange(lead, 0, -1))
+    np.testing.assert_allclose(times[lead : lead + beats.size], beats)
+    np.testing.assert_allclose(times[lead + beats.size :], beats[-1] + tail * np.arange(1, 9))
+    assert times.size == lead + beats.size + 8
+    # Count-in downbeats, bar 1 downbeat, and every fourth beat after.
     assert np.flatnonzero(accents).tolist() == list(range(0, times.size, 4))
-    assert accents[4]
+    assert accents[lead]
 
 
 def test_original_click_refuses_a_count_in_before_zero():
     with pytest.raises(StageError, match="count-in"):
-        cover_audio.original_clicks(np.array([1.0, 1.5, 2.0]))
+        cover_audio.original_clicks(np.array([1.0, 1.5, 2.0]), 1)
+    with pytest.raises(StageError, match="8-beat count-in"):
+        cover_audio.original_clicks(np.array([3.0, 3.5, 4.0]), 2)
+
+
+@pytest.mark.parametrize("count_in", [1, 2])
+def test_an_original_click_file_lands_on_the_sessions_clock(tmp_path, count_in):
+    """Song 2's shape: bar 1 2.02 s into the stems, 0.46 s a beat -- one bar of
+    count-in fits before it, two do not, so the stems move a Live bar later."""
+    import json
+
+    from pipeline import paths
+
+    song = paths.Song("x", tmp_path / "x")
+    song.ensure_dirs()
+    beats = 2.02 + 0.4615 * np.arange(16)
+    song.grid_lock.write_text(json.dumps({"beats": beats.tolist(), "bar_one_beat": 0}), encoding="utf-8")
+    sf.write(str(song.nodrums), np.zeros((int(10 * SR), 2), np.float32), SR)
+    start = cover.stem_start_for(song, cover.Timing.original, count_in)
+    assert start == {1: 0.0, 2: 4.0}[count_in]
+    path = cover_audio.build_click(song, cover.Timing.original, count_in)
+    assert path.name == f"click-original-{count_in}bar.wav"
+    track, sr = sf.read(str(path), dtype="float32")
+    starts = _click_starts(track[:, 0]) / sr
+    clock = cover.clock_for(song, cover.Timing.original, start)
+    lead = 4 * count_in
+    np.testing.assert_allclose(starts[lead : lead + 16], clock.beats, atol=1.5 / sr)
+    assert starts[0] >= 0 and starts[lead] == pytest.approx(clock.bar_start(1), abs=1.5 / sr)
 
 
 def test_rendered_click_lands_on_its_samples_accented_at_a_healthy_level():

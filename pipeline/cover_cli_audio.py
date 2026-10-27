@@ -20,8 +20,9 @@ def cover_audio_cmd(
     """Build the backing a cover set plays: pitch-kept stretched stems and both clicks.
 
     stems/stretched-{nodrums,drums,mix}.wav are the song at a constant 130 with
-    bar 1 at 0 and the pitch unchanged; stems/click-straight.wav and
-    click-original.wav are the two click tracks, each with its own count-in.
+    bar 1 at 0 and the pitch unchanged; stems/click-<timing>-<N>bar.wav are the
+    click tracks, each with its own N-bar count-in -- for a new session's
+    count-in and for every count-in a session of the song was made with.
     """
     target = _resolve(song)
     try:

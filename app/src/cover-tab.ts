@@ -41,7 +41,7 @@ const slug = q.get('song') ?? '';
 const layout = q.get('layout') === 'flip' ? 'flip' : 'scroll';
 const scale = Number(q.get('scale') ?? 1);
 const barsPerRow = Number(q.get('barsPerRow') ?? 4);
-const width = Number(q.get('width') ?? 1920);
+const width = Number(q.get('width') ?? 1080);
 
 const scoreEl = document.getElementById('score') as HTMLElement;
 const statusEl = document.getElementById('status') as HTMLElement;

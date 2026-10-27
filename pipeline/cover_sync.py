@@ -20,7 +20,7 @@ Three steps:
    a step by fitting a parabola through the correlation peak.
 3. **Fit a line** through those windows: the camera's clock against the
    timeline. Its slope is the drift -- a phone clock that runs 80 ppm fast is
-   14 ms off after three minutes, about half a frame.
+   14 ms off after three minutes, most of a frame at 60 fps.
 
 The model, which :mod:`pipeline.cover_render` uses::
 
@@ -41,6 +41,7 @@ import numpy as np
 from scipy.ndimage import uniform_filter1d
 
 from pipeline.align import decode_mono
+from pipeline.cover import CAMERAS, readable_recording
 from pipeline.proc import StageError, require_on_path
 
 SR = 22050
@@ -252,7 +253,6 @@ def find_offset(
 # --- the session side --------------------------------------------------------
 
 VIDEO_EXTS = (".mp4", ".mov", ".mkv", ".m4v", ".avi", ".webm")
-CAMERAS = ("webcam", "iphone")
 
 
 def camera_file(raw: Path, camera: str) -> Path | None:
@@ -273,7 +273,7 @@ def reference_for(session) -> tuple[Path, float]:
     attempt = session.settings().get("attempt", {})
     if attempt.get("audio"):
         path = Path(attempt["audio"])
-        path = path if path.is_absolute() else session.root / path
+        path = readable_recording(path if path.is_absolute() else session.root / path)
         return path, float(attempt.get("start_s", 0.0)) - float(attempt.get("file_offset_s", 0.0))
     if (session.work / "drums-only.wav").exists():
         return session.work / "drums-only.wav", 0.0
@@ -325,16 +325,17 @@ def sync_session(session) -> dict[str, SyncResult]:
         if f"{cam}_nudge_ms" not in previous:
             values[f"{cam}_nudge_ms"] = 0.0
     if not results:
-        raise StageError(f"no camera files (webcam.* or iphone.*) in {session.raw}")
+        raise StageError(
+            f"no camera files (main.* or foot.*) in {session.raw}; run `drums cover-import {session.song.slug} --as main`"
+        )
     session.update("sync", values)
 
     if span:
         mid = (span[0] + span[1]) / 2
     else:
         mid = (decode_duration(reference) + ref_start) / 2
-    names = {"webcam": "webcam-frame.png", "iphone": "foot-frame.png"}
     for cam, res in results.items():
-        extract_frame(camera_file(session.raw, cam), res.camera_time(mid), session.work / names[cam])
+        extract_frame(camera_file(session.raw, cam), res.camera_time(mid), session.work / f"{cam}-frame.png")
     return results
 
 

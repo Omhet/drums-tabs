@@ -14,8 +14,14 @@ A kit here is one Superior Drummer 3 state file under ``kit/cover-kits/``
 * copying ``kit/render/plugin.state`` -- the kit the app's sampler was baked
   from.
 
-:func:`render_midi` plays notes, controllers (CC4 is the hi-hat pedal) and
-aftertouch (cymbal chokes) through SD3 offline with one of those kits.
+:func:`render_midi` plays notes, controllers and aftertouch (cymbal chokes)
+through SD3 offline with one of those kits. Every controller a take carries
+goes through, whatever its number: the TD-27 sends more than the hi-hat pedal.
+The user's first real session (``covers/dev-s``) has CC 4 (the hi-hat pedal's
+opening), 16, 18, 19, 83 and 88; the everyday practice set's own recordings add
+CC 17 and polyphonic aftertouch. Nothing here filters by number -- the attempt
+reads every ``ControllerTargets`` envelope, :func:`midi_file` writes each
+event, and DawDreamer is asked for all events, not only notes.
 """
 
 from __future__ import annotations
@@ -224,8 +230,8 @@ class Note:
 
 @dataclass(frozen=True)
 class Controller:
-    """A control event. ``kind`` is ``cc`` (``number`` is the controller --
-    4 for the hi-hat pedal), ``polytouch`` (``number`` is the note: SD3's
+    """A control event. ``kind`` is ``cc`` (``number`` is the controller, any of
+    0-127: 4 is the hi-hat pedal), ``polytouch`` (``number`` is the note: SD3's
     cymbal choke) or ``aftertouch`` (channel pressure, ``number`` unused)."""
 
     time_s: float

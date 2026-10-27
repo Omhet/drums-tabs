@@ -1,14 +1,32 @@
-"""The cover's Live set: generated from the practice set, and read back after a session.
+"""The cover's Live set: generated from the everyday practice set, and read back after a session.
 
-**Generating** (:func:`build_set`). The practice set ``Blur - Song 2.als`` is
-only ever *read*: its bytes are gunzipped into memory and that copy is edited.
-Every clip goes (arrangement, session and take lanes, on every track); the
-Superior Drummer track stays exactly as it is -- plugin state, MIDI from all
-inputs, armed -- and so do the returns and the main chain. The practice set's
-empty audio track is the pattern for the new ones: ``nodrums``, ``drums`` and
-``click``, one unwarped clip each, and ``SD3 rec``, armed, recording the SD3
-track's output post-FX. The result is written to ``session.als`` and nowhere
-else.
+**Generating** (:func:`build_set`). The everyday practice set
+``Drum Practise SD3.als`` -- the one the user plays in every day, so a cover
+sounds the way practice does -- is only ever *read*: its bytes are gunzipped
+into memory and that copy is edited. Every clip goes (arrangement, session and
+take lanes, on every track). The Superior Drummer track stays exactly as it is
+-- plugin state, its whole device chain (SD3, Utility, Roar, Grain Delay),
+fader, MIDI from all inputs -- armed; so do the returns and the main chain.
+Every other track goes (the set's loops, the Black Squid kit). Its first audio
+track is the pattern for the new ones: ``nodrums``, ``drums`` and ``click``,
+one clip each, and ``SD3 rec``, armed, recording the SD3 track's output
+post-FX. Each new track is switched on and its fader set (:data:`FADERS_DB`,
+the balance the user settled on in their first real session). The result is
+written to ``session.als`` and nowhere else.
+
+**Warping** (straight timing only). The stretched stems and the straight click
+are a constant ``LIVE_TEMPO`` from the file's first sample, so two warp markers
+pin them exactly: the file's start on the clip's start, and its end
+``seconds * LIVE_TEMPO / 60`` beats later -- plus the 1/32-beat marker past the
+end that Live itself writes on a warped loop. At ``LIVE_TEMPO`` that plays
+every sample where the unwarped clip did; at another tempo the song follows
+Live, for slow practice. ``nodrums`` warps in Complex Pro, ``drums`` and the
+click in Beats preserving transients, the click with its loop mode off so a
+tick stays one tick when slowed (:data:`_WARP`). Original-timing clips stay
+unwarped: the record's own timing is the point of them, so no tempo applies.
+A take for the video is recorded at ``LIVE_TEMPO`` whatever the practice
+tempo was: :func:`attempts` and :func:`check_tempo` refuse a set saved at
+another.
 
 **Reading back** (:func:`read_set`, :func:`attempts`). Live 12 keeps every
 arrangement recording pass: each pass gets a take lane of its own holding the
@@ -19,13 +37,24 @@ So a pass is a take-lane clip; a main-lane clip is the same pass again when its
 ``TakeId`` is in a take lane, and a pass of its own otherwise.
 
 **The XML.** Every structure written here is copied from a clip Live wrote, not
-made up: the MIDI clip, its CC envelope and its per-note pressure from the
-practice set's own take lanes (Live 12.2.7, the set's schema); the audio clip
-from ``Lootcycle.als`` (Live 12.2.6 -- 12.4 adds an element the 12.2 schema
-lacks); a recorded audio clip's fields (``RelativePathType`` 3, the 1/32-beat
+made up, in the template's schema (Live 12.4.7): the MIDI clip, its CC
+envelope and its per-note pressure first from ``Blur - Song 2.als``'s take
+lanes, the audio clip from ``Lootcycle.als`` -- and both checked against
+``covers/dev-s/dev-s.als``, the user's first real session, opened, recorded
+into and saved by Live 12.4.7: its recorded SD3 and ``SD3 rec`` clips differ
+from these only in their values, and in two elements 12.4 adds
+(``AutomationEnvelopesListWrapper``, ``FileRef/SourceHint``), which these now
+carry. A recorded audio clip's fields (``RelativePathType`` 3, the 1/32-beat
 second warp marker, ``Samples/Recorded/<track> 000N [date].wav``) from
-``Drum Experiment.als``; ``AudioIn/Track.<id>/PostFxOut`` routing from
-``Bass Beat.als``.
+``Drum Experiment.als`` and dev-s; ``AudioIn/Track.<id>/PostFxOut`` routing
+from ``Bass Beat.als``. The warp markers of a warped file follow the
+template's own ``Upright Bass Loop`` clip (start, end, end + 1/32 beat); Beats
+with ``TransientResolution`` 6 (Transients) and ``TransientEnvelope`` 100 and
+Complex Pro (``WarpMode`` 6, formants 100, envelope 128) are Live's defaults
+in every set here. ``TransientLoopMode`` 0 (Loop Off) is the one value not
+seen on disk: every clip here, and every clip in Live's own Core Library,
+has the default 2; 0 is the first entry of the chooser (Off, Forward,
+Back-and-Forth).
 
 Facts about the format this relies on, each checked against those files:
 
@@ -65,9 +94,9 @@ import soundfile as sf
 from pipeline import cover, paths
 from pipeline.proc import StageError
 
-#: The user's practice set. Read-only, always: nothing here opens it for writing.
+#: The user's everyday practice set. Read-only, always: nothing here opens it for writing.
 TEMPLATE = Path(
-    "C:/Users/omhet/Music/Ableton/Projects/Drum Practise SD3/Drum Practise SD3 Project/Blur - Song 2.als"
+    "C:/Users/omhet/Music/Ableton/Projects/Drum Practise SD3/Drum Practise SD3 Project/Drum Practise SD3.als"
 )
 #: Nothing is ever written under here (the user's own Live projects).
 PROTECTED = Path("C:/Users/omhet/Music/Ableton")
@@ -84,6 +113,18 @@ _CHANNEL_PRESSURE_TARGET = 1
 _MARKER_BEATS = 0.03125
 #: Live's colour indices, so the four tracks tell apart at a glance.
 _COLORS = {"nodrums": 14, "drums": 6, "click": 0, REC_TRACK: 25}
+#: A new set's faders, in dB: where the user put them in their first real
+#: session (covers/dev-s), finding the kit too quiet against the song at -6
+#: each. The SD3 track keeps the template's own fader. SD3 rec records its
+#: input before its fader, so its fader is only what it plays back at.
+FADERS_DB = {"nodrums": -3.3, "drums": -9.2, "click": -10.0, REC_TRACK: 0.0}
+#: Warp settings per backing track, for a straight set (see the module notes).
+_BEATS = {"WarpMode": 0, "TransientResolution": 6, "TransientEnvelope": 100}
+_WARP = {
+    "nodrums": {"WarpMode": 6, "ComplexProFormants": 100, "ComplexProEnvelope": 128},
+    "drums": {**_BEATS, "TransientLoopMode": 2},
+    "click": {**_BEATS, "TransientLoopMode": 0},
+}
 
 _DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>\n'
 
@@ -91,7 +132,8 @@ _DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>\n'
 # --- skeletons, copied from clips Live wrote ---------------------------------
 
 # Lootcycle.als (Live 12.2.6), an unwarped arrangement clip; the SourceContext
-# browser history emptied the way a recorded clip has it.
+# browser history emptied the way a recorded clip has it. With the two elements
+# Live 12.4.7 wrote into it on saving dev-s.als.
 _AUDIO_CLIP = """<AudioClip Id="0" Time="0">
 <LomId Value="0" /><LomIdView Value="0" /><CurrentStart Value="0" /><CurrentEnd Value="2" />
 <Loop><LoopStart Value="0" /><LoopEnd Value="1" /><StartRelative Value="0" /><LoopOn Value="false" />
@@ -110,9 +152,10 @@ _AUDIO_CLIP = """<AudioClip Id="0" Time="0">
 <Grid><FixedNumerator Value="1" /><FixedDenominator Value="16" /><GridIntervalPixel Value="20" /><Ntoles Value="2" />
 <SnapToGrid Value="true" /><Fixed Value="false" /></Grid>
 <FreezeStart Value="0" /><FreezeEnd Value="0" /><IsWarped Value="false" /><TakeId Value="1" /><IsInKey Value="true" />
-<ScaleInformation><Root Value="0" /><Name Value="0" /></ScaleInformation>
+<ScaleInformation><Root Value="0" /><Name Value="0" /></ScaleInformation><AutomationEnvelopesListWrapper LomId="0" />
 <SampleRef><FileRef><RelativePathType Value="1" /><RelativePath Value="" /><Path Value="" /><Type Value="1" />
-<LivePackName Value="" /><LivePackId Value="" /><OriginalFileSize Value="0" /><OriginalCrc Value="0" /></FileRef>
+<LivePackName Value="" /><LivePackId Value="" /><OriginalFileSize Value="0" /><OriginalCrc Value="0" />
+<SourceHint Value="" /></FileRef>
 <LastModDate Value="0" /><SourceContext /><SampleUsageHint Value="0" /><DefaultDuration Value="0" />
 <DefaultSampleRate Value="48000" /><SamplesToAutoWarp Value="0" /></SampleRef>
 <Onsets><UserOnsets /><HasUserOnsets Value="false" /></Onsets>
@@ -128,7 +171,8 @@ _AUDIO_CLIP = """<AudioClip Id="0" Time="0">
 <SavedWarpMarkersForStretched /><MarkersGenerated Value="false" /><IsSongTempoLeader Value="false" />
 </AudioClip>"""
 
-# Blur - Song 2.als (Live 12.2.7), take lane 0's recorded SD3 clip, emptied.
+# Blur - Song 2.als (Live 12.2.7), take lane 0's recorded SD3 clip, emptied; with
+# the element a Live 12.4.7 recording carries (dev-s.als, the SD3 track's passes).
 _MIDI_CLIP = """<MidiClip Id="0" Time="0">
 <LomId Value="0" /><LomIdView Value="0" /><CurrentStart Value="0" /><CurrentEnd Value="1" />
 <Loop><LoopStart Value="0" /><LoopEnd Value="1" /><StartRelative Value="0" /><LoopOn Value="false" />
@@ -147,7 +191,7 @@ _MIDI_CLIP = """<MidiClip Id="0" Time="0">
 <Grid><FixedNumerator Value="1" /><FixedDenominator Value="16" /><GridIntervalPixel Value="20" /><Ntoles Value="2" />
 <SnapToGrid Value="true" /><Fixed Value="true" /></Grid>
 <FreezeStart Value="0" /><FreezeEnd Value="0" /><IsWarped Value="true" /><TakeId Value="1" /><IsInKey Value="true" />
-<ScaleInformation><Root Value="0" /><Name Value="0" /></ScaleInformation>
+<ScaleInformation><Root Value="0" /><Name Value="0" /></ScaleInformation><AutomationEnvelopesListWrapper LomId="0" />
 <Notes><KeyTracks /><PerNoteEventStore><EventLists /></PerNoteEventStore><NoteProbabilityGroups />
 <ProbabilityGroupIdGenerator><NextId Value="1" /></ProbabilityGroupIdGenerator>
 <NoteIdGenerator><NextId Value="1" /></NoteIdGenerator></Notes>
@@ -353,20 +397,39 @@ def _file_ref(clip: ET.Element, wav: Path, project: Path, *, in_project: bool) -
     return info
 
 
-def _audio_clip(wav: Path, project: Path, start_beats: float, tempo: float, name: str, color: int) -> ET.Element:
-    """One unwarped clip playing the whole file from ``start_beats``."""
+def _audio_clip(
+    wav: Path, project: Path, start_beats: float, tempo: float, name: str, color: int, warp: dict | None = None
+) -> ET.Element:
+    """One clip playing the whole file from ``start_beats``.
+
+    Unwarped, or -- given ``warp``, its warp-mode fields -- warped so that at
+    ``tempo`` it plays exactly as the unwarped clip would: markers at the file's
+    start, at its end, and 1/32 beat past it, as Live marks a warped loop.
+    """
     clip = ET.fromstring(_AUDIO_CLIP)
     info = _file_ref(clip, wav, project, in_project=False)
     seconds = info.frames / info.samplerate
+    beats = seconds * tempo / 60.0
     clip.set("Time", _num(start_beats))
     _set(clip, "CurrentStart", start_beats)
-    _set(clip, "CurrentEnd", start_beats + seconds * tempo / 60.0)
+    _set(clip, "CurrentEnd", start_beats + beats)
     for tag in ("LoopEnd", "OutMarker", "HiddenLoopEnd"):
-        _set(clip, f"Loop/{tag}", seconds)
+        # Unwarped, the loop is in seconds of the file; warped, in clip beats.
+        _set(clip, f"Loop/{tag}", beats if warp else seconds)
     _set(clip, "Name", name)
     _set(clip, "Color", color)
-    marker = clip.find("WarpMarkers")[1]
-    marker.set("SecTime", _num(_MARKER_BEATS * 60.0 / tempo))
+    markers = clip.find("WarpMarkers")
+    if warp:
+        _set(clip, "IsWarped", True)
+        for key, value in warp.items():
+            _set(clip, key, value)
+        for marker in list(markers)[1:]:
+            markers.remove(marker)
+        past = _MARKER_BEATS * 60.0 / tempo
+        for i, (sec, beat) in enumerate([(seconds, beats), (seconds + past, beats + _MARKER_BEATS)], start=1):
+            ET.SubElement(markers, "WarpMarker", {"Id": str(i), "SecTime": _num(sec), "BeatTime": _num(beat)})
+    else:
+        markers[1].set("SecTime", _num(_MARKER_BEATS * 60.0 / tempo))
     return clip
 
 
@@ -382,27 +445,23 @@ def _sd3_track(root: ET.Element) -> ET.Element:
     for t in _tracks(root):
         if t.tag == "MidiTrack" and track_name(t) == SD3_TRACK:
             return t
-    raise StageError(f"the practice set has no MIDI track named {SD3_TRACK!r}")
+    raise StageError(f"the everyday practice set has no MIDI track named {SD3_TRACK!r}")
 
 
-def missing_backing(song: paths.Song, timing: cover.Timing) -> list[Path]:
-    return [p for p in cover.backing(song, timing).values() if not p.exists()]
+def build_set(session: cover.Session, *, template: Path = TEMPLATE) -> Path:
+    """Write ``session.als`` from the everyday practice set. Returns its path.
 
-
-def build_set(session: cover.Session, timing: cover.Timing, *, template: Path = TEMPLATE) -> Path:
-    """Write ``session.als`` from the practice set. Returns its path."""
-    backing = cover.backing(session.song, timing)
+    The session's ``cover.toml`` says the timing, the count-in and where the
+    stems start.
+    """
+    timing = session.timing
+    backing = session.backing()
     missing = [p for p in backing.values() if not p.exists()]
     if missing:
-        hints = []
-        if any(p.name.startswith("stretched-") for p in missing):
-            hints.append(f"`drums straighten {session.song.slug} --keep-pitch` makes the stretched stems")
-        if any(p.name.startswith("click-") for p in missing):
-            hints.append("the click track is made by the cover audio step")
         raise StageError(
             "the cover set needs files that are not there yet:\n  "
             + "\n  ".join(str(p) for p in missing)
-            + ("\n" + "\n".join(hints) if hints else "")
+            + f"\n`drums cover-audio {session.song.slug}` makes the stretched stems and the clicks"
         )
     _guard(session.als)
     if Path(os.path.abspath(session.als)) == Path(os.path.abspath(template)):
@@ -415,16 +474,18 @@ def build_set(session: cover.Session, timing: cover.Timing, *, template: Path = 
     sd3 = _sd3_track(root)
     proto = next((t for t in _tracks(root) if t.tag == "AudioTrack"), None)
     if proto is None:
-        raise StageError("the practice set has no audio track to copy")
+        raise StageError("the everyday practice set has no audio track to copy")
 
     _clear_clips(root)
     _arm(sd3, True)
 
-    # The new audio tracks go where the practice set's audio track was.
-    at = list(tracks_el).index(proto)
-    tracks_el.remove(proto)
+    # Only the SD3 track and the returns stay; the new tracks go right after SD3.
+    for t in _tracks(root):
+        if t is not sd3 and t.tag != "ReturnTrack":
+            tracks_el.remove(t)
+    at = list(tracks_el).index(sd3) + 1
     next_track_id = max(int(t.get("Id")) for t in _tracks(root)) + 1
-    start = cover.stem_start_beats(timing)
+    start = session.stem_start_beats
     made: list[ET.Element] = []
     for name, wav in [*backing.items(), (REC_TRACK, None)]:
         track = copy.deepcopy(proto)
@@ -434,9 +495,13 @@ def build_set(session: cover.Session, timing: cover.Timing, *, template: Path = 
         _name_track(track, name)
         _set(track, "Color", _COLORS.get(name, 25))
         _arm(track, name == REC_TRACK)
+        mixer = track.find("DeviceChain/Mixer")
+        _set(mixer, "Volume/Manual", 10.0 ** (FADERS_DB[name] / 20.0))
+        _set(mixer, "Speaker/Manual", True)  # the template's loops are switched off
         if wav is not None:
             begin = 0.0 if name == "click" else start
-            _main_events(track).append(_audio_clip(wav, session.root, begin, tempo, name, _COLORS[name]))
+            warp = _WARP[name] if timing is cover.Timing.straight else None
+            _main_events(track).append(_audio_clip(wav, session.root, begin, tempo, name, _COLORS[name], warp))
         else:
             _set_input_from_track(track, sd3)
             # Monitoring off: SD3 is already heard through its own track.
@@ -501,6 +566,39 @@ def _fader(track: ET.Element) -> Fader:
 
 def tempo_of(root: ET.Element) -> float:
     return _fget(root, "LiveSet/MainTrack/DeviceChain/Mixer/Tempo/Manual", cover.LIVE_TEMPO)
+
+
+def _saved_tempos(root: ET.Element) -> list[float]:
+    """The tempo control, and every point of an envelope on it."""
+    mixer = root.find("LiveSet/MainTrack/DeviceChain/Mixer")
+    target = mixer.find("Tempo/AutomationTarget").get("Id")
+    found = [tempo_of(root)]
+    for env in root.find("LiveSet/MainTrack/AutomationEnvelopes/Envelopes"):
+        if _get(env, "EnvelopeTarget/PointeeId") == target:
+            found += [float(ev.get("Value")) for ev in env.iter("FloatEvent")]
+    return found
+
+
+def _require_video_tempo(root: ET.Element) -> None:
+    off = next((t for t in _saved_tempos(root) if abs(t - cover.LIVE_TEMPO) > 1e-6), None)
+    if off is not None:
+        raise StageError(
+            f"The set is saved at {off:g} BPM. The video is built at {cover.LIVE_TEMPO:g} — set Live's tempo "
+            f"back to {cover.LIVE_TEMPO:g}, save, and run this again. "
+            f"(Practise at any tempo; record the take for the video at {cover.LIVE_TEMPO:g}.)"
+        )
+
+
+def check_tempo(session: cover.Session) -> None:
+    """Refuse a session whose set is saved at another tempo than the video's.
+
+    The timeline -- the attempts, the clock, the mix -- is arrangement seconds at
+    ``LIVE_TEMPO``. A straight set follows Live's tempo for practice, but a take
+    recorded at another tempo is on another timeline.
+    """
+    if not session.als.exists():
+        raise StageError(f"no {session.als}; run `drums cover-session` first")
+    _require_video_tempo(load(session.als))
 
 
 def read_set(path: Path) -> LiveSet:
@@ -706,6 +804,7 @@ def attempts(session: cover.Session, *, chart: Chart | None = None) -> list[Atte
     if not session.als.exists():
         raise StageError(f"no {session.als}; run `drums cover-session` first")
     root = load(session.als)
+    _require_video_tempo(root)
     spb = 60.0 / tempo_of(root)
     rec = _track(root, REC_TRACK)
     sd3 = _track(root, SD3_TRACK)
@@ -762,9 +861,15 @@ def pass_count(path: Path) -> int:
 
 
 def default_attempt(found: list[Attempt]) -> Attempt | None:
-    """The last pass that reached the end of the chart."""
+    """The last pass that reached the end of the chart; failing that, the longest
+    (the later of two as long). ``None`` only when there are no passes.
+
+    Whether it fell back is ``not chosen.complete``.
+    """
     complete = [a for a in found if a.complete]
-    return complete[-1] if complete else None
+    if complete:
+        return complete[-1]
+    return max(found, key=lambda a: (a.end_s - a.start_s, a.index), default=None)
 
 
 # --- writing a pass the way Live does (for the synthetic session) ------------

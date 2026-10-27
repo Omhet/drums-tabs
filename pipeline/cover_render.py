@@ -1,23 +1,49 @@
-"""Composite a cover video: webcam on top, the foot shot in a corner, tab at the bottom.
+"""Composite a cover video: the main phone on top, the foot phone in a corner, tab at the bottom.
+
+The output is 9:16 only, 1080x1920 at 60 fps -- the phones record 60:
+
+    +-----------------------+
+    |              +------+ |   main area 1080x1500, from the main phone
+    |              | foot | |   (side-front shot of the player), scaled to
+    |              +------+ |   cover and cropped; the foot phone's square
+    |        main           |   ~380x380 in a white border, top right
+    |                       |
+    +-----------------------+
+    |  tab strip 1080x420   |
+    +-----------------------+
 
 One ffmpeg run per video. Its inputs:
 
-* the webcam file and the iPhone file, each seeked to where the video starts
-  *on that camera's own clock* (``cover-sync``'s offset and drift), then
+* ``raw/main.*`` and ``raw/foot.*``, each seeked to where the video starts
+  *on that phone's own clock* (``cover-sync``'s offset and drift), then
   re-timed onto the timeline (``setpts`` divides by the clock rate) and forced
-  to a constant 30 fps -- the iPhone records variable frame rate, and its HEVC
-  ``.mov`` carries a rotation flag that ffmpeg applies on decode;
+  to a constant 60 fps. An iPhone's HEVC ``.mov`` is stored landscape with a
+  rotation flag, which ffmpeg applies on decode, so every crop here is in the
+  *upright* picture;
 * the tab strip, drawn here frame by frame by :class:`cover_strip.Strip` and
   piped in on stdin as raw RGB;
 * ``work/mix.wav`` (or ``mix-<kit>.wav``), which is on the timeline already.
 
-The video runs from ``preroll_s`` before the attempt to ``tail_s`` after it.
-Output time 0 is timeline ``t0 = attempt start - preroll``.
+The video runs from ``preroll_s`` before the song's bar 1 (or before the
+attempt, if it starts later than that) to ``tail_s`` after the attempt: the
+count-in is cut, since without the click it is only silence.
+Output time 0 is timeline ``t0 = max(attempt start, bar 1) - preroll``.
 
-The webcam is not connected yet, so the main area falls back to the iPhone's
-whole frame, or to a dark card when there is no camera at all.
+**Crops**, both ``[x, y, w, h]`` in the phone's upright pixels, in
+``cover.toml [layout]``:
 
-Everything tunable sits in ``cover.toml [layout]``; the defaults are below.
+* ``main_crop`` -- what of the main phone fills the main area. Left out, it is
+  the biggest 1080:1500 box, centred across and with only a quarter of the
+  spare height above it (:data:`MAIN_HEADROOM`), so the top of the shot --
+  the player's head -- survives rather than an even trim top and bottom. On a
+  1080x1920 frame that is ``[0, 105, 1080, 1500]`` (ffmpeg rounds the 105 to
+  104 on 4:2:0). A crop of another shape is scaled to cover and centre-cut.
+* ``foot_crop`` -- what of the foot phone goes in the inset. Left out, the
+  centre square.
+
+The foot phone is optional (no inset without it); the main one is not.
+
+Everything else tunable sits in ``[layout]`` too; the defaults are below.
 """
 
 from __future__ import annotations
@@ -26,7 +52,7 @@ import re
 import subprocess
 import tempfile
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import soundfile as sf
@@ -35,49 +61,45 @@ from pipeline import cover
 from pipeline.cover_sync import camera_file
 from pipeline.proc import StageError, require_on_path
 
-FPS = 30
-PREROLL_S = 1.0
+FPS = 60
+PREROLL_S = 0.3
 TAIL_S = 2.0
 BORDER_PX = 6
 BORDER_COLOR = "white"
 MARGIN_PX = 24
-CARD_COLOR = "0x1c1c1e"
+MAIN_HEADROOM = 0.25  # share of the main phone's spare height kept above the default crop
 
 
 @dataclass(frozen=True)
 class Layout:
-    name: str
     width: int
     height: int
-    main_h: int  # the webcam area, from the top
+    main_h: int  # the main phone's area, from the top
     strip_h: int  # the tab strip, at the bottom
     inset: int  # the foot picture's side, inside its border
 
 
-LAYOUTS = {
-    "16x9": Layout("16x9", 1920, 1080, 780, 300, 460),
-    "9x16": Layout("9x16", 1080, 1920, 1500, 420, 380),
-}
+LAYOUT = Layout(1080, 1920, 1500, 420, 380)
 TABS = ("scroll", "flip")
 
 
 @dataclass(frozen=True)
 class Camera:
-    """One camera input, already placed on the output's time axis."""
+    """One phone, already placed on the output's time axis."""
 
     path: Path
-    seek_s: float  # where to start reading, on the camera's clock
-    rate: float  # camera seconds per timeline second (1 + drift)
-    pad_s: float = 0.0  # output seconds before the camera's first frame (it started late)
-    crop: tuple[int, int, int, int] | None = None  # x, y, w, h in the camera's upright pixels
+    seek_s: float  # where to start reading, on the phone's clock
+    rate: float  # phone seconds per timeline second (1 + drift)
+    pad_s: float = 0.0  # output seconds before the phone's first frame (it started late)
+    crop: tuple[int, int, int, int] | None = None  # x, y, w, h in the phone's upright pixels
 
 
 @dataclass(frozen=True)
 class Frame:
     """Where everything goes, and how long the video is."""
 
-    layout: Layout
     duration: float
+    layout: Layout = LAYOUT
     fps: int = FPS
     border: int = BORDER_PX
     border_color: str = BORDER_COLOR
@@ -85,7 +107,6 @@ class Frame:
     corner: str = "top-right"
     inset: int | None = None  # overrides the layout's inset size
     audio_start: float = 0.0  # timeline second of output 0 (negative: the mix starts later)
-    extra: dict = field(default_factory=dict)
 
     @property
     def inset_px(self) -> int:
@@ -101,7 +122,7 @@ def _retime(cam: Camera, fps: int) -> str:
     Not ``PTS-STARTPTS``: an input ``-ss`` already puts the seek point at 0,
     and the first frame kept lies up to a frame after it -- subtracting its
     own time would pull the whole picture that much early. And ``fps`` rounds
-    up: output frame ``n`` shows the camera frame whose interval holds ``n``,
+    up: output frame ``n`` shows the phone frame whose interval holds ``n``,
     not the next one that is merely nearest (half a frame early on average).
     """
     steps = [f"setpts=PTS/{cam.rate:.9f}"]
@@ -111,11 +132,21 @@ def _retime(cam: Camera, fps: int) -> str:
     return ",".join(steps)
 
 
-def _crop(box: tuple[int, int, int, int] | None, square: bool) -> list[str]:
+def _box_crop(box: tuple[int, int, int, int]) -> str:
+    x, y, w, h = box
+    return f"crop={w}:{h}:{x}:{y}"
+
+
+def _main_crop(box: tuple[int, int, int, int] | None, w: int, h: int) -> str:
+    """``box``, or the biggest ``w``:``h`` box: centred across, headroom kept above."""
     if box:
-        x, y, w, h = box
-        return [f"crop={w}:{h}:{x}:{y}"]
-    return ["crop=w='min(iw,ih)':h='min(iw,ih)'"] if square else []
+        return _box_crop(box)
+    return (f"crop=w='min(iw,ih*{w}/{h})':h='min(ih,iw*{h}/{w})'"
+            f":x='(iw-ow)/2':y='(ih-oh)*{MAIN_HEADROOM}'")  # fmt: skip
+
+
+def _foot_crop(box: tuple[int, int, int, int] | None) -> str:
+    return _box_crop(box) if box else "crop=w='min(iw,ih)':h='min(iw,ih)'"
 
 
 def _fill(w: int, h: int) -> list[str]:
@@ -123,59 +154,48 @@ def _fill(w: int, h: int) -> list[str]:
     return [f"scale={w}:{h}:force_original_aspect_ratio=increase", f"crop={w}:{h}", "setsar=1"]
 
 
-def filter_graph(frame: Frame, webcam: Camera | None, iphone: Camera | None, *, audio: bool = True) -> str:
-    """The ``-filter_complex`` string. Inputs, in order: webcam (if any), iPhone
-    (if any), the strip pipe, the mix (unless ``audio`` is off, for a still).
-    Outputs ``[v]`` and ``[a]``."""
+def filter_graph(frame: Frame, main: Camera, foot: Camera | None, *, audio: bool = True) -> str:
+    """The ``-filter_complex`` string. Inputs, in order: the main phone, the
+    foot phone (if any), the strip pipe, the mix (unless ``audio`` is off, for
+    a still). Outputs ``[v]`` and ``[a]``."""
     L = frame.layout
-    idx = 0
-    chains: list[str] = []
-    web_i = phone_i = None
-    if webcam:
-        web_i, idx = idx, idx + 1
-    if iphone:
-        phone_i, idx = idx, idx + 1
-    strip_i, audio_i = idx, idx + 1
+    foot_i = 1 if foot else None
+    strip_i = 2 if foot else 1
+    audio_i = strip_i + 1
 
-    # the main area
-    if webcam:
-        main = ",".join([_retime(webcam, frame.fps), *_crop(webcam.crop, False), *_fill(L.width, L.main_h)])
-        chains.append(f"[{web_i}:v]{main}[main]")
-        if iphone:
-            chains.append(f"[{phone_i}:v]{_retime(iphone, frame.fps)}[foot]")
-    elif iphone:  # placeholder: the iPhone's whole frame
-        chains.append(f"[{phone_i}:v]{_retime(iphone, frame.fps)},split=2[ph][foot]")
-        chains.append(f"[ph]{','.join(_fill(L.width, L.main_h))}[main]")
-    else:
-        chains.append(f"color=c={CARD_COLOR}:s={L.width}x{L.main_h}:r={frame.fps}:d={frame.duration:.4f}[main]")
-    chains.append(f"[main]pad={L.width}:{L.height}:0:0:color=black[base]")
+    chains = [
+        f"[0:v]{_retime(main, frame.fps)},{_main_crop(main.crop, L.width, L.main_h)},"
+        f"{','.join(_fill(L.width, L.main_h))}[main]",
+        f"[main]pad={L.width}:{L.height}:0:0:color=black[base]",
+    ]
     last = "base"
 
-    # the foot inset, bordered, in a top corner
-    if iphone:
+    # the foot inset, bordered, in a corner of the main picture
+    if foot:
         s, b = frame.inset_px, frame.border
-        inset = [*_crop(iphone.crop, True), f"scale={s}:{s}", "setsar=1",
-                 f"pad={s + 2 * b}:{s + 2 * b}:{b}:{b}:color={frame.border_color}"]
-        chains.append(f"[foot]{','.join(inset)}[inset]")
+        inset = [_retime(foot, frame.fps), _foot_crop(foot.crop), f"scale={s}:{s}", "setsar=1",
+                 f"pad={s + 2 * b}:{s + 2 * b}:{b}:{b}:color={frame.border_color}"]  # fmt: skip
+        chains.append(f"[{foot_i}:v]{','.join(inset)}[inset]")
         x = L.width - (s + 2 * b) - frame.margin if frame.corner.endswith("right") else frame.margin
-        chains.append(f"[{last}][inset]overlay=x={x}:y={frame.margin}:eof_action=repeat[withinset]")
+        y = L.main_h - (s + 2 * b) - frame.margin if frame.corner.startswith("bottom") else frame.margin
+        chains.append(f"[{last}][inset]overlay=x={x}:y={y}:eof_action=repeat[withinset]")
         last = "withinset"
 
     # the strip along the bottom
     chains.append(f"[{strip_i}:v]setpts=PTS-STARTPTS[strip]")
     chains.append(f"[{last}][strip]overlay=x=0:y={L.main_h}:eof_action=repeat,"
-                  f"trim=duration={frame.duration:.4f},format=yuv420p[v]")
+                  f"trim=duration={frame.duration:.4f},format=yuv420p[v]")  # fmt: skip
 
     if not audio:
         return ";".join(chains)
 
     # the mix, cut to the same stretch of the timeline
     a = frame.audio_start
-    audio = [f"atrim=start={max(a, 0.0):.4f}", "asetpts=PTS-STARTPTS"]
+    audio_steps = [f"atrim=start={max(a, 0.0):.4f}", "asetpts=PTS-STARTPTS"]
     if a < 0:
-        audio.append(f"adelay={round(-a * 1000)}:all=1")
-    audio += ["apad", f"atrim=duration={frame.duration:.4f}"]
-    chains.append(f"[{audio_i}:a]{','.join(audio)}[a]")
+        audio_steps.append(f"adelay={round(-a * 1000)}:all=1")
+    audio_steps += ["apad", f"atrim=duration={frame.duration:.4f}"]
+    chains.append(f"[{audio_i}:a]{','.join(audio_steps)}[a]")
     return ";".join(chains)
 
 
@@ -190,16 +210,15 @@ def strip_input(frame: Frame) -> list[str]:
     return ["-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{L.width}x{L.strip_h}", "-r", str(frame.fps), "-i", "-"]
 
 
-def command(frame: Frame, webcam: Camera | None, iphone: Camera | None, mix: Path, out: Path, *, still: bool) -> list[str]:
+def command(frame: Frame, main: Camera, foot: Camera | None, mix: Path, out: Path, *, still: bool) -> list[str]:
     ffmpeg = require_on_path("ffmpeg")
-    cmd = [ffmpeg, "-hide_banner", "-loglevel", "error", "-y"]
-    for cam in (webcam, iphone):
-        if cam:
-            cmd += camera_input(cam, frame)
+    cmd = [ffmpeg, "-hide_banner", "-loglevel", "error", "-y", *camera_input(main, frame)]
+    if foot:
+        cmd += camera_input(foot, frame)
     cmd += strip_input(frame)
     if not still:
         cmd += ["-i", str(mix)]
-    cmd += ["-filter_complex", filter_graph(frame, webcam, iphone, audio=not still), "-map", "[v]"]
+    cmd += ["-filter_complex", filter_graph(frame, main, foot, audio=not still), "-map", "[v]"]
     if still:
         return [*cmd, "-frames:v", "1", "-update", "1", str(out)]
     return [*cmd, "-map", "[a]",
@@ -219,10 +238,6 @@ def _box(value) -> tuple[int, int, int, int] | None:
     return tuple(int(v) for v in value)  # type: ignore[return-value]
 
 
-def _layout_value(lay: dict, key: str, layout: str, default=None):
-    return lay.get(f"{key}_{layout}", lay.get(key, default))
-
-
 def attempt_range(session: cover.Session, mix: Path) -> tuple[float, float]:
     attempt = session.settings().get("attempt", {})
     if "start_s" in attempt and "end_s" in attempt:
@@ -238,12 +253,12 @@ def mix_path(session: cover.Session, kit: str | None) -> Path:
     return path
 
 
-def cameras(session: cover.Session, layout: str, t0: float) -> dict[str, Camera]:
-    """Each synced camera, placed so its frame at output 0 is timeline ``t0``."""
+def cameras(session: cover.Session, t0: float) -> dict[str, Camera]:
+    """Each synced phone, placed so its frame at output 0 is timeline ``t0``."""
     settings = session.settings()
     sync, lay = settings.get("sync", {}), settings.get("layout", {})
     found: dict[str, Camera] = {}
-    for cam in ("webcam", "iphone"):
+    for cam in cover.CAMERAS:
         media = camera_file(session.raw, cam)
         if media is None:
             continue
@@ -252,39 +267,48 @@ def cameras(session: cover.Session, layout: str, t0: float) -> dict[str, Camera]
         rate = 1.0 + float(sync.get(f"{cam}_drift_ppm", 0.0)) * 1e-6
         offset = float(sync[f"{cam}_offset_s"]) + float(sync.get(f"{cam}_nudge_ms", 0.0)) / 1000.0
         start = offset + rate * t0
-        crop_key = "webcam_crop" if cam == "webcam" else "foot_crop"
         found[cam] = Camera(
             path=media,
             seek_s=max(start, 0.0),
             rate=rate,
             pad_s=max(-start, 0.0) / rate,
-            crop=_box(_layout_value(lay, crop_key, layout) if cam == "webcam" else lay.get(crop_key)),
+            crop=_box(lay.get(f"{cam}_crop")),
+        )
+    if "main" not in found:
+        raise StageError(
+            f"no main.* in {session.raw}; run `drums cover-import {session.song.slug} --as main`"
+            " (or record with `drums cover-take --obs`)"
         )
     return found
 
 
-def frame_for(session: cover.Session, layout: str, duration: float, audio_start: float) -> Frame:
+def frame_for(session: cover.Session, duration: float, audio_start: float) -> Frame:
     lay = session.settings().get("layout", {})
     return Frame(
-        layout=LAYOUTS[layout],
         duration=duration,
         fps=int(lay.get("fps", FPS)),
         border=int(lay.get("border_px", BORDER_PX)),
         border_color=str(lay.get("border_color", BORDER_COLOR)),
-        margin=int(_layout_value(lay, "inset_margin_px", layout, MARGIN_PX)),
+        margin=int(lay.get("inset_margin_px", MARGIN_PX)),
         corner=str(lay.get("inset_corner", "top-right")),
-        inset=_layout_value(lay, "inset_px", layout),
+        inset=lay.get("inset_px"),
         audio_start=audio_start,
     )
 
 
-def make_strip(session: cover.Session, layout: Layout, tab: str):
+def make_strip(session: cover.Session, tab: str):
     from pipeline import cover_strip
 
-    assets = cover_strip.assets_dir(session, tab, layout.width)
+    L = LAYOUT
+    lay = session.settings().get("layout", {})
+    # How many bars fill the strip's width, and alphaTab's staff size for them:
+    # fewer bars on screen means bigger notes, so the scale goes up with them.
+    bars = int(lay.get("tab_bars", cover_strip.BARS))
+    scale = float(lay.get("tab_scale", cover_strip.SCALE))
+    assets = cover_strip.assets_dir(session, tab, L.width, bars, scale)
     if not (assets / "tab.json").exists() or not (assets / "strip.png").exists():
-        assets = cover_strip.render_assets(session, tab, width=layout.width)
-    return cover_strip.Strip(assets, tab, layout.width, layout.strip_h, session.clock())
+        assets = cover_strip.render_assets(session, tab, L.width, scale, bars)
+    return cover_strip.Strip(assets, tab, L.width, L.strip_h, session.clock())
 
 
 def short_name(session: cover.Session) -> str:
@@ -299,8 +323,8 @@ def short_name(session: cover.Session) -> str:
     return slug.replace("-", "") or session.song.slug
 
 
-def output_path(session: cover.Session, layout: str, tab: str, kit: str | None, preview_t: float | None) -> Path:
-    stem = f"{short_name(session)}-cover-{layout}-{tab}" + (f"-{kit}" if kit else "")
+def output_path(session: cover.Session, tab: str, kit: str | None, preview_t: float | None) -> Path:
+    stem = f"{short_name(session)}-cover-{tab}" + (f"-{kit}" if kit else "")
     if preview_t is not None:
         return session.work / f"{stem}-at-{preview_t:g}s.png"
     return session.out / f"{stem}.mp4"
@@ -341,7 +365,6 @@ def run(cmd: list[str], strip, t0: float, fps: int, count: int) -> None:
 
 def build(
     session: cover.Session,
-    layout: str = "16x9",
     tab: str = "scroll",
     kit: str | None = None,
     preview_t: float | None = None,
@@ -351,11 +374,9 @@ def build(
 ) -> Path:
     """Render one video (or, with ``preview_t`` in timeline seconds, one PNG still).
 
-    ``strip`` is anything with ``frame(seconds) -> PIL.Image`` of the layout's
-    strip size; by default the song's real tab strip.
+    ``strip`` is anything with ``frame(seconds) -> PIL.Image`` of the strip's
+    size; by default the song's real tab strip.
     """
-    if layout not in LAYOUTS:
-        raise StageError(f"layout must be one of {sorted(LAYOUTS)}, not {layout!r}")
     if tab not in TABS:
         raise StageError(f"tab must be one of {TABS}, not {tab!r}")
     session.ensure_dirs()
@@ -363,16 +384,19 @@ def build(
     mix = mix_path(session, kit)
     if preview_t is None:
         start, end = attempt_range(session, mix)
+        # An attempt opens with the count-in, which is silence once the click
+        # is left out of the mix; the video starts just before the song does.
+        start = max(start, session.clock().bar_start(1))
         t0 = start - float(lay.get("preroll_s", PREROLL_S))
         duration = end + float(lay.get("tail_s", TAIL_S)) - t0
     else:
         t0, duration = float(preview_t), 1.0 / int(lay.get("fps", FPS))
-    frame = frame_for(session, layout, duration, audio_start=t0)
-    cams = cameras(session, layout, t0)
-    out = out or output_path(session, layout, tab, kit, preview_t)
+    frame = frame_for(session, duration, audio_start=t0)
+    cams = cameras(session, t0)
+    out = out or output_path(session, tab, kit, preview_t)
     out.parent.mkdir(parents=True, exist_ok=True)
-    strip = strip or make_strip(session, frame.layout, tab)
-    cmd = command(frame, cams.get("webcam"), cams.get("iphone"), mix, out, still=preview_t is not None)
+    strip = strip or make_strip(session, tab)
+    cmd = command(frame, cams["main"], cams.get("foot"), mix, out, still=preview_t is not None)
     count = 1 if preview_t is not None else int(round(duration * frame.fps)) + 1
     run(cmd, strip, t0, frame.fps, count)
     return out

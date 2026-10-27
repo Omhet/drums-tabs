@@ -981,29 +981,53 @@ Eight things learned:
 
 **A cover can be recorded and cut into a video (2026-10-26).** The `cover-*`
 commands turn a played take of a song into a finished video to send to people.
-In it, the webcam fills the frame, the iPhone's view of the right foot sits in
-a bordered corner, the written chart scrolls or flips 4 bars at a time along
-the bottom, and the sound is a mix of SD3 over the stems. Everything lives in
+It is vertical only -- 9:16, 1080x1920, 60 fps -- and filmed by two iPhones
+held upright, each recording 1080p at 60 fps on its own for the whole session.
+The *main* phone's side-front shot of the player fills the top 1080x1500; the
+*foot* phone's view of the right foot on the kick pedal sits in a bordered
+square in the top right corner; the written chart scrolls or flips 4 bars at a
+time along the bottom 420 px; and the sound is a mix of SD3 over the stems.
+Each phone is lined up afterwards by its own microphone. Everything lives in
 one session folder, `songs/<slug>/covers/<name>/`, which is also the Live
 project the set is generated into:
 
     drums cover-audio <song>                 stretched stems + click tracks
-    drums cover-session <song> --timing straight|original --open
-    drums cover-take <song>                  OBS + MIDI log; play, retake freely
-    drums cover-import <song>                iPhone video over USB
-    drums cover-attempts <song> --save       pick the attempt (default: last full one)
+    drums cover-session <song> --timing straight|original [--count-in 2] --open
+    drums cover-take <song>                  MIDI log + checklist; both phones film; retake freely
+    drums cover-import <song> --as main      newest video off the USB iPhone -> raw/main.*, checked
+    drums cover-import <song> --as foot      the same for the other phone, one phone at a time
+    drums cover-attempts <song> --save       pick the attempt (default: last full one, else the longest)
+    drums cover-kit <name>                   an SD3 kit for re-renders (default: out of the everyday set)
     drums cover-mix <song> [--kit a,b]       mix, timing report, kit re-render
-    drums cover-sync <song>                  find each camera on the timeline
-    drums cover-render <song> --all          16:9 / 9:16 x scroll / flip
+    drums cover-sync <song>                  find each phone on the timeline
+    drums cover-render <song> --all          scroll and flip (--kit a,b: one video per kit)
+
+`cover-take` prints the phone checklist (1080p at 60 fps, Auto FPS off, Lock
+Camera on, Enhanced Stabilization off, plugged in, Do Not Disturb, space),
+logs the TD-27's raw MIDI until Enter, and then checks the Live set was saved
+after the last thing played. `cover-import` probes what it copied and says so
+if it is not upright, not 60 fps, or its frame rate wanders. Windows lists
+every iPhone as "Apple iPhone", so the import is told which phone it is
+(`--as`) and refuses when two are plugged in. What of each phone the video
+keeps is `main_crop` and `foot_crop` in `cover.toml [layout]`, `[x, y, w, h]`
+in the phone's upright pixels. Left out, the main crop is the 1080:1500 box
+with only a quarter of the spare height above it, so the head keeps its room
+(on 1080x1920, `[0, 105, 1080, 1500]`), and the foot crop is the centre square.
+The first setup -- a webcam in OBS as the main camera -- is still there behind
+`cover-take --obs` (it lands as `raw/main.mp4`; `--setup-webcam` frames it).
 
 `drums cover-fake-session` builds a whole session where every answer is known:
-SD3-rendered attempts with a false start, a fake webcam and a fake HEVC iPhone
-with its own drift, and a flash on every true hit. `tests/test_cover_e2e.py`
-(`-m slow`) runs the chain on it. Both timings pass: the planted offsets are
-recovered to within 2 ms and the drift to within 7 ppm, and the flash, the
-audio and the tab playhead agree within a frame.
+SD3-rendered attempts with a false start; two fake iPhones, each HEVC 1080x1920
+at 60 fps stored landscape with the -90 degree rotation flag a real one
+writes, each starting at its own unknown moment with its own clock error
+(main +40 ppm, foot -60 ppm); and a flash on every true hit in a known corner
+of each picture. `tests/test_cover_e2e.py` (`-m slow`, about ten minutes) runs
+the chain on it. Both timings pass: the offsets are recovered to within 1.1 ms
+and the drift to within 5.4 ppm, and the flash, the audio and the tab playhead
+agree within a frame at 60 fps -- the worst flash is 15 ms off its hit, against
+the 16.7 ms a frame lasts.
 
-Four things learned:
+Five things learned:
 
 - **Live's metronome can't follow a band, so the click is an audio track.**
   Song 2 drifts about 1%, and a flat 130 BPM metronome ends up as much as
@@ -1026,6 +1050,99 @@ Four things learned:
   long session. What it locks onto is the room mic, so the picture comes out
   early by the mic's acoustic delay, about 10 ms. `nudge_ms` in `cover.toml`
   is there for that.
+- **At 60 fps a frame is no longer the slack it was.** A frame lasts 16.7 ms,
+  so the mic's 10 ms is most of one, and so is a phone clock 80 ppm off over
+  three minutes (14 ms). The drift is measured per phone and divided out; the
+  mic's delay is not, so the picture runs about 10 ms early unless `nudge_ms`
+  takes it back -- inside a frame, but no longer a small part of one. The
+  output frame that first shows a hit can still land up to a frame either
+  side of it, because the phones' frames and the video's are on two grids;
+  in the rehearsal the worst was 15 ms.
+
+**A cover sounds like everyday practice, counts in two bars and slows down
+(2026-10-27).** The first real takes went into `covers/dev-s` and showed what
+the generated set got wrong. It was built from April's `Blur - Song 2.als`,
+with an older kit and none of the effects, so the cover did not sound like
+the drums played every day. The kit was too quiet against the song at -6 dB a
+fader. One bar of count-in was too little. And the song could not be slowed
+for practice. Now:
+
+- **The set is built from the everyday set, `Drum Practise SD3.als`.** Its SD3
+  track comes across byte for byte -- kit, Utility at +4.4 dB, Roar on "Tape
+  Saturation", Grain Delay (off), its own fader -- with its main chain (a
+  Limiter) and returns. Every other track is dropped. The new tracks start at
+  the balance set by hand in dev-s: nodrums -3.3, drums -9.2, click -10.0, and
+  `SD3 rec` at 0. The template's audio tracks are switched off, so each copy is
+  switched back on.
+- **The mix follows what was heard.** The kit's level is the SD3 track's
+  fader. `SD3 rec` records SD3 after its devices but before its fader, so the
+  recording already carries Utility and Roar, and its own fader played no part.
+  The stems keep their faders, and the click is never mixed. The old
+  "untouched kit fader is matched to the drum stem's loudness" rule is gone,
+  because the faders are a deliberate balance now. The chain and the -14 LUFS
+  master are unchanged.
+- **The count-in belongs to the session.** `cover.toml [session]` holds
+  `count_in_bars` (default 2, `--count-in`) and the `stem_start_beats` it led
+  to. The clock, the backing and the set read both from there, so dev-s keeps
+  its one bar (bar 1 at 1.846 s, its clock identical to before). Each click is
+  named for its count-in (`click-straight-2bar.wav`), and the 1-bar ones come
+  out byte-identical to the old `click-*.wav` that dev-s's set still uses.
+  Straight: the stems start right after the count-in, so bar 1 is at 3.69 s.
+  Original: the count-in runs at the record's opening beat spacing, and two
+  bars of Song 2's 0.46 s beats (3.7 s) do not fit before its bar 1 at 2.02 s.
+  So the stems start at the fewest whole Live bars that make them fit, here
+  one, and bar 1 lands at 3.87 s.
+- **A straight set follows Live's tempo, for slow practice.** The stretched
+  stems and the straight click are a constant 130 from their first sample, so
+  warp markers at the file's start and end (plus Live's own 1/32-beat marker
+  past the end, copied from the everyday set's warped loop) pin them exactly.
+  At 130 every sample plays where it did unwarped. nodrums warps in Complex
+  Pro. drums and the click warp in Beats, preserving transients, and the click
+  has its loop mode off, so a tick stays one tick when slowed. An original set
+  stays unwarped, since the record's timing is the point of it; `cover-session`
+  says so there and points at a straight set for slow practice.
+- **The video is recorded at 130.** `cover-attempts`, `cover-mix`,
+  `cover-sync` and `cover-render` refuse a set saved at any other tempo. That
+  covers the tempo control and every point of a tempo envelope. The message
+  says to set 130 back and save.
+- **No complete take is no longer a dead end.** The default attempt is the last
+  one that reached the end of the chart. Failing that it is the longest, and
+  `cover-attempts` says it fell back and why. In dev-s that is the 17-bar pass.
+- **Kit re-renders are SD3 alone.** `drums cover-kit <name>` now takes SD3's
+  state out of the everyday set unless told otherwise (`--from-als`, `--pick`,
+  `--from-bake`); kit `practice` is that. DawDreamer hosts SD3 only, so a
+  re-rendered kit has no Utility or Roar, and sits about 4.4 dB lower and
+  cleaner than what was heard. That is why `--kit a,b` re-renders every kit it
+  compares, the one played on included. Comparing the recording with a
+  re-render would be comparing the effects, not the kits.
+
+Five things learned:
+
+- **Live holds a set's recordings open while the set is open.** Reading one
+  raises `PermissionError`, which soundfile reports only as "System error" and
+  ffmpeg as a failed decode. Every reader of `Samples/Recorded` now opens the
+  file first and says to close the set (quit Live, or File > New).
+  `cover-attempts` reads only the `.als`, so it works with the set still open.
+  The message says ">" rather than an arrow: piped, Windows' cp1252 stdout
+  cannot encode an arrow, and the error would itself crash.
+- **The TD-27 sends far more than the hi-hat pedal.** dev-s's passes carry CC
+  4, 16, 18, 19, 83 and 88; the everyday set's recordings add CC 17 and
+  polyphonic aftertouch. Nothing filtered them, and a test now proves each one
+  survives the set, the attempt and the MIDI file a re-render plays.
+- **Live 12.4 added two elements to a clip.** These are
+  `AutomationEnvelopesListWrapper` and `FileRef/SourceHint`. dev-s, our
+  12.2-shaped clips opened and saved by Live 12.4.7, differs from what
+  `live_set.py` wrote in exactly those two and in values. The skeletons now
+  carry both.
+- **One warp setting has never been seen on disk.** Every clip in the user's
+  sets, and every clip in Live's own Core Library, has Beats' default loop mode,
+  2. "Loop Off" is taken to be 0, the chooser's first entry. Opening
+  `covers/rehearsal` in Live will show whether the click says Loop Off.
+- **A set built from someone's real set carries their history.** The
+  rehearsal set's returns point at preset files from a Mac Live 11 library,
+  which do not exist here. These are `LastPresetRef` provenance, not samples:
+  the everyday set has them too and opens fine. Every sample a clip plays
+  exists.
 
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections

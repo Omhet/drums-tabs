@@ -25,7 +25,7 @@ ROLES = {"nodrums": "song", "drums": "song_drums", "click": "click"}
 @dataclass
 class Gathered:
     tracks: list[cover_mix.TrackIn]  # backing only; the kit is added per render
-    kit_fader: object  # live_set.Fader of "SD3 rec"
+    kit_fader: object  # live_set.Fader of the SD3 track: the level the kit was heard at
     attempt: object  # live_set.Attempt
     rec: np.ndarray  # what SD3 rec recorded for the attempt, (ch, frames)
     rec_sr: int
@@ -35,7 +35,9 @@ def gather(session: cover.Session, sr: int, attempt_index: int | None = None) ->
     """Everything the mix needs out of the saved Live set.
 
     The only place that knows the Live set, so a change to ``live_set``'s API
-    lands here and nowhere else.
+    lands here and nowhere else. The levels are what was heard: the kit at the
+    SD3 track's fader (``SD3 rec`` records SD3's output before that fader, so
+    its own fader played no part), the stems at theirs.
     """
     import soundfile as sf
 
@@ -50,14 +52,13 @@ def gather(session: cover.Session, sr: int, attempt_index: int | None = None) ->
     else:
         chosen = live_set.default_attempt(found)
         if chosen is None:
-            raise StageError("no attempt reached the end of the chart; pick one with --attempt")
+            raise StageError(f"no record passes in {session.als.name} yet")
     if chosen.audio is None:
         raise StageError(f"attempt {chosen.index} has no {live_set.REC_TRACK} audio")
 
-    timing = session.timing
-    stem_start = cover.stem_start_beats(timing) * 60.0 / live.tempo
+    stem_start = session.stem_start_beats * 60.0 / live.tempo
     tracks = []
-    for name, path in cover.backing(session.song, timing).items():
+    for name, path in session.backing().items():
         fader = live.faders.get(name)
         tracks.append(
             cover_mix.TrackIn(
@@ -71,14 +72,14 @@ def gather(session: cover.Session, sr: int, attempt_index: int | None = None) ->
             )
         )
 
-    audio = chosen.audio if chosen.audio.is_absolute() else session.root / chosen.audio
+    audio = cover.readable_recording(chosen.audio if chosen.audio.is_absolute() else session.root / chosen.audio)
     info = sf.info(str(audio))
     a = int(round(chosen.file_offset_s * info.samplerate))
     b = a + int(round((chosen.end_s - chosen.start_s) * info.samplerate))
     rec, rate = sf.read(str(audio), start=a, stop=b, dtype="float32", always_2d=True)
     return Gathered(
         tracks=tracks,
-        kit_fader=live.faders.get(live_set.REC_TRACK),
+        kit_fader=live.faders[live_set.SD3_TRACK],
         attempt=chosen,
         rec=rec.T,
         rec_sr=int(rate),
@@ -98,16 +99,18 @@ def _kit_events(attempt) -> tuple[list[cover_kit.Note], list[cover_kit.Controlle
 
 
 def _kit_track(g: Gathered, audio: np.ndarray, sr: int) -> cover_mix.TrackIn:
+    from pipeline import live_set
+
     f = g.kit_fader
     return cover_mix.TrackIn(
-        name="SD3 rec",
+        name=live_set.SD3_TRACK,
         role="kit",
         audio=audio,
         sr=sr,
         start_s=g.attempt.start_s,
-        gain_db=f.gain_db if f else 0.0,
-        pan=f.pan if f else 0.0,
-        muted=False,  # the kit is the point; a muted SD3 rec still goes in
+        gain_db=f.gain_db,
+        pan=f.pan,
+        muted=False,  # the kit is the point; a muted SD3 track still goes in
     )
 
 
@@ -188,14 +191,19 @@ def cover_mix_cmd(
     preview: float = typer.Option(None, "--preview", help="Only an excerpt this many seconds long"),
     at: float = typer.Option(None, "--at", help=r"Where the excerpt starts (default \[mix] preview_at_s, else the attempt)"),
     no_chain: bool = typer.Option(False, "--no-chain", help="Levels and loudness only, no processing"),
-    attempt: int = typer.Option(None, "--attempt", help="Which record pass (default: the last complete one)"),
+    attempt: int = typer.Option(
+        None, "--attempt", help="Which record pass (default: the last complete one, else the longest)"
+    ),
 ) -> None:
     """Mix the cover's audio: your kit over the song, the click left out.
 
-    Writes work/mix.wav and work/drums-only.wav (the dry kit the video syncs
-    to). With --kit, the attempt's recorded MIDI is played through SD3 with each
-    saved kit instead, into mix-<kit>.wav, and checked against what SD3 rec
-    recorded.
+    The levels are the Live faders, as heard: the kit at the SD3 track's, the
+    stems at theirs. Writes work/mix.wav and work/drums-only.wav (the dry kit
+    the video syncs to). With --kit, the attempt's recorded MIDI is played
+    through SD3 with each saved kit instead, into mix-<kit>.wav, and checked
+    against what SD3 rec recorded. A re-render is SD3 alone -- the SD3 track's
+    Utility and Roar are not in it -- so every kit compared with --kit is
+    re-rendered, the one you played on included.
     """
     target = _resolve(song)
     try:
@@ -211,6 +219,8 @@ def cover_mix_cmd(
         console.print(
             f"attempt {g.attempt.index}: {g.attempt.start_s:.1f}-{g.attempt.end_s:.1f} s, "
             f"{g.attempt.bars} bars"
+            + ("" if g.attempt.complete or attempt is not None else
+               " [yellow](none reached the end of the chart: the longest)[/yellow]")
         )
 
         window = None
@@ -264,23 +274,30 @@ def cover_mix_cmd(
 @app.command("cover-kit")
 def cover_kit_cmd(
     name: str = typer.Argument(..., help="The kit's name, e.g. a, b, practice"),
-    from_als: Path = typer.Option(None, "--from-als", help="Take SD3's state out of this Live set (read only)"),
+    from_als: Path = typer.Option(
+        None, "--from-als", help="Take SD3's state out of this Live set, read only (default: the everyday practice set)"
+    ),
     track: str = typer.Option("1-Superior Drummer 3", "--track", help="The SD3 track in --from-als"),
+    pick: bool = typer.Option(False, "--pick", help="Choose the kit in SD3's own window instead"),
     from_bake: bool = typer.Option(False, "--from-bake", help="Copy the kit the app's sampler was baked from"),
     plugin: str = typer.Option(cover_kit.DEFAULT_PLUGIN, "--plugin", help="The SD3 VST3"),
 ) -> None:
-    """Save an SD3 kit for re-rendering takes: choose it in SD3's window, or
-    take it out of a Live set. Saved to kit/cover-kits/<name>.state and proved
-    to make a sound."""
+    """Save an SD3 kit for re-rendering takes: take it out of a Live set (the
+    everyday practice set unless --from-als says another), choose it in SD3's
+    window, or copy the baked one. Saved to kit/cover-kits/<name>.state and
+    proved to make a sound. Only SD3's own state comes out of a set: a
+    re-render has none of the track's other devices (Utility, Roar)."""
+    from pipeline import live_set
+
     try:
-        if from_als and from_bake:
-            raise StageError("--from-als or --from-bake, not both")
-        if from_als:
-            path = cover_kit.kit_from_als(from_als, track, name)
+        if sum([bool(from_als), pick, from_bake]) > 1:
+            raise StageError("one of --from-als, --pick or --from-bake")
+        if pick:
+            path = cover_kit.pick(name, plugin, log=console.print)
         elif from_bake:
             path = cover_kit.kit_from_bake(name)
         else:
-            path = cover_kit.pick(name, plugin, log=console.print)
+            path = cover_kit.kit_from_als(from_als or live_set.TEMPLATE, track, name)
         console.print(f"saved {path} ({path.stat().st_size / 1024:.0f} KB); checking it loads")
         cover_kit.Renderer(name, plugin, log=console.print)
     except StageError as exc:

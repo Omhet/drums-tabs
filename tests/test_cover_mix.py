@@ -78,7 +78,7 @@ def test_loudness_comes_out_at_minus_14_with_the_chain_on():
 def test_drums_shift_moves_the_kit_and_only_the_kit():
     one = np.zeros(SR * 2, dtype=np.float32)
     one[SR] = 1.0
-    settings = MixSettings(drums_shift_ms=12.0, loudness=False, limiter=False, match_kit_level=False).dry()
+    settings = MixSettings(drums_shift_ms=12.0, loudness=False, limiter=False).dry()
     out, dry = cover_mix.mix(
         [TrackIn("SD3 rec", "kit", one, SR, start_s=0.5), TrackIn("nodrums", "song", one * 0.5, SR)],
         settings,
@@ -89,14 +89,17 @@ def test_drums_shift_moves_the_kit_and_only_the_kit():
     assert set(peaks) == {SR, int(round((1.5 + 0.012) * SR))}
 
 
-def test_an_untouched_kit_fader_is_matched_to_the_drum_stem():
+@pytest.mark.parametrize("fader_db", [-6.0, 1.5])
+def test_the_kit_sits_at_its_fader_whatever_the_drum_stem(fader_db):
+    """The faders are the balance the user set: nothing is matched over them,
+    not even at the fader a new set starts at."""
     kit, song = kit_and_song()
     settings = MixSettings(loudness=False, limiter=False, room=False, glue=False, song_dip=False)
     settings.tone_match = settings.bus_comp = settings.hpf = False
-    untouched = settings.untouched_fader_db
-    out, _ = cover_mix.mix([TrackIn("SD3 rec", "kit", kit * 0.1, SR, gain_db=untouched)], settings, kit)
-    stem = cover_mix.loudness(np.stack([kit, kit]), SR)
-    assert cover_mix.loudness(out, SR) == pytest.approx(stem, abs=0.3)
+    loud_stem = kit * 10.0
+    out, _ = cover_mix.mix([TrackIn("1-Superior Drummer 3", "kit", kit, SR, gain_db=fader_db)], settings, loud_stem)
+    at_unity = cover_mix.loudness(np.stack([kit, kit]), SR)
+    assert cover_mix.loudness(out, SR) == pytest.approx(at_unity + fader_db, abs=0.05)
 
 
 def test_tone_match_is_clamped_and_moves_the_kit_toward_the_record():

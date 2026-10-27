@@ -23,10 +23,9 @@ about Live sets; ``cover_cli_mix`` gathers them.
 it is dropped before anything is summed -- with an assert where the summing
 happens, so a later change cannot let it through.
 
-**Levels** start from the Live faders. A kit fader left where the generated
-set put it ("untouched") is replaced by a match: the kit sits against the song
-as the original drum stem does on the record, through the song's own fader.
-``[mix] trim_db`` adds on top of either, per track name.
+**Levels** are the Live faders, as they were when the take was heard: the
+user sets the balance in Live, and the mix keeps it. ``[mix] trim_db`` adds on
+top, per track name.
 
 The **timing report** (:func:`timing_report`) says where your hits sit against
 the original drummer's, kick and snare separately.
@@ -112,13 +111,9 @@ class MixSettings:
     target_lufs: float = -14.0
     true_peak_db: float = -1.0
 
-    #: Match an untouched kit fader to the original drum stem's loudness.
-    match_kit_level: bool = True
-    #: Where the generated set leaves a fader, i.e. what "untouched" reads as.
-    untouched_fader_db: float = -6.0
     #: Moves the whole kit later (positive) or earlier, in milliseconds.
     drums_shift_ms: float = 0.0
-    #: Added to a track's fader, by track name: ``trim_db = { "SD3 rec" = 2 }``.
+    #: Added to a track's fader, by track name: ``trim_db = { "1-Superior Drummer 3" = 2 }``.
     trim_db: dict[str, float] = field(default_factory=dict)
 
     @classmethod
@@ -374,23 +369,13 @@ def mix(
     other_bus = np.zeros((2, length), dtype=np.float32)
     drums_only = np.zeros((2, length), dtype=np.float32)
 
-    # The record's balance is drum stem against song at the same level, so a
-    # matched kit follows the song's fader.
-    songs = [t for t, _, _ in loaded if t.role == "song"]
-    song_db = songs[0].gain_db + settings.trim_db.get(songs[0].name, 0.0) if songs else 0.0
-
     for t, audio, start in loaded:
         assert t.role != "click", "the click is never mixed"
         trim = settings.trim_db.get(t.name, 0.0)
         if t.role == "kit":
             drums_only += _place(audio, start, sr, length)
             audio = kit_chain(audio, ref, settings, log)
-            gain_db = t.gain_db
-            untouched = abs(t.gain_db - settings.untouched_fader_db) < 0.05
-            if settings.match_kit_level and untouched and ref is not None:
-                gain_db = loudness(ref, sr) - loudness(audio, sr) + song_db
-                log(f"  {t.name}: fader untouched, matched to the drum stem ({gain_db:+.1f} dB)")
-            kit_bus += _place(balance(audio, t.pan) * db(gain_db + trim), start, sr, length)
+            kit_bus += _place(balance(audio, t.pan) * db(t.gain_db + trim), start, sr, length)
         elif t.role == "song":
             if settings.song_dip:
                 import pedalboard

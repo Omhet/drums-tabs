@@ -16,11 +16,12 @@ find in ``work/truth.json``:
   ``bake`` -- what ``SD3 rec`` would have recorded -- and written into the
   generated set by :func:`live_set.add_recorded_attempt`, as Live writes a
   pass. Then the faders are moved off where the set left them.
-* **The cameras.** Two ffmpeg test patterns with their clock burned in, each
-  started some unknown time before the first pass and running through the
-  gap between passes. ``raw/webcam.mp4`` is 1920x1080 30 fps H.264;
-  ``raw/iphone.mov`` is HEVC stored 1920x1080 with a 90 degree rotation
-  flag (upright it is portrait), and its clock runs :data:`IPHONE_PPM` fast.
+* **The phones.** Two ffmpeg test patterns with their name and clock burned
+  in, each started some unknown time before the first pass and running
+  through the gap between passes: ``raw/main.mov`` and ``raw/foot.mov``. Both
+  are what an iPhone held upright writes -- 1080x1920 upright at 60 fps, HEVC,
+  stored landscape (1920x1080) with a -90 degree rotation flag -- and each
+  clock runs off by its own amount (:data:`CAMERAS`: main fast, foot slow).
   Each has a room mic: the kit render muffled, a few ms late (the distance to
   the mic) and noisy. Every kick and snare lights a white square in a known
   place in both pictures, black otherwise -- the visual truth.
@@ -49,7 +50,7 @@ from pipeline import cover, cover_kit, live_set, paths
 from pipeline.proc import StageError, require_on_path
 
 SR = 48000
-FPS = 30
+FPS = 60  # what the phones record
 SEED = 7
 
 LATENESS_MS = 15.0
@@ -61,27 +62,29 @@ CAMERA_TAIL_S = 5.0  # the cameras roll on after the last pass
 
 KIT = "bake"
 
-#: Per camera: how long it ran before the first pass, its clock error, how far
+#: Per phone: how long it ran before the first pass, its clock error, how far
 #: its mic is from the kit, and where its flash square is in the *upright*
-#: picture. Each square is inside what every layout keeps of that camera: the
-#: webcam's is visible after both the 16:9 and 9:16 main-area crops, the
-#: iPhone's inside the centre square the inset takes. So is each burned-in clock.
+#: picture. Each square is inside what the render keeps of that phone -- the
+#: main one's inside the default main crop (rows 104-1604) and clear of the
+#: foot inset over it, the foot one's inside the centre square the inset
+#: takes. So is each burned-in clock.
 CAMERAS = {
-    "webcam": {"file": "webcam.mp4", "preroll_s": 7.3, "ppm": 0.0, "mic_ms": 9.0,
-               "size": (1920, 1080), "flash": (620, 420, 120, 120), "clock": (600, 200)},
-    "iphone": {"file": "iphone.mov", "preroll_s": 12.9, "ppm": 80.0, "mic_ms": 11.0,
-               "size": (1080, 1920), "flash": (40, 460, 160, 160), "clock": (40, 1380)},
+    "main": {"file": "main.mov", "preroll_s": 7.3, "ppm": 40.0, "mic_ms": 9.0,
+             "size": (1080, 1920), "flash": (80, 400, 160, 160), "clock": (40, 1400)},
+    "foot": {"file": "foot.mov", "preroll_s": 12.9, "ppm": -60.0, "mic_ms": 11.0,
+             "size": (1080, 1920), "flash": (40, 460, 160, 160), "clock": (40, 1380)},
 }  # fmt: skip
-IPHONE_PPM = CAMERAS["iphone"]["ppm"]
 
 #: The SD3 notes that count as a "true" kick or snare hit (they flash).
 FLASH_NOTES = {"kick": 36, "snare": 38}
 
-#: Fader moves made after recording, so reading them back is tested.
+#: Fader moves made after recording, so reading them back is tested. The kit's
+#: level is the SD3 track's; SD3 rec's is moved too, and the mix must ignore it.
 FADERS = {
+    live_set.SD3_TRACK: {"gain_db": -1.0, "pan": 0.1, "muted": False},
     "nodrums": {"gain_db": -3.0, "pan": 0.0, "muted": False},
     "drums": {"gain_db": -6.0, "pan": 0.0, "muted": True},
-    live_set.REC_TRACK: {"gain_db": -2.0, "pan": 0.1, "muted": False},
+    live_set.REC_TRACK: {"gain_db": -12.0, "pan": -0.3, "muted": False},
     "Main": {"gain_db": -1.0, "pan": 0.0, "muted": False},
 }
 
@@ -196,9 +199,8 @@ def _camera_video(name: str, cam: dict, audio: Path, duration_s: float, frames: 
     graph = (
         f"[0:v]drawtext=fontfile='{FONT}':text='{name} %{{pts\\:hms}}':fontsize=64:fontcolor=white"
         f":box=1:boxcolor=black:x={cam['clock'][0]}:y={cam['clock'][1]}[pat];"
-        f"[2:v]format=yuv420p[sq];[pat][sq]overlay=x={x}:y={y}:eof_action=pass"
-        + (",transpose=1" if name == "iphone" else "")  # stored landscape, shown upright by the rotation flag
-        + "[v]"
+        f"[2:v]format=yuv420p[sq];[pat][sq]overlay=x={x}:y={y}:eof_action=pass,"
+        "transpose=2[v]"  # stored landscape, a quarter turn anticlockwise; the flag turns it back
     )
     script = tmp / f"{name}-filter.txt"
     script.write_text(graph, encoding="utf-8")
@@ -207,19 +209,16 @@ def _camera_video(name: str, cam: dict, audio: Path, duration_s: float, frames: 
         "-i", str(audio),
         "-f", "rawvideo", "-pix_fmt", "gray", "-s", f"{fw}x{fh}", "-r", str(FPS), "-i", str(flash),
     ]  # fmt: skip
-    if name == "iphone":
-        target = tmp / "iphone-stored.mov"
-        codec = ["-c:v", "libx265", "-preset", "ultrafast", "-x265-params", "log-level=error", "-tag:v", "hvc1"]
-    else:
-        target = out
-        codec = ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "23"]
+    stored = tmp / f"{name}-stored.mov"
+    codec = ["-c:v", "libx265", "-preset", "ultrafast", "-x265-params", "log-level=error", "-tag:v", "hvc1"]
     cmd = [ffmpeg, "-hide_banner", "-loglevel", "error", "-y", *src, "-/filter_complex", str(script),
            "-map", "[v]", "-map", "1:a", *codec, "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
-           "-t", f"{duration_s:.3f}", str(target)]  # fmt: skip
+           "-t", f"{duration_s:.3f}", str(stored)]  # fmt: skip
     _ffmpeg(cmd)
-    if name == "iphone":
-        _ffmpeg([ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-display_rotation", "90",
-                 "-i", str(target), "-c", "copy", str(out)])  # fmt: skip
+    # The flag an iPhone held upright writes: turn a quarter clockwise to show.
+    _ffmpeg([ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-display_rotation", "-90",
+             "-i", str(stored), "-c", "copy", str(out)])  # fmt: skip
+    stored.unlink()
 
 
 def _ffmpeg(cmd: list[str]) -> None:
@@ -249,8 +248,18 @@ def _ensure_kits(log) -> None:
         cover_kit.kit_from_bake(KIT)
 
 
-def make(song: paths.Song, timing: cover.Timing, name: str, *, seed: int = SEED, log=print) -> Path:
+def make(
+    song: paths.Song,
+    timing: cover.Timing,
+    name: str,
+    *,
+    count_in_bars: int = cover.COUNT_IN_BARS,
+    seed: int = SEED,
+    log=print,
+) -> Path:
     """Build the fake session ``name``. Returns ``work/truth.json``."""
+    from pipeline import cover_audio
+
     sess = cover.Session(song, name)
     if sess.root.exists():
         if not (sess.work / "truth.json").exists():
@@ -261,8 +270,13 @@ def make(song: paths.Song, timing: cover.Timing, name: str, *, seed: int = SEED,
 
     sess.ensure_dirs()
     (sess.work / "truth.json").write_text("{}", encoding="utf-8")  # marks the folder as fake until it is filled in
-    sess.update("session", {"song": song.slug, "timing": timing.value, "name": name, "live_tempo": cover.LIVE_TEMPO})
-    live_set.build_set(sess, timing)
+    sess.update("session", {
+        "song": song.slug, "timing": timing.value, "name": name, "live_tempo": cover.LIVE_TEMPO,
+        "count_in_bars": count_in_bars, "stem_start_beats": cover.stem_start_for(song, timing, count_in_bars),
+    })  # fmt: skip
+    if not sess.backing()["click"].exists():
+        cover_audio.build_click(song, timing, count_in_bars)
+    live_set.build_set(sess)
     clock = sess.clock()
     hits = chart_hits(song)
     per_bar = cover.TICKS_PER_BEAT * cover.BEATS_PER_BAR

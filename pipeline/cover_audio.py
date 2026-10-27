@@ -16,11 +16,13 @@ Song 2 asks for (its beats run 0.987-1.016 of 130). So the result is not
 trusted blind: :func:`measure` finds the hits in the output drum stem and
 compares them with where the map says they belong.
 
-**Click tracks.** Both start at 1|1|1 and carry their own count-in. Straight: a
-steady ``LIVE_TEMPO`` click, the first ``STRAIGHT_LEAD_BEATS`` beats counting
-in the stems that start one bar later. Original: a click on every beat of
-``grid.lock.json`` with four count-in beats before bar 1 at the opening beat
-spacing, and two bars past the last beat at the closing spacing.
+**Click tracks**, one per timing and count-in (``click-straight-2bar.wav``).
+Each starts at 1|1|1 and carries its own count-in of whole bars; the stems
+start where :func:`pipeline.cover.stem_start_for` puts them. Straight: a
+steady ``LIVE_TEMPO`` click, the count-in's beats counting in the stems that
+start right after them. Original: a click on every beat of ``grid.lock.json``
+with the count-in's beats before bar 1 at the opening beat spacing, and two
+bars past the last beat at the closing spacing.
 """
 
 from __future__ import annotations
@@ -277,7 +279,7 @@ def render_clicks(times: np.ndarray, accents: np.ndarray, length: int, sr: int =
 def straight_clicks(duration: float, bpm: float = cover.LIVE_TEMPO) -> tuple[np.ndarray, np.ndarray]:
     """Beat times from 0 to ``duration`` at ``bpm``; beat 0 (and every 4th) accented.
 
-    The first ``STRAIGHT_LEAD_BEATS`` are the count-in; the stems start after.
+    The first ``count_in_bars`` bars of them are the count-in; the stems start after.
     """
     period = 60.0 / bpm
     count = int(np.floor(duration / period - 1e-9)) + 1
@@ -285,21 +287,22 @@ def straight_clicks(duration: float, bpm: float = cover.LIVE_TEMPO) -> tuple[np.
     return k * period, k % cover.BEATS_PER_BAR == 0
 
 
-def original_clicks(beats: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """``beats`` (bar 1 first) plus a bar of count-in and two bars of tail."""
+def original_clicks(beats: np.ndarray, count_in_bars: int) -> tuple[np.ndarray, np.ndarray]:
+    """``beats`` (bar 1 first, timeline seconds) with a count-in before and two bars of tail."""
     if beats.size < 2:
         raise StageError("need at least two beats for a click")
     bar = cover.BEATS_PER_BAR
+    lead_beats = count_in_bars * bar
     head_gap = beats[1] - beats[0]
     tail_gap = beats[-1] - beats[-2]
-    lead = beats[0] - head_gap * np.arange(bar, 0, -1)
-    if lead[0] < 0:
+    lead = beats[0] - head_gap * np.arange(lead_beats, 0, -1)
+    if lead[0] < -1e-9:
         raise StageError(
-            f"bar 1 is at {beats[0]:.2f}s, too early for a {bar}-beat count-in at {head_gap:.3f}s a beat"
+            f"bar 1 is at {beats[0]:.2f}s, too early for a {lead_beats}-beat count-in at {head_gap:.3f}s a beat"
         )
     tail = beats[-1] + tail_gap * np.arange(1, ORIGINAL_TAIL_BARS * bar + 1)
     times = np.concatenate([lead, beats, tail])
-    # Beat 0 of bar 1 is index ``bar`` in ``times``; the count-in is a whole bar.
+    # Bar 1's downbeat is index ``lead_beats`` in ``times``; the count-in is whole bars.
     accents = np.arange(times.size) % bar == 0
     return times, accents
 
@@ -314,20 +317,21 @@ def write_click(dest: Path, times: np.ndarray, accents: np.ndarray, length: int)
     return dest
 
 
-def build_click(song: paths.Song, timing: cover.Timing) -> Path:
-    dest = cover.click_track(song, timing)
+def build_click(song: paths.Song, timing: cover.Timing, count_in_bars: int) -> Path:
+    """The click for one timing and count-in, from 1|1|1."""
+    dest = cover.click_track(song, timing, count_in_bars)
+    lead = cover.stem_start_for(song, timing, count_in_bars) * 60.0 / cover.LIVE_TEMPO
     if timing is cover.Timing.straight:
         stem = cover.stretched(song, "nodrums")
         if not stem.exists():
             raise StageError(f"no {stem.name}; stretch the stems first")
-        lead = cover.STRAIGHT_LEAD_BEATS * 60.0 / cover.LIVE_TEMPO
         duration = lead + sf.info(str(stem)).duration
         times, accents = straight_clicks(duration)
     else:
-        times, accents = original_clicks(cover.original_beats(song))
+        times, accents = original_clicks(lead + cover.original_beats(song), count_in_bars)
         # The stem's length, unless the two tail bars run past it (Song 2's do,
         # by two seconds: its last beat is close to the end of the file).
-        duration = max(sf.info(str(song.nodrums)).duration, times[-1] + CLICK_LENGTH)
+        duration = max(lead + sf.info(str(song.nodrums)).duration, times[-1] + CLICK_LENGTH)
     return write_click(dest, times, accents, int(round(duration * SR)))
 
 
@@ -369,11 +373,14 @@ def build(song: paths.Song, *, force: bool = False) -> CoverAudio:
         else:
             skipped.append(dest)
     accuracy = measure(song.drums, cover.stretched(song, "drums"), straight, original)
+    # A new session's count-in, and whatever the song's sessions were made with.
+    count_ins = sorted({cover.COUNT_IN_BARS} | {s.count_in_bars for s in cover.sessions(song)})
     for timing in cover.Timing:
-        dest = cover.click_track(song, timing)
         deps = (cover.stretched(song, "nodrums"),) if timing is cover.Timing.straight else (song.nodrums,)
-        if force or _stale(dest, *deps, *inputs):
-            written.append(build_click(song, timing))
-        else:
-            skipped.append(dest)
+        for bars in count_ins:
+            dest = cover.click_track(song, timing, bars)
+            if force or _stale(dest, *deps, *inputs):
+                written.append(build_click(song, timing, bars))
+            else:
+                skipped.append(dest)
     return CoverAudio(tuple(written), tuple(skipped), accuracy)

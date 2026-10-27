@@ -40,20 +40,17 @@ VITE_URL = "http://localhost:5173/"
 
 LAYOUTS = ("scroll", "flip")
 
-# alphaTab's display scale per output width: what makes four bars fill the
-# width with notation that needs no resampling and still reads at a glance.
-# 1920 wide: 480 px a bar; 1080 wide (9:16): 270 px a bar.
-DEFAULT_SCALE = {1920: 1.8, 1080: 1.3}
+# alphaTab's display scale for the 1080-wide strip of a 9:16 video: what makes
+# four bars (270 px each) fill the width with notation that needs no resampling
+# and still reads at a glance.
+SCALE = 1.3
+BARS = 4  # bars across the strip's width; cover.toml [layout] tab_bars / tab_scale change both
 
 PLAYHEAD_RGB = (230, 30, 40)
 PLAYHEAD_PX = 4
 BORDER_RGB = (60, 60, 60)
 BORDER_PX = 2
 PLAYHEAD_AT = 0.25  # scroll: where the fixed playhead stands, as a fraction of the width
-
-
-def default_scale(width: int) -> float:
-    return DEFAULT_SCALE.get(width, round(1.8 * width / 1920, 2))
 
 
 # --- rendering (browser) -------------------------------------------------------
@@ -111,26 +108,26 @@ def vite_server(start_timeout: float = 60.0):
         _kill_tree(proc)
 
 
-def assets_dir(session: cover.Session, layout: str, width: int) -> Path:
-    return session.work / "tab" / f"{layout}-{width}"
+def assets_dir(session: cover.Session, layout: str, width: int, bars: int = BARS, scale: float = SCALE) -> Path:
+    return session.work / "tab" / f"{layout}-{width}-{bars}bar-x{scale:g}"
 
 
 def render_assets(
     session: cover.Session,
     layout: str,
-    scale: float | None = None,
-    width: int = 1920,
-    bars_per_row: int = 4,
+    width: int,
+    scale: float = SCALE,
+    bars_per_row: int = BARS,
 ) -> Path:
-    """Engrave the song's tab for one layout and output width.
+    """Engrave the song's tab for one layout, output width and bars per width.
 
     Writes ``strip.png`` (the whole engraving) and ``tab.json`` (beats, bars,
-    rows) into ``work/tab/<layout>-<width>/`` and returns that folder.
+    rows) into ``work/tab/<layout>-<width>-<bars>bar-x<scale>/`` and returns
+    that folder.
     """
     if layout not in LAYOUTS:
         raise StageError(f"layout must be one of {LAYOUTS}, not {layout!r}")
-    scale = default_scale(width) if scale is None else scale
-    out = assets_dir(session, layout, width)
+    out = assets_dir(session, layout, width, bars_per_row, scale)
     out.mkdir(parents=True, exist_ok=True)
     for old in out.glob("tile-*.png"):
         old.unlink()

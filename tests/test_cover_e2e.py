@@ -1,20 +1,21 @@
 """The dress rehearsal: the whole cover pipeline on a fake session whose answers are known.
 
 ``drums cover-fake-session`` writes a session -- a false start and a full pass
-rendered through SD3, two cameras with room mics and a flash on every kick and
-snare -- and ``work/truth.json``. Then the real commands run on it, as the user
-would run them, and every result is checked against the truth:
+rendered through SD3, two upright HEVC phones at 60 fps, each with its own
+clock drift, a room mic and a flash on every kick and snare -- and
+``work/truth.json``. Then the real commands run on it, as the user would run
+them, and every result is checked against the truth:
 
 1. the attempts list finds both passes and picks the full one;
-2. sync finds each camera's offset within 5 ms and the iPhone's drift within
-   10 ppm;
+2. sync finds each phone's offset within 5 ms and its drift within 10 ppm;
 3. in every output video the flashes, the audio's hits and the tab strip's
-   playhead coincide within a frame, at the start, middle and end;
+   playhead coincide within a frame (16.7 ms at 60 fps), at the start, middle
+   and end;
 4. no click in the mix, -14 +-0.5 LUFS, and the timing report finds the
    lateness that was planted;
 5. kit B's render sounds different from kit A's, but its hits land within
    2 ms of kit A's -- the recorded MIDI was complete;
-6. the files: size, 30 fps, H.264 + AAC, faststart, the right length.
+6. the files: 1080x1920, 60 fps, H.264 + AAC, faststart, the right length.
 
 Slow (SD3, ffmpeg, a browser for the tab; a few minutes a timing), so it runs
 only with ``-m slow`` or ``DRUMS_SLOW=1``. ``DRUMS_E2E_REUSE=1`` keeps a
@@ -44,9 +45,10 @@ pytestmark = pytest.mark.slow
 
 SLUG = "blur-song-2-official-music-video"
 DRUMS = Path(sys.executable).parent / "drums"
-FRAME = 1.0 / 30
+FRAME = 1.0 / cover_render.FPS  # 16.7 ms
+SYNC_SLACK = 0.004  # what the sync itself may be off by, on top of a frame
 KITS = ("bake", "practice")
-KIT_VIDEO = ("16x9", "flip")
+KIT_TAB = "flip"
 WINDOW_S = 15.0
 SR = 48000
 
@@ -58,12 +60,9 @@ def _drums(*args: str) -> str:
 
 
 def _videos(sess: cover.Session) -> dict[str, Path]:
-    out = {}
-    for lay in cover_render.LAYOUTS:
-        for tab in cover_render.TABS:
-            out[f"{lay}-{tab}"] = cover_render.output_path(sess, lay, tab, None, None)
+    out = {tab: cover_render.output_path(sess, tab, None, None) for tab in cover_render.TABS}
     for kit in KITS:
-        out[f"{KIT_VIDEO[0]}-{KIT_VIDEO[1]}-{kit}"] = cover_render.output_path(sess, *KIT_VIDEO, kit, None)
+        out[f"{KIT_TAB}-{kit}"] = cover_render.output_path(sess, KIT_TAB, kit, None)
     return out
 
 
@@ -81,8 +80,7 @@ def fake(request):
         _drums("cover-mix", SLUG, "--name", name, "--kit", ",".join(KITS))
         _drums("cover-sync", SLUG, "--name", name)
         _drums("cover-render", SLUG, "--name", name, "--all")
-        _drums("cover-render", SLUG, "--name", name, "--layout", KIT_VIDEO[0], "--tab", KIT_VIDEO[1],
-               "--kit", ",".join(KITS))  # fmt: skip
+        _drums("cover-render", SLUG, "--name", name, "--tab", KIT_TAB, "--kit", ",".join(KITS))
     truth = json.loads((sess.work / "truth.json").read_text(encoding="utf-8"))
     return sess, truth
 
@@ -129,23 +127,27 @@ def _t0(sess: cover.Session) -> float:
     return float(sess.settings()["attempt"]["start_s"]) - float(lay.get("preroll_s", cover_render.PREROLL_S))
 
 
-def _flash_boxes(layout: cover_render.Layout, truth: dict) -> dict[str, tuple[int, int, int, int]]:
-    """Where each camera's flash square lands in the output frame (its inner half)."""
-    L, b, m = layout, cover_render.BORDER_PX, cover_render.MARGIN_PX
+def _flash_boxes(truth: dict) -> dict[str, tuple[int, int, int, int]]:
+    """Where each phone's flash square lands in the output frame (its inner half)."""
+    L, b, m = cover_render.LAYOUT, cover_render.BORDER_PX, cover_render.MARGIN_PX
     out = {}
-    # the webcam fills the main area: scaled to cover, centre-cropped
-    w, h = truth["cameras"]["webcam"]["upright_size"]
-    x, y, fw, fh = truth["cameras"]["webcam"]["flash_upright"]
-    k = max(L.width / w, L.main_h / h)
-    cx, cy = (round(w * k) - L.width) / 2, (round(h * k) - L.main_h) / 2
-    out["webcam"] = (x * k - cx, y * k - cy, fw * k, fh * k)
-    # the iPhone: centre square, scaled into the bordered inset, top right
-    w, h = truth["cameras"]["iphone"]["upright_size"]
-    x, y, fw, fh = truth["cameras"]["iphone"]["flash_upright"]
+    # the main phone fills the main area: the default crop -- the main area's
+    # shape, centred across, a quarter of the spare height above (ffmpeg puts
+    # its corner on even pixels for 4:2:0) -- then scaled to fit
+    w, h = truth["cameras"]["main"]["upright_size"]
+    x, y, fw, fh = truth["cameras"]["main"]["flash_upright"]
+    cw, ch = min(w, h * L.width / L.main_h), min(h, w * L.main_h / L.width)
+    cx = int((w - cw) / 2) // 2 * 2
+    cy = int((h - ch) * cover_render.MAIN_HEADROOM) // 2 * 2
+    k = L.width / cw
+    out["main"] = ((x - cx) * k, (y - cy) * k, fw * k, fh * k)
+    # the foot phone: centre square, scaled into the bordered inset, top right
+    w, h = truth["cameras"]["foot"]["upright_size"]
+    x, y, fw, fh = truth["cameras"]["foot"]["flash_upright"]
     side = min(w, h)
     k = L.inset / side
     ox, oy = L.width - (L.inset + 2 * b) - m + b, m + b
-    out["iphone"] = (ox + (x - (w - side) / 2) * k, oy + (y - (h - side) / 2) * k, fw * k, fh * k)
+    out["foot"] = (ox + (x - (w - side) / 2) * k, oy + (y - (h - side) / 2) * k, fw * k, fh * k)
     inner = {}
     for cam, (x, y, fw, fh) in out.items():
         even = lambda v: int(v) // 2 * 2  # noqa: E731 -- crop on 4:2:0 moves odd edges
@@ -166,7 +168,8 @@ def _rising(means: np.ndarray) -> np.ndarray:
     return np.flatnonzero(lit[1:] & ~lit[:-1]) + 1
 
 
-def _strip_frames(video: Path, layout: cover_render.Layout, frames: list[int]) -> np.ndarray:
+def _strip_frames(video: Path, frames: list[int]) -> np.ndarray:
+    layout = cover_render.LAYOUT
     sel = "+".join(f"eq(n\\,{k})" for k in frames)
     cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(video),
            "-vf", f"select='{sel}',crop={layout.width}:{layout.strip_h}:0:{layout.main_h}",
@@ -205,29 +208,28 @@ def _isolated(hits: list[dict], gap: float = 0.1) -> list[dict]:
     return out
 
 
-@pytest.mark.parametrize("video", ["16x9-scroll", "16x9-flip", "9x16-scroll", "9x16-flip", "16x9-flip-practice"])
+@pytest.mark.parametrize("video", ["scroll", "flip", "flip-practice"])
 def test_flashes_audio_and_playhead_coincide(fake, video):
     sess, truth = fake
     path = _videos(sess)[video]
-    layout_name, tab = video.split("-")[:2]
-    layout = cover_render.LAYOUTS[layout_name]
+    tab, _, kit = video.partition("-")
+    kit = kit or None
     t0 = _t0(sess)
     hits = _isolated(truth["hits"])
     duration = float(sess.settings()["attempt"]["end_s"]) - t0
     first, last = hits[0]["t"], hits[-1]["t"]
     windows = {"start": first, "middle": (first + last) / 2 - WINDOW_S / 2, "end": last - WINDOW_S}
 
-    edges = {cam: _rising(_region_means(path, box)) * FRAME for cam, box in _flash_boxes(layout, truth).items()}
+    edges = {cam: _rising(_region_means(path, box)) * FRAME for cam, box in _flash_boxes(truth).items()}
     # The audio: where the output's track sits against the mix it was cut
     # from, and where each hit's attack is in the dry kit the mix was made of.
     # (Onset picking on the finished mix would mostly measure the song's
     # guitars and bass.)
-    kit = video.split("-")[2] if video.count("-") == 2 else None
     out_audio = decode_mono(path, SR)
     mix_audio = decode_mono(sess.work / (f"mix-{kit}.wav" if kit else "mix.wav"), SR)
     dry = sess.work / (f"drums-only-{kit}.wav" if kit else "drums-only.wav")
     attack = dict(zip((h["t"] for h in hits), _attacks(dry, [h["t"] for h in hits])))
-    strip = cover_render.make_strip(sess, layout, tab)
+    strip = cover_render.make_strip(sess, tab)
 
     report = []
     for where, a in windows.items():
@@ -242,8 +244,8 @@ def test_flashes_audio_and_playhead_coincide(fake, video):
             audio_err.append(onset - expect)
             for cam, e in edges.items():
                 k = e[np.argmin(np.abs(e - expect))]
-                # The camera's frame holding the hit is lit; the output samples
-                # the camera at 30 fps at a phase of its own, so the first lit
+                # The phone's frame holding the hit is lit; the output samples
+                # the phone at 60 fps at a phase of its own, so the first lit
                 # output frame starts within a frame either side of the hit.
                 # Sync locks to the room mic, which hears the kit a few ms after
                 # the camera sees it, so the picture is that much early.
@@ -254,28 +256,28 @@ def test_flashes_audio_and_playhead_coincide(fake, video):
         flash_audio = np.abs(np.asarray(flash_audio))
         for cam, errs in flash_err.items():
             errs = np.asarray(errs)
-            assert np.all(np.abs(errs) < FRAME + 0.004), f"{where} {cam} flash off its hit: {errs}"
+            assert np.all(np.abs(errs) < FRAME + SYNC_SLACK), f"{where} {cam} flash off its hit: {errs}"
         assert np.mean(audio_err < 0.005) >= 0.9, f"{where} audio hits off: {np.sort(audio_err)[-5:]}"
         assert np.median(audio_err) < 0.003, where
-        assert np.mean(flash_audio <= FRAME + 0.004) >= 0.95, f"{where} flash vs audio: {np.sort(flash_audio)[-5:]}"
+        assert np.mean(flash_audio <= FRAME + SYNC_SLACK) >= 0.95, f"{where} flash vs audio: {np.sort(flash_audio)[-5:]}"
 
         # the playhead: read the strip's time out of the output pixels at a few lit frames
         picks = in_window[:: max(1, len(in_window) // 4)][:4]
-        frames = [int(round(edges["webcam"][np.argmin(np.abs(edges["webcam"] - (h["t"] - t0)))] / FRAME)) for h in picks]
-        pixels = _strip_frames(path, layout, frames)
+        frames = [int(round(edges["main"][np.argmin(np.abs(edges["main"] - (h["t"] - t0)))] / FRAME)) for h in picks]
+        pixels = _strip_frames(path, frames)
         for h, k, px in zip(picks, frames, pixels):
             at = t0 + k * FRAME
             lo, hi = _strip_time(px, strip, at)
             assert lo - 0.005 <= at <= hi + 0.005, f"{where}: strip shows {lo:.3f}-{hi:.3f}, frame is at {at:.3f}"
             shown = min(max(at, lo), hi)
             # the lit frame starts up to a frame (plus the mic's early) before the hit
-            early = truth["cameras"]["webcam"]["mic_delay_ms"] / 1000
+            early = truth["cameras"]["main"]["mic_delay_ms"] / 1000
             lag = h["t"] - shown
-            assert abs(lag - early) <= FRAME + 0.004, f"{where}: playhead {-lag:+.3f}s off the hit"
+            assert abs(lag - early) <= FRAME + SYNC_SLACK, f"{where}: playhead {-lag:+.3f}s off the hit"
             # ... and on the written note the hit belongs to
             tick = float(strip.clock.tick_at(shown))
             written = float(strip.clock.seconds_at(round(tick / 120) * 120))
-            assert abs(shown - written) <= FRAME + (truth["lateness_ms"] + truth["jitter_ms"]) / 1000 + 0.004
+            assert abs(shown - written) <= FRAME + (truth["lateness_ms"] + truth["jitter_ms"]) / 1000 + SYNC_SLACK
         report.append(
             f"{where}: flash-hit {max(np.max(np.abs(np.asarray(v))) for v in flash_err.values()) * 1000:.0f} ms max, "
             f"audio {np.median(audio_err) * 1000:.1f} ms median"
@@ -290,7 +292,7 @@ def test_flashes_audio_and_playhead_coincide(fake, video):
 def test_mix_has_no_click_right_loudness_and_finds_the_lateness(fake):
     sess, truth = fake
     mix, sr = sf.read(str(sess.work / "mix.wav"), dtype="float32", always_2d=True)
-    click = cover_mix.load(cover.click_track(sess.song, sess.timing), sr).mean(axis=0)
+    click = cover_mix.load(sess.backing()["click"], sr).mean(axis=0)
     m = mix.mean(axis=1)[: click.size]
     c = click[: m.size]
     gain = float(np.dot(m, c) / np.dot(c, c))
@@ -365,8 +367,8 @@ def test_files_are_right(fake):
     sess, truth = fake
     attempt = sess.settings()["attempt"]
     expect = float(attempt["end_s"]) - float(attempt["start_s"]) + cover_render.PREROLL_S + cover_render.TAIL_S
+    layout = cover_render.LAYOUT
     for name, path in _videos(sess).items():
-        layout = cover_render.LAYOUTS[name.split("-")[0]]
         probe = json.loads(subprocess.run(
             ["ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(path)],
             capture_output=True, check=True, text=True).stdout)  # fmt: skip
@@ -374,7 +376,7 @@ def test_files_are_right(fake):
         audio = next(s for s in probe["streams"] if s["codec_type"] == "audio")
         assert (video["width"], video["height"]) == (layout.width, layout.height), name
         assert video["codec_name"] == "h264" and video["pix_fmt"] == "yuv420p", name
-        assert video["r_frame_rate"] == "30/1" and video["avg_frame_rate"] == "30/1", name
+        assert video["r_frame_rate"] == "60/1" and video["avg_frame_rate"] == "60/1", name
         assert audio["codec_name"] == "aac", name
         assert abs(float(probe["format"]["duration"]) - expect) < 0.1, f"{name}: {probe['format']['duration']} vs {expect:.2f}"
         boxes = _top_level_boxes(path)

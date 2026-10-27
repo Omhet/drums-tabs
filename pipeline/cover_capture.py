@@ -1,13 +1,27 @@
-"""Capture for a cover: OBS configured and driven, the raw MIDI log, the iPhone file.
+"""Capture for a cover: the raw MIDI log, the phones' files, and OBS behind ``--obs``.
 
-**OBS.** Everything OBS needs is generated, under the names ``DrumCover``
-(profile) and ``DrumCover`` (scene collection) in ``%APPDATA%/obs-studio/basic``.
-The user's own ``Untitled`` profile and collection are never read or written.
-OBS rewrites its config files when it exits, so they are only written while OBS
-is closed (:func:`obs_running`). The profile is ours and rewritten each take; the
-scene collection is written once (or by ``--setup-webcam``) and then left alone,
-because the webcam's framing is set by hand in the OBS preview and OBS saves it
-there.
+A take is filmed by two iPhones, each recording on its own for the whole
+session: ``main`` (the side-front shot of the player) and ``foot`` (the right
+foot on the kick pedal). ``cover-take`` only runs the raw MIDI log while you
+play; ``cover-import --as main|foot`` copies each phone's video in afterwards.
+
+**The phones.** A phone is a portable device, not a drive, so Python cannot
+open its files. :data:`PHONE_PS` walks it through the Windows Shell
+(``Shell.Application``) from PowerShell instead. Two iPhones plugged in at once
+both show up as "Apple iPhone", with nothing in the Shell's view of them to
+say which is which, so an import refuses to guess: one phone at a time. Every
+imported file is checked (:func:`check_video`): upright size, rotation flag,
+frame rate and how even it is, duration.
+
+**OBS** (``cover-take --obs``: a webcam as the main camera, recorded by OBS
+into ``raw/main.mp4``). Everything OBS needs is generated, under the names
+``DrumCover`` (profile) and ``DrumCover`` (scene collection) in
+``%APPDATA%/obs-studio/basic``. The user's own ``Untitled`` profile and
+collection are never read or written. OBS rewrites its config files when it
+exits, so they are only written while OBS is closed (:func:`obs_running`). The
+profile is ours and rewritten each take; the scene collection is written once
+(or by ``--setup-webcam``) and then left alone, because the webcam's framing is
+set by hand in the OBS preview and OBS saves it there.
 
 **Remote control.** OBS's built-in obs-websocket server is switched on in
 ``plugin_config/obs-websocket/config.json``. Its password stays in that file --
@@ -15,14 +29,10 @@ OBS's own config, outside the repo -- and is read from there at connect time, so
 there is no second copy to drift.
 
 **Times.** The MIDI log stamps every message with ``time.perf_counter()`` and
-the wall clock as it arrives; ``capture.json`` stamps when OBS confirmed it was
-recording, on both clocks. Neither is used for sync (``cover-sync`` lines the
-cameras up by audio); they are there to find attempts and to check the set was
-saved after the last one.
-
-**iPhone.** The phone is a portable device, not a drive, so Python cannot open
-its files. :data:`IPHONE_PS` walks it through the Windows Shell
-(``Shell.Application``) from PowerShell instead.
+the wall clock as it arrives; ``capture.json`` stamps when the take started
+(the MIDI log opened, or OBS confirmed it was recording), on both clocks.
+Neither is used for sync (``cover-sync`` lines the cameras up by audio); they
+are there to find attempts and to check the set was saved after the last one.
 """
 
 from __future__ import annotations
@@ -40,6 +50,8 @@ import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+
+import numpy as np
 
 from pipeline.proc import StageError
 
@@ -59,7 +71,7 @@ WIDTH, HEIGHT = 1920, 1080
 RECORD_QUALITY = 18  # x264 CRF / NVENC CQP
 
 FILENAME_FORMAT = "obs %CCYY-%MM-%DD %hh-%mm-%ss"
-WEBCAM_FILE = "webcam.mp4"
+MAIN_FILE = "main.mp4"  # where an OBS recording lands: OBS films the main camera
 MIDI_LOG = "midi-log.jsonl"
 CAPTURE_JSON = "capture.json"
 VIDEO_EXTS = {".mov", ".mp4", ".m4v"}
@@ -747,27 +759,35 @@ def midi_input_names() -> list[str]:
     return list(mido.get_input_names())
 
 
-def capture_record(started_perf: float, started_wall: float, midi_port: str | None) -> dict:
+def capture_record(started_perf: float, started_wall: float, midi_port: str | None, obs: bool) -> dict:
+    """``capture.json``: when the take started -- OBS confirmed it was recording
+    (``obs``), or else the MIDI log opened -- on both clocks."""
     return {
-        "obs_recording_confirmed": {"perf": round(started_perf, 6), "wall": round(started_wall, 6)},
+        "started": {"perf": round(started_perf, 6), "wall": round(started_wall, 6)},
+        "obs": obs,
         "midi_port": midi_port,
     }
 
 
-# --- iPhone --------------------------------------------------------------------
+# --- the phones ----------------------------------------------------------------
+
+ONE_AT_A_TIME = "connect one phone at a time"
 
 # Walks "This PC\<phone>\Internal Storage\DCIM\*" through the Shell namespace.
 # -Mode list prints every video as JSON; -Mode copy copies one (by DCIM-relative
 # path) into -Dest and waits, because CopyHere returns at once and dies with
-# the process that started it.
-IPHONE_PS = r"""
+# the process that started it. More than one iPhone is refused: they all show
+# up as "Apple iPhone", so there is no telling which phone a file came from.
+PHONE_PS = r"""
 param([string]$Mode = "list", [string]$Rel = "", [string]$Dest = "")
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $shell = New-Object -ComObject Shell.Application
 $pc = $shell.Namespace(17)
-$phone = $pc.Items() | Where-Object { $_.Name -like "*iPhone*" -or $_.Name -like "*Apple*" } | Select-Object -First 1
-if (-not $phone) { Write-Output (ConvertTo-Json -Compress @{ error = "no iPhone under This PC (plugged in, unlocked, Trust this computer?)" }); exit 0 }
+$phones = @($pc.Items() | Where-Object { $_.Name -like "*iPhone*" -or $_.Name -like "*Apple*" })
+if ($phones.Count -eq 0) { Write-Output (ConvertTo-Json -Compress @{ error = "no iPhone under This PC (plugged in, unlocked, Trust this computer?)" }); exit 0 }
+if ($phones.Count -gt 1) { Write-Output (ConvertTo-Json -Compress @{ error = "several"; phones = @($phones | ForEach-Object { $_.Name }) }); exit 0 }
+$phone = $phones[0]
 $storage = $phone.GetFolder.Items() | Select-Object -First 1
 if (-not $storage) { Write-Output (ConvertTo-Json -Compress @{ error = "the iPhone shows no storage; unlock it and tap Trust"; phone = $phone.Name }); exit 0 }
 $dcim = $storage.GetFolder.Items() | Where-Object { $_.Name -eq "DCIM" } | Select-Object -First 1
@@ -809,10 +829,10 @@ Write-Output (ConvertTo-Json -Compress @{ error = "copy did not finish within an
 """
 
 
-def _run_iphone_ps(*args: str) -> dict:
+def _run_phone_ps(*args: str) -> dict:
     with tempfile.TemporaryDirectory() as tmp:
-        script = Path(tmp) / "iphone.ps1"
-        script.write_text(IPHONE_PS, encoding="utf-8-sig")
+        script = Path(tmp) / "phone.ps1"
+        script.write_text(PHONE_PS, encoding="utf-8-sig")
         run = subprocess.run(
             ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(script), *args],
             capture_output=True,
@@ -824,9 +844,20 @@ def _run_iphone_ps(*args: str) -> dict:
     if run.returncode != 0 or not out:
         return {"error": (run.stderr.strip() or "PowerShell gave no answer").splitlines()[-1]}
     try:
-        return json.loads(out[-1])
+        return explain(json.loads(out[-1]))
     except json.JSONDecodeError:
         return {"error": f"unexpected PowerShell output: {out[-1][:200]}"}
+
+
+def explain(answer: dict) -> dict:
+    """The script's answer, with "several phones" turned into what to do about it."""
+    if answer.get("error") == "several":
+        phones = answer.get("phones") or []
+        answer["error"] = (
+            f"{len(phones)} iPhones are connected ({', '.join(phones)}) and Windows names them alike, "
+            f"so there is no telling main from foot: {ONE_AT_A_TIME}"
+        )
+    return answer
 
 
 def _item_ext(item: dict) -> str:
@@ -838,22 +869,118 @@ def newest_video(items: list[dict]) -> dict | None:
     return max(videos, key=lambda i: i["modified"]) if videos else None
 
 
-def iphone_videos() -> dict:
-    """``{"phone", "items": [...]}``, or ``{"error": ...}`` when there is no phone."""
-    return _run_iphone_ps("-Mode", "list")
+def phone_videos() -> dict:
+    """``{"phone", "items": [...]}``, or ``{"error": ...}`` unless exactly one phone is connected."""
+    return _run_phone_ps("-Mode", "list")
 
 
-def copy_from_iphone(item: dict, dest_dir: Path) -> Path:
-    result = _run_iphone_ps("-Mode", "copy", "-Rel", f"{item['folder']}/{item['name']}", "-Dest", str(dest_dir))
+def copy_from_phone(item: dict, dest_dir: Path) -> Path:
+    result = _run_phone_ps("-Mode", "copy", "-Rel", f"{item['folder']}/{item['name']}", "-Dest", str(dest_dir))
     if "error" in result:
         raise StageError(result["error"])
     return Path(result["copied"])
 
 
-def iphone_target(raw: Path, ext: str) -> Path:
-    return raw / f"iphone{ext.lower() or '.mov'}"
+def role_target(raw: Path, role: str, ext: str) -> Path:
+    return raw / f"{role}{ext.lower() or '.mov'}"
 
 
-def existing_iphone_file(raw: Path) -> Path | None:
-    hits = [p for p in raw.glob("iphone.*") if p.suffix.lower() in VIDEO_EXTS]
-    return hits[0] if hits else None
+# --- checking an imported file -------------------------------------------------
+
+WANT_FPS = 60.0
+FPS_SLACK = 1.0  # 59..61 counts as 60: a phone's 60 is 59.94 or 60.00
+IRREGULAR_SHARE = 0.01  # more frame gaps than this off the beat is "variable frame rate"
+LONG_GAP_FRAMES = 4  # a hole longer than this many frames is a drop worth knowing about
+
+
+@dataclass(frozen=True)
+class VideoCheck:
+    """What a camera file holds, as the cover render will see it."""
+
+    codec: str
+    width: int  # upright, after the rotation flag
+    height: int
+    rotation: int  # the rotation flag, degrees (0 when there is none)
+    nominal_fps: float  # what the container claims
+    fps: float  # from the median gap between frames
+    irregular: float  # share of frame gaps more than a quarter off the median
+    longest_gap_ms: float
+    duration_s: float
+
+    @property
+    def vertical(self) -> bool:
+        return self.height > self.width
+
+    def summary(self) -> str:
+        flag = f", stored rotated {self.rotation} deg" if self.rotation else ""
+        return (f"{self.width}x{self.height} upright{flag}, {self.codec}, {self.fps:.2f} fps "
+                f"({self.irregular:.1%} of frame gaps off the beat, longest {self.longest_gap_ms:.0f} ms), "
+                f"{self.duration_s / 60:.1f} min")  # fmt: skip
+
+    def warnings(self) -> list[str]:
+        out = []
+        if not self.vertical:
+            out.append(f"not vertical ({self.width}x{self.height} upright): the 9:16 video wants the phone upright")
+        if abs(self.fps - WANT_FPS) > FPS_SLACK:
+            out.append(f"{self.fps:.2f} fps, not 60: Settings > Camera > Record Video > 1080p at 60 fps")
+        if self.irregular > IRREGULAR_SHARE or self.longest_gap_ms > LONG_GAP_FRAMES * 1000 / max(self.fps, 1.0):
+            out.append(f"the frame rate varies ({self.irregular:.1%} of frame gaps off the beat, one of "
+                       f"{self.longest_gap_ms:.0f} ms): is Auto FPS off?")  # fmt: skip
+        return out
+
+
+def _ratio(text: str) -> float:
+    num, _, den = str(text).partition("/")
+    d = float(den or 1)
+    return float(num) / d if d else 0.0
+
+
+def video_check(stream: dict, duration_s: float, pts: list[float]) -> VideoCheck:
+    """From ffprobe's video stream entry, the file's duration and every frame's time."""
+    rotation = 0
+    for side in stream.get("side_data_list") or []:
+        if "rotation" in side:
+            rotation = int(round(float(side["rotation"])))
+    w, h = int(stream["width"]), int(stream["height"])
+    if abs(rotation) % 180 == 90:
+        w, h = h, w
+    gaps = np.diff(np.sort(np.asarray(pts, dtype=np.float64)))
+    gaps = gaps[gaps > 0]
+    if gaps.size:
+        median = float(np.median(gaps))
+        fps, longest = 1.0 / median, float(gaps.max()) * 1000
+        irregular = float(np.mean(np.abs(gaps - median) > 0.25 * median))
+    else:
+        fps, irregular, longest = 0.0, 0.0, 0.0
+    return VideoCheck(
+        codec=str(stream.get("codec_name", "?")),
+        width=w,
+        height=h,
+        rotation=rotation,
+        nominal_fps=_ratio(stream.get("avg_frame_rate") or stream.get("r_frame_rate") or "0/1"),
+        fps=fps,
+        irregular=irregular,
+        longest_gap_ms=longest,
+        duration_s=duration_s,
+    )
+
+
+def _ffprobe_video(path: Path, *args: str) -> str:
+    run = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", *args, str(path)],
+                         capture_output=True, text=True)  # fmt: skip
+    if run.returncode != 0:
+        raise StageError(f"ffprobe cannot read {path}: {run.stderr.strip()}")
+    return run.stdout
+
+
+def check_video(path: Path) -> VideoCheck:
+    """ffprobe ``path``: its first video stream, and the time of every frame in it."""
+    info = json.loads(_ffprobe_video(
+        path, "-show_entries",
+        "stream=codec_name,width,height,r_frame_rate,avg_frame_rate:stream_side_data=rotation:format=duration",
+        "-of", "json"))  # fmt: skip
+    if not info.get("streams"):
+        raise StageError(f"{path} has no video in it")
+    lines = _ffprobe_video(path, "-show_entries", "packet=pts_time", "-of", "csv=p=0").split()
+    pts = [float(t.strip(",")) for t in lines if t.strip(",") not in ("", "N/A")]
+    return video_check(info["streams"][0], float(info.get("format", {}).get("duration", 0.0)), pts)

@@ -36,12 +36,9 @@ export interface ChartHit {
   slot: number;
   /**
    * The MIDI key as laid out on the drum rack -- a song's `[midi_map]`.
-   *
-   * Absent on hits that did not come out of a song's tab.mid: an exercise
-   * carries its own notes (exercise.ts) and the key one song happened to put
-   * them on says nothing about them. `instrument` is the identity.
+   * `instrument` is the identity; this is where it came from.
    */
-  note?: number;
+  note: number;
   instrument: string;
   /** 1-127 as written in Ableton. Carried, never graded. */
   velocity: number;
@@ -65,15 +62,12 @@ export interface ExpectedNote {
 /**
  * What a chart is, to anything that has to notice it changing.
  *
- * Every Ctrl+S in Ableton rewrites tab.mid, so a lock file, a take or an
- * exercise can quietly come to describe a chart that no longer exists. Each of
- * them records the hash it was made against; this is the other half of that
- * check.
+ * Every Ctrl+S in Ableton rewrites tab.mid, so a lock file or a take can
+ * quietly come to describe a chart that no longer exists. Each of them records
+ * the hash it was made against; this is the other half of that check.
  *
  * It lives here rather than beside the sticking it was first written for
- * because it is a fact about the chart, and because `exercise.ts` has to reach
- * it from the pure half that `node --test` runs directly -- which cannot load
- * a module with a class in it.
+ * because it is a fact about the chart.
  */
 export async function chartHash(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', bytes.slice().buffer as ArrayBuffer);
@@ -162,9 +156,7 @@ export function expectedNotes(
   hits: readonly ChartHit[],
   grid: Grid,
   bars: { start: number; end: number },
-  // Only the strokes are read, so an exercise can hand over its own re-based
-  // ones without a whole `sticking.lock.json` around them.
-  sticking?: Pick<StickingLock, 'strokes'>
+  sticking?: StickingLock
 ): ExpectedNote[] {
   const perBar = grid.meter.beats_per_bar * SLOTS_PER_BEAT;
   const limbs = new Map<string, Limb>();

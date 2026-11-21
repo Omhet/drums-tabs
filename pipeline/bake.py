@@ -1,7 +1,7 @@
 """A bank of one-shots, rendered out of a drum plugin and sliced up.
 
-What the app plays for an exercise -- and for a song's written part, over the
-nodrums stem -- is ``kit/samples/``: a few hundred short files, several velocity
+What the app plays for a song's written part, over the nodrums stem, is
+``kit/samples/``: a few hundred short files, several velocity
 layers and several takes of each, so that a ghost note is a different recording
 from a backbeat and the same hi-hat twice is two different hi-hats. This is
 where they come from.

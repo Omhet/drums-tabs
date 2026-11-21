@@ -76,13 +76,8 @@ export class StickingLetters {
     this.draw();
   }
 
-  /**
-   * Point it at a song's sticking, or at an exercise's own strokes, or at none.
-   *
-   * Only the strokes are read, so the letters work the same over a chart that
-   * was solved and over one that carries the answer with it.
-   */
-  load(lock: Pick<StickingLock, 'strokes'> | undefined) {
+  /** Point it at a song's sticking, or at none. */
+  load(lock: StickingLock | undefined) {
     this.byBeat.clear();
     for (const stroke of lock?.strokes ?? []) {
       const letter = LETTER[stroke.limb];

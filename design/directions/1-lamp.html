@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lamp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/bravura.css">
+<link rel="stylesheet" href="assets/notation.css">
+<style>
+/* Direction 1 -- Lamp.
+   A lit music stand in a dark room: warm cream paper under the light, and
+   everything else is quiet type around it. */
+:root {
+  --room: #14110d;
+  --raise: #1f1a15;
+  --raise-2: #2a231c;
+  --line: #3a3128;
+  --text: #efe4d0;
+  --muted: #a6977f;
+  --faint: #6f6453;
+  --brass: #e3a94e;
+  --brass-wash: rgba(227, 169, 78, 0.16);
+
+  --paper: #ece2cc;
+  --paper-hi: #f4ecda;
+  --nt-ink: #211b14;
+  --nt-staff: #a3957d;
+  --nt-barno: #a3957d;
+  --nt-cursor: #c2410c;
+  --nt-stick: #7d6d55;
+  --nt-current: rgba(227, 169, 78, 0.26);
+  --nt-loop: #b7791f;
+
+  --serif: "Fraunces", Georgia, serif;
+  --sans: "Source Sans 3", "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--room); color: var(--text); overflow: hidden; }
+.frame {
+  position: relative; width: 2194px; height: 1100px; overflow: hidden;
+  transform-origin: 0 0; background: var(--room); font-family: var(--sans);
+}
+
+/* ---- header: picture on the left, the glance numbers on the right ---- */
+.video {
+  position: absolute; left: 40px; top: 24px; width: 588px; height: 331px;
+  border-radius: 6px; overflow: hidden; background: #000;
+  box-shadow: 0 0 0 1px #2a231c;
+}
+.video img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.song {
+  position: absolute; left: 676px; top: 22px;
+  font: italic 400 38px/1 var(--serif); color: var(--muted); letter-spacing: 0.005em;
+}
+.song b { font-style: normal; font-weight: 500; color: var(--text); }
+.corner { position: absolute; right: 40px; top: 22px; display: flex; gap: 12px; }
+.corner button {
+  width: 48px; height: 48px; border-radius: 10px; border: 0; background: transparent; color: var(--faint);
+  display: grid; place-items: center; cursor: pointer;
+}
+.corner svg { width: 28px; height: 28px; }
+
+.where { position: absolute; left: 672px; top: 62px; }
+.where .section { font: italic 380 132px/1 var(--serif); letter-spacing: -0.02em; color: var(--text); }
+.where .bar { margin-top: 10px; font: 500 64px/1 var(--serif); font-variant-numeric: tabular-nums lining-nums; }
+.where .bar small { font: 400 36px/1 var(--sans); color: var(--muted); margin-left: 10px; }
+
+.pass { position: absolute; left: 1240px; top: 92px; }
+.pass .num { display: flex; align-items: center; gap: 18px; font: 500 64px/1 var(--serif); color: var(--brass); font-variant-numeric: lining-nums; }
+.pass .num svg { width: 60px; height: 60px; }
+.pass .what { margin-top: 20px; font: 400 34px/1.2 var(--sans); color: var(--muted); }
+
+.tempo { position: absolute; right: 40px; top: 44px; text-align: right; }
+.tempo .pct { font: 450 184px/1 var(--serif); letter-spacing: -0.03em; font-variant-numeric: tabular-nums lining-nums; }
+.tempo .pct span { font-size: 110px; color: var(--muted); margin-left: 6px; }
+.tempo .bpm { margin-top: 4px; font: 400 38px/1 var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; }
+.tempo .bpm b { color: var(--text); font-weight: 600; }
+
+.controls { position: absolute; left: 672px; right: 40px; top: 279px; height: 76px; display: flex; align-items: center; gap: 16px; }
+.btn {
+  height: 76px; min-width: 76px; padding: 0 30px; border-radius: 38px; border: 1px solid var(--line);
+  background: var(--raise); color: var(--text); font: 600 36px/1 var(--sans);
+  display: inline-flex; align-items: center; justify-content: center; gap: 14px; cursor: pointer;
+}
+.btn svg { width: 34px; height: 34px; }
+.btn.round { width: 76px; padding: 0; }
+.btn.primary { background: var(--brass); border-color: var(--brass); color: #1b140a; }
+.btn.on { background: var(--brass-wash); border-color: var(--brass); color: var(--brass); }
+.btn.quiet { color: var(--muted); }
+.spacer { flex: 1; }
+.steps { display: flex; gap: 10px; }
+.steps .btn { padding: 0 22px; min-width: 104px; font-variant-numeric: tabular-nums; }
+.mixmini { display: inline-flex; gap: 6px; align-items: flex-end; height: 34px; }
+.mixmini i { display: block; width: 8px; border-radius: 2px; background: var(--muted); }
+.mixmini i.off { background: transparent; border: 2px solid var(--faint); height: 34px !important; }
+
+/* ---- the song map, a ruler across the top of the page ---- */
+.map { position: absolute; left: 40px; top: 372px; }
+.sm { position: relative; height: 80px; }
+.sm-tier { position: absolute; left: 0; right: 0; top: -2px; height: 32px; }
+.sm-tlabel {
+  position: absolute; transform: translateX(-50%); top: 0;
+  font: italic 400 32px/1 var(--serif); color: var(--faint); white-space: nowrap;
+}
+.sm-tlabel.in-loop { color: var(--brass); }
+.sm-strip { position: absolute; left: 0; right: 0; top: 36px; height: 44px; }
+.sm-block {
+  position: absolute; top: 0; height: 44px; background: var(--raise-2);
+  border-right: 3px solid var(--room); display: flex; align-items: center; padding-left: 14px; overflow: hidden;
+}
+.sm-block.k-verse { background: #241e18; }
+.sm-block.k-chorus { background: #352b1f; }
+.sm-block.k-fill { background: #4a3b26; }
+.sm-block.short { padding: 0; }
+.sm-label { font: italic 400 32px/1 var(--serif); color: var(--muted); white-space: nowrap; }
+.sm-block.in-loop { background: rgba(227, 169, 78, 0.22); }
+.sm-block.in-loop .sm-label { color: var(--brass); }
+.sm-block.now .sm-label { color: var(--text); }
+.sm-loop { position: absolute; top: -5px; height: 54px; border: 3px solid var(--brass); border-radius: 4px; pointer-events: none; }
+.sm-head { position: absolute; top: -10px; width: 4px; height: 64px; margin-left: -2px; background: var(--text); border-radius: 2px; }
+
+/* ---- the paper ---- */
+.paper {
+  position: absolute; left: 40px; top: 466px; width: 2114px; height: 624px;
+  border-radius: 6px; overflow: hidden;
+  background: radial-gradient(120% 140% at 50% -30%, var(--paper-hi) 0%, var(--paper) 55%, #e2d6bd 100%);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+}
+.paper .nt { position: absolute; left: 36px; top: 0; }
+.nt-stick { --nt-stick-size: 25px; }
+.nt-current, .nt-cur { background: var(--nt-current); border-radius: 4px; }
+/* The loop: a brass rule over the looped bars, like a pencilled bracket.
+   In a row that opens a section the section's name sits on the rule. */
+.nt-loop::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 4px; height: 5px; background: var(--nt-loop); opacity: 0.8;
+}
+.nt-loop.first::after, .nt-loop.last::after {
+  content: ""; position: absolute; top: 4px; width: 5px; height: 24px; background: var(--nt-loop); opacity: 0.8;
+}
+.nt-loop.first::after { left: 0; }
+.nt-loop.last::after { right: 0; }
+.nt-row.has-label .nt-loop::before { top: 40px; }
+.nt-row.has-label .nt-loop.first::after, .nt-row.has-label .nt-loop.last::after { top: 40px; }
+.nt-sec { margin-left: 16px; top: 0; }
+.nt-sec-name { font: italic 500 40px/1 var(--serif); color: #4f4130; background: transparent; padding: 0 12px 0 4px; }
+.nt-row.has-label .nt-loop.first::before { left: 150px; }
+
+/* the label on the frame, outside the 2194 x 1100 picture */
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="video"><img src="assets/song2-chorus.jpg" alt=""></div>
+
+  <div class="song"><b>Song 2</b> — Blur</div>
+  <div class="corner">
+    <button title="Songs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+    <button title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg></button>
+  </div>
+
+  <div class="where">
+    <div class="section">chorus</div>
+    <div class="bar">bar 11<small>of 64</small></div>
+  </div>
+
+  <div class="pass">
+    <div class="num"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l3 3-3 3"/><path d="M4 11V9a3 3 0 0 1 3-3h13"/><path d="M7 21l-3-3 3-3"/><path d="M20 13v2a3 3 0 0 1-3 3H4"/></svg>pass 3</div>
+    <div class="what">looping bars 9–16</div>
+  </div>
+
+  <div class="tempo">
+    <div class="pct">80<span>%</span></div>
+    <div class="bpm"><b>104</b> BPM · record 130</div>
+  </div>
+
+  <div class="controls">
+    <button class="btn primary round" title="Pause (Space)"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1"/><rect x="14" y="4.5" width="4" height="15" rx="1"/></svg></button>
+    <button class="btn on" title="Loop (L)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l3 3-3 3"/><path d="M4 11V9a3 3 0 0 1 3-3h13"/><path d="M7 21l-3-3 3-3"/><path d="M20 13v2a3 3 0 0 1-3 3H4"/></svg>Loop</button>
+    <button class="btn quiet" title="Mix (M)"><span class="mixmini"><i style="height:26px"></i><i class="off"></i><i style="height:20px"></i><i style="height:4px;opacity:.5"></i></span>Mix</button>
+    <div class="spacer"></div>
+    <div class="steps">
+      <button class="btn">−10</button>
+      <button class="btn">−5</button>
+      <button class="btn quiet">100%</button>
+      <button class="btn">+5</button>
+      <button class="btn">+10</button>
+    </div>
+  </div>
+
+  <div class="map" id="map"></div>
+
+  <div class="paper"><div id="score"></div></div>
+</div>
+<script src="assets/song2-4bars.js"></script>
+<script src="assets/notation.js"></script>
+<script src="assets/songmap.js"></script>
+<script>
+  document.fonts.ready.then(() => {
+  const song = SongMap.SONGS.song2;
+  SongMap.render(document.getElementById('map'), {
+    song: 'song2', width: 2114, loop: { from: 9, to: 16 }, at: 11.4, charW: 15, minLabel: 30,
+    kind: (n) => (/^(into|break)/.test(n) ? 'k-fill' : /chorus/.test(n) ? 'k-chorus' : 'k-verse'),
+  });
+  Notation.render(document.getElementById('score'), {
+    score: 'song2-4', rows: [2, 3], lane: 30, trimTop: 2, labelLane: 44,
+    cursor: { bar: 11, slot: 6 }, current: 11, loop: { from: 9, to: 16 },
+    sections: song.sections,
+  });
+  Notation.fit();
+  });
+</script>
+</body>
+</html>

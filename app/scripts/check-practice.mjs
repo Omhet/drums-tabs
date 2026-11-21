@@ -15,15 +15,15 @@
 // `performance.now()` moment that maps to it, so they land where they are
 // meant to rather than wherever the timer happened to fire.
 //
-// The second half is the routine (practice-plan Q5, Q10): open a run, fill a
-// cell by playing it, reload the page the way a Ctrl+S in Live does, and check
-// the run is still there with the cell still in it. That reload is the whole
-// reason a routine is a file rather than a variable.
+// A take is the whole song, so this sits there for the length of the record --
+// around three minutes on these songs. It plays at 100%, so its numbers are the
+// ones M1 measured. Then it runs the calibration ritual against a known
+// lateness and checks that number comes back.
 //
-// It cleans up the take and the routine it writes: both directories are tracked
-// in git and a check should not leave anything behind. It also writes
-// shots/practice.png once the reading is up: the reading lives in a rail of a
-// fixed width now, and whether it fits is not something a count can answer.
+// It cleans up the take it writes: takes/ is tracked in git and a check should
+// not leave anything behind. It also writes shots/practice.png once the
+// reading is up: the reading lives in a rail of a fixed width, and whether it
+// fits is not something a count can answer.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,23 +32,16 @@ import { launch, pageUrl, waitForPlayer } from './browser.mjs';
 const SLUG = process.env.SONG ?? 'hayley-williams-kill-me-official-visualizer';
 /** How late every injected stroke is, in ms. Recovered as the take's mean. */
 const LATE_MS = 18;
-// One of each mistake, by index into the cell's written notes, so that all
+// One of each mistake, by index into the take's written notes, so that all
 // five verdicts have to be reached and all five have to be drawn.
 const SKIP = 5; // played not at all      -> missed
 const EXTRA_AFTER = 9; // plus a stroke nobody wrote  -> extra
 const WRONG = 15; // played on a tom instead     -> wrong-voice
 const FLAM = 21; // played twice, a bounce      -> flam
 
-/** The cell the take leg plays, filled in once the grid is known: see where it is chosen. */
-let TAKE_CELL = '';
-
 const songs = fileURLToPath(new URL('../../songs', import.meta.url));
 const takesDir = join(songs, SLUG, 'takes');
-const routinesDir = join(songs, SLUG, 'routines');
 const before = new Set(existsSync(takesDir) ? readdirSync(takesDir) : []);
-const routinesBefore = new Set(existsSync(routinesDir) ? readdirSync(routinesDir) : []);
-const newRoutines = () =>
-  (existsSync(routinesDir) ? readdirSync(routinesDir) : []).filter((f) => !routinesBefore.has(f));
 
 const problems = [];
 const check = (ok, label, detail = '') => {
@@ -99,72 +92,6 @@ const setCalibration = async (value) => {
 };
 await setCalibration(null);
 
-// --- the grid ---------------------------------------------------------------------
-// Open a run before recording, so the take that follows has a cell to fill.
-const grid = await page.evaluate(() => {
-  const p = window.drums.practice;
-  return {
-    cells: p.cells.length,
-    sections: [...new Set(p.cells.map((c) => c.section))],
-    ids: p.cells.slice(0, 5).map((c) => c.id),
-    last: p.cells.at(-1),
-    open: !!p.routine,
-    startHidden: document.getElementById('routine-start').hidden,
-  };
-});
-// A song with no [[section]] blocks has no grid, and the rest of this check has
-// nothing to run against. That is not a failure -- it means `drums sections`
-// has not been run on it yet.
-if (grid.cells === 0) {
-  console.log(`skip ${SLUG} has no routine grid: no [[section]] blocks in song.toml`);
-  console.log('nothing to check on this song (run `drums sections` on it first)');
-  await browser.close();
-  process.exit(0);
-}
-
-// The whole song, four times. Sections are no longer cells: a stretch of bars
-// you want to drill is an exercise now (check-exercise.mjs).
-check(
-  grid.cells === 4 && grid.sections.join(' ') === 'whole song',
-  'the grid is the whole song at each tempo, whatever the sections are',
-  `${grid.cells} cells, ${grid.sections.join(' / ')}`
-);
-TAKE_CELL = '*@100';
-check(
-  grid.ids.join(' ') === '*@70 *@80 *@90 *@100',
-  'it is walked slow to fast',
-  grid.ids.join(' ')
-);
-check(
-  grid.last?.whole && grid.last?.tempo === 1,
-  'the whole song at 100% is the last cell of every run'
-);
-check(!grid.open && !grid.startHidden, 'nothing is open yet, and the button to open one is there');
-
-await page.locator('#routine-start').click();
-await page.waitForTimeout(400);
-// Any cell, any time: the walk order is what teaches, not a lock. The take leg
-// wants 100% so that its numbers are the same ones M1 measured, and 100% is the
-// fourth cell of the first row.
-await page.locator('#routine tbody tr').first().locator('.cell').nth(3).click();
-
-const opened = await page.evaluate(() => {
-  const p = window.drums.practice;
-  return {
-    at: p.at,
-    open: !!p.routine,
-    sealed: p.routine ? String(p.routine.sealedAt) : 'no routine',
-    state: document.getElementById('routine-state').textContent,
-    sealDisabled: document.getElementById('routine-seal').disabled,
-    startHidden: document.getElementById('routine-start').hidden,
-  };
-});
-check(opened.open && opened.sealed === 'null', 'a routine opened, and it is open', opened.sealed);
-check(opened.at === TAKE_CELL, 'clicking a cell aims at it', opened.at);
-check(opened.sealDisabled, 'an empty routine cannot be sealed');
-check(opened.startHidden, 'there is no second routine to start while one is open');
-check(newRoutines().length === 1, 'the open routine is a file on disk', newRoutines().join(', '));
-
 const cell = await page.evaluate(() => {
   const p = window.drums.practice;
   const notes = p.expected();
@@ -172,29 +99,40 @@ const cell = await page.evaluate(() => {
     count: notes.length,
     first: notes[0]?.tMs ?? 0,
     last: notes[notes.length - 1]?.tMs ?? 0,
-    label: document.getElementById('cell').textContent,
+    label: document.getElementById('take-target').textContent,
     instruments: [...new Set(notes.map((n) => n.instrument))],
     limbs: [...new Set(notes.map((n) => n.limb))],
     referenceMs: p.referenceMs,
-    startBar: p.cell()?.startBar ?? 0,
-    endBar: p.cell()?.endBar ?? 0,
+    // What Record says it will play: `whole song · bars 1-62`.
+    startBar: Number(/bars (\d+)-(\d+)/.exec(document.getElementById('take-target').textContent)?.[1] ?? 0),
+    endBar: Number(/bars (\d+)-(\d+)/.exec(document.getElementById('take-target').textContent)?.[2] ?? 0),
+    lastBar: window.drums.current?.grid?.bar_count ?? 0,
   };
 });
-// Sections but nothing to place them against: no grid.lock.json, so no bar has
-// a time and the cell cannot be played. A missing beat map, not a failure here.
+// Nothing to place the notes against: no grid.lock.json, so no bar has a time
+// and the song cannot be recorded. A missing beat map, not a failure here.
 if (cell.count === 0) {
-  console.log(`skip ${SLUG} has no cell to record: ${cell.label}`);
+  console.log(`skip ${SLUG} has nothing to record: ${cell.label}`);
   console.log('nothing to check on this song (run the pipeline on it first)');
-  // The routine opened a moment ago would otherwise be left behind, and a
-  // check should leave nothing behind.
-  for (const name of newRoutines()) rmSync(join(routinesDir, name));
   await browser.close();
   process.exit(0);
 }
-check(cell.count > 0, 'the cell has notes to play', `${cell.count} notes in ${cell.label}`);
+check(cell.count > 0, 'the take has notes to play', `${cell.count} notes in ${cell.label}`);
+check(
+  cell.startBar === 1 && cell.endBar > 1 && cell.endBar <= cell.lastBar,
+  'a take is the whole song, as far as the beat map goes',
+  `bars ${cell.startBar}-${cell.endBar}, beat map ${cell.lastBar}`
+);
 check(cell.limbs.every((l) => l !== 'hands'), 'every note has a real limb from the sticking lock', cell.limbs.join(', '));
 
-// Start recording, then feed the cell back in, with one of each mistake.
+// At the record's own tempo, so the numbers are the ones M1 measured.
+await page.evaluate(() => {
+  const speed = document.getElementById('speed');
+  speed.value = '100';
+  speed.dispatchEvent(new Event('input'));
+});
+
+// Start recording, then feed the song back in, with one of each mistake.
 await page.locator('#record').click();
 await page.evaluate(
   ({ LATE_MS, SKIP, EXTRA_AFTER, WRONG, FLAM }) => {
@@ -208,8 +146,7 @@ await page.evaluate(
     const planned = [];
     notes.forEach((note, i) => {
       if (i === SKIP) return;
-      // The cell is kick/snare/hats, so a tom is unambiguously the wrong drum
-      // at a moment when something was written.
+      // A tom is the wrong drum at a moment where a groove note is written.
       const instrument = i === WRONG ? 'tom_high' : note.instrument;
       planned.push({ tMs: note.tMs + LATE_MS, note: noteFor[instrument] ?? 38, velocity: 90 });
       if (i === EXTRA_AFTER) {
@@ -226,7 +163,7 @@ await page.evaluate(
     let next = 0;
     window.__armedAt = performance.now();
     window.__injector = setInterval(() => {
-      // The count-in runs with the transport parked on the cell's first beat.
+      // The count-in runs with the transport parked on the first beat.
       // Nothing is captured then, so nothing is played then either.
       if (window.drums.mix.paused) return;
       window.__startedAt ??= performance.now();
@@ -246,13 +183,7 @@ await page.evaluate(
   { LATE_MS, SKIP, EXTRA_AFTER, WRONG, FLAM }
 );
 
-// Let the cell play out. The recorder stops itself at the end of the last bar.
-//
-// The cell is the whole song now, so this genuinely sits here for the length of
-// the record -- around three minutes on these songs, where it used to be the
-// twenty seconds one section took. That is the honest cost of the routine being
-// the song; the fast end-to-end proof of the scorer is check-exercise.mjs,
-// which loops three bars.
+// Let the song play out. The recorder stops itself at the end of the last bar.
 const playMs = Math.round(cell.last - cell.first);
 console.log(`     playing ${cell.label} -- about ${Math.ceil(playMs / 1000)}s of record`);
 await page.waitForFunction(() => !document.getElementById('record').dataset.armed, null, {
@@ -298,7 +229,7 @@ check(
   'a bar of count-in ran before the music',
   `${Math.round(out.countInMs)} ms`
 );
-check(g.expected === cell.count, 'every written note in the cell was judged', `${g.expected}`);
+check(g.expected === cell.count, 'every written note in the take was judged', `${g.expected}`);
 check(g.hit === cell.count - 2, 'every note played on the right drum was matched', `hit ${g.hit}/${g.expected}`);
 check(g.missed === 1, 'the skipped note is missed', `missed ${g.missed}`);
 check(g.extra === 1, 'the unwritten stroke is extra', `extra ${g.extra}`);
@@ -334,7 +265,7 @@ check(
 );
 check(
   out.stripBars === cell.endBar - cell.startBar + 1,
-  'the bar strip has one block per bar of the cell',
+  'the bar strip has one block per bar of the take',
   `${out.stripBars} blocks for bars ${cell.startBar}-${cell.endBar}`
 );
 check(
@@ -366,7 +297,12 @@ if (after.length === 1) {
   const firstWritten = cell.first;
   const drift = Math.abs(take.events[0].tMs - (firstWritten + LATE_MS));
   check(drift < 25, 'timestamps are raw mix time', `first event ${Math.round(take.events[0].tMs)} ms vs written ${Math.round(firstWritten)} ms`);
-  check(take.cell.id === TAKE_CELL, 'the take knows which cell of the grid it was', take.cell.id);
+  check(
+    take.cell.section === 'whole song' && take.cell.tempo === 1 && !('id' in take.cell),
+    'the take says what it played and how fast, and names no routine cell',
+    JSON.stringify(take.cell)
+  );
+  check(/-whole-song-100\.json$/.test(after[0]), 'its name says what and how fast', after[0]);
   check(
     take.referenceMs === cell.referenceMs,
     'the reference floor it was graded against is recorded on it',
@@ -375,168 +311,6 @@ if (after.length === 1) {
   rmSync(join(takesDir, after[0]));
   console.log(`     (removed the take it wrote: takes/${after[0]})`);
 }
-
-// --- the cell is filled ------------------------------------------------------------
-// A take played to the end fills its cell, and the routine is rewritten there
-// and then -- not at the end of the sitting, which is not an event this program
-// ever sees.
-const filled = await page.evaluate((at) => {
-  const p = window.drums.practice;
-  return {
-    cells: p.routine?.cells.filter((c) => c.fill).length ?? 0,
-    fill: p.routine?.cells.find((c) => c.id === at)?.fill ?? null,
-    next: p.at,
-    state: document.getElementById('routine-state').textContent,
-    green: document.querySelectorAll('#routine .cell.pass').length,
-    red: document.querySelectorAll('#routine .cell.fail').length,
-    atLabel: document.querySelector('#routine .cell.at')?.textContent ?? '',
-    sealDisabled: document.getElementById('routine-seal').disabled,
-  };
-}, TAKE_CELL);
-check(filled.cells === 1, 'the completed take filled exactly one cell', `${filled.cells} filled`);
-check(!!filled.fill && filled.fill.take === after[0], 'the cell points at the take that filled it', filled.fill?.take);
-check(
-  filled.fill?.accuracy === g.accuracy,
-  'the cell carries the accuracy the grade gave it',
-  `${Math.round((filled.fill?.accuracy ?? 0) * 100)}%`
-);
-// Forwards from the cell just played, wrapping: the take leg plays 100%, which
-// is the last square, so the next unfilled one is back at the top of the ladder.
-check(filled.next === '*@70', 'it walks on to the next unfilled cell, wrapping', filled.next);
-check(filled.green + filled.red === 1, 'the filled cell is drawn green or red', `${filled.green} green, ${filled.red} red`);
-check(filled.sealDisabled, `one cell of ${grid.cells} is not a routine you can seal`);
-
-// --- the reload ---------------------------------------------------------------------
-// Every Ctrl+S in Live reloads this page. A run you cannot pick up afterwards
-// is a run you cannot spread over a week, so this is the check that matters.
-await page.reload();
-await waitForPlayer(page);
-await page.waitForTimeout(2500);
-
-const resumed = await page.evaluate(() => {
-  const p = window.drums.practice;
-  return {
-    open: !!p.routine,
-    openedAt: p.routine?.openedAt ?? '',
-    filled: p.routine?.cells.filter((c) => c.fill).length ?? 0,
-    at: p.at,
-    state: document.getElementById('routine-state').textContent,
-    startHidden: document.getElementById('routine-start').hidden,
-    sealShown: !document.getElementById('routine-seal').hidden,
-  };
-});
-check(resumed.open, 'the routine survived the reload', resumed.state);
-check(resumed.filled === 1, 'the cell it had filled is still filled', `${resumed.filled} filled`);
-check(resumed.at === '*@70', 'it picks up at the first unfilled cell', resumed.at);
-check(resumed.startHidden && resumed.sealShown, 'the page offers to seal it, not to start another');
-
-// A second routine cannot be opened behind the first one's back, even by a
-// second tab: the rule lives on the server, which is the thing that persists.
-const second = await fetch('http://localhost:5173/practice/routine', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ slug: SLUG, version: 1, openedAt: new Date().toISOString(), sealedAt: null, cells: [] }),
-});
-check(second.status === 409, 'a second open routine is refused', `${second.status}`);
-
-// --- discard -------------------------------------------------------------------------
-page.on('dialog', (d) => void d.accept());
-await page.locator('#routine-discard').click();
-await page.waitForTimeout(500);
-const discarded = await page.evaluate(() => ({
-  open: !!window.drums.practice.routine,
-  cells: window.drums.practice.cells.length,
-  startHidden: document.getElementById('routine-start').hidden,
-  status: document.getElementById('status').textContent.trim(),
-}));
-check(!discarded.open && !discarded.startHidden, 'discarding closes the run and offers a new one');
-check(discarded.cells === grid.cells, 'the grid itself is untouched: it belongs to the song', `${discarded.cells} cells`);
-check(newRoutines().length === 0, 'the routine file is gone', newRoutines().join(', '));
-check(existsSync(takesDir), 'takes/ is still there: discarding a run throws away the run, not the playing');
-
-// --- the history ---------------------------------------------------------------------
-// Sealing a real routine here would mean recording every cell of the grid, so
-// the runs are posted straight to the route instead. That is the honest split:
-// what this checks is the *reading* of a history -- the per-section line, and
-// the median that keeps it from lurching -- not the making of one.
-const ACCURACIES = [0.55, 0.9, 0.7, 0.95];
-await page.evaluate(
-  async ({ SLUG, ACCURACIES }) => {
-    const p = window.drums.practice;
-    const song = window.drums.songs.find((s) => s.slug === SLUG);
-    for (let i = 0; i < ACCURACIES.length; i++) {
-      const at = `2026-08-0${i + 1}T10:00:00.000Z`;
-      const fill = {
-        take: 'synthetic.json',
-        startedAt: at,
-        accuracy: ACCURACIES[i],
-        hit: 9,
-        expected: 10,
-        chartHash: 'sha256:synthetic',
-      };
-      await fetch('/practice/routine', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          slug: SLUG,
-          version: 1,
-          openedAt: at,
-          lastPlayedAt: at,
-          sealedAt: at,
-          chartHash: 'sha256:synthetic',
-          sectionsHash: song.sectionsHash,
-          cells: p.cells.map((c) => ({ ...c, fill })),
-        }),
-      });
-    }
-  },
-  { SLUG, ACCURACIES }
-);
-check(newRoutines().length === ACCURACIES.length, 'the sealed runs are on disk', `${newRoutines().length}`);
-
-await page.reload();
-await waitForPlayer(page);
-await page.waitForTimeout(2500);
-
-const history = await page.evaluate(() => {
-  const p = window.drums.practice;
-  return {
-    runs: p.history.length,
-    head: document.querySelector('#routine th.trend-head')?.textContent ?? '',
-    lines: document.querySelectorAll('#routine tr.trends td.trend svg').length,
-    squares: document.querySelectorAll('#routine tr.whole .cell').length,
-    firstTitle: document.querySelector('#routine td.trend')?.title ?? '',
-    open: !!p.routine,
-  };
-});
-check(history.runs === ACCURACIES.length, 'the page read them back', `${history.runs} runs`);
-check(!history.open, 'a sealed run is history, not something to resume');
-check(history.head === '4 runs', 'the trend row says how many runs are on it', history.head);
-// One line under each square rather than one for the row: four tempos are four
-// separate questions, and a mean over 70% and 100% hides which way the fast one
-// is going (practice-plan Q14).
-check(
-  history.lines === history.squares && history.lines === 4,
-  'every tempo has its own line',
-  `${history.lines} lines for ${history.squares} squares`
-);
-// 0.55, 0.9, 0.7, 0.95 -> medians 0.55, 0.725, 0.7, 0.9: the dip at run 3 is
-// absorbed and the line still ends where the playing ended up.
-check(
-  /55% to 90%/.test(history.firstTitle),
-  'the line is smoothed, so one bad run is not a collapse',
-  history.firstTitle
-);
-
-for (const name of newRoutines()) rmSync(join(routinesDir, name));
-check(newRoutines().length === 0, 'the synthetic runs were cleaned up');
-
-// The reload above took the page's audio graph and its stroke source with it,
-// and the ritual below needs both. Same two gestures as at the top.
-await page.locator('#play').click();
-await page.waitForTimeout(300);
-await page.locator('#stop').click();
-await page.evaluate(() => window.drums.practice.midi.inject(38, 1));
 
 // --- the calibration ritual -----------------------------------------------------
 // The number every take in the history is corrected by, so it is checked rather

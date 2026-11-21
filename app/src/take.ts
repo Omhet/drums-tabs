@@ -1,4 +1,4 @@
-// A take: one attempt at one cell, on disk, forever.
+// A take: one attempt at a song, on disk, forever.
 //
 // This is the format practice-plan Q4 calls the most important thing designed
 // in the project, because three different readers depend on it and only one of
@@ -22,23 +22,27 @@
 //     record and cannot be recovered afterwards.
 //  5. **Both hashes are mandatory.** `chartHash` covers tab.mid; `sectionsHash`
 //     covers the `[[section]]` blocks, which tab.mid knows nothing about -- move
-//     a boundary and the cells change shape while the chart hash sits still.
+//     a boundary and a section's bars change while the chart hash sits still.
 //
 // MIDI only: no audio. The sound is always regenerable from the notes, so
 // storing it would be tens of megabytes to say nothing new.
 import type { Grade, TakeEvent } from './grade';
 
+/**
+ * What was played: which bars, at what tempo.
+ *
+ * Called a cell because takes were once the cells of a routine grid (section x
+ * tempo). The grid was removed on 2026-11-21 and a take is now the whole song,
+ * but takes are never rewritten, so the name and its older shapes stay.
+ */
 export interface Cell {
   /**
-   * The cell's place in the routine grid, `<section>@<percent>` (routine.ts).
-   *
-   * Optional because the two takes played before the grid existed do not carry
-   * it, and a take is never rewritten. Derivable from the fields below; stored
-   * anyway so that a reader matching takes to cells does not have to guess at
-   * the recipe.
+   * The cell's place in the routine grid, `<section>@<percent>`. Written only
+   * by takes played while the grid existed (2026-09-13 to 2026-11-21); never
+   * written now.
    */
   id?: string;
-  /** The `[[section]]` name, which is why section identity has to be stable. */
+  /** The `[[section]]` name, or `whole song`. */
   section: string;
   /** Playback rate it was played at: 1 is the record's tempo. */
   tempo: number;
@@ -68,9 +72,8 @@ export interface Take {
   /** The `[[section]]` blocks as one string. See plugins/ableton.ts. */
   sectionsHash: string;
   /**
-   * Whether the transport reached the end of the cell. An abandoned take is
-   * still written -- it is a measurement that happened -- but it does not fill
-   * a cell (practice-plan Q5).
+   * Whether the transport reached the end of the bars. A take stopped early is
+   * still written -- it is a measurement that happened.
    */
   complete: boolean;
   /** Raw mix time, raw module note numbers, raw velocity. */

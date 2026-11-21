@@ -62,18 +62,11 @@ bar_offset = 3
 44 = "tom_floor"
 45 = "sidestick"
 
-# The sections a routine is built from, proposed by `drums sections` from
-# the repeats in tab.mid and then yours: rename them, nudge the bar
-# numbers, merge or split. Bars are 1-based and inclusive, and together
-# they cover the song in order.
-#
-# Two blocks with the same name are one section the song plays twice --
-# name both choruses `chorus` and you practise it once, against the first
-# of them, instead of learning the same music twice in a run.
-#
-# Once you have played a routine these are frozen: a boundary that moves
-# changes the shape of every routine, and old runs stop being comparable
-# to new ones.
+# The song's sections, proposed by `drums sections` from the repeats in
+# tab.mid and then yours: rename them, nudge the bar numbers, merge or
+# split. Bars are 1-based and inclusive, and together they cover the song
+# in order. Two blocks with the same name are one section the song plays
+# twice: name both choruses `chorus`.
 
 [[section]]
 name = "A"

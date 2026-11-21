@@ -1,0 +1,25 @@
+/* The engraving's own rules. Colours come from each direction's --nt-* tokens. */
+.nt { position: relative; }
+.nt-row { position: relative; overflow: hidden; }
+.nt-inner { position: absolute; left: 0; }
+.nt-under, .nt-ink, .nt-over { position: absolute; inset: 0; }
+.nt-part { position: absolute; }
+.nt svg { overflow: visible; display: block; }
+.nt .at { font-family: 'alphaTab'; font-size: 36px; line-height: 1; }
+.nt .at-surface-svg text { dominant-baseline: alphabetic; white-space: pre; }
+.nt g.at text { fill: var(--nt-ink); }
+.nt [fill="#000000"] { fill: var(--nt-ink); }
+.nt [fill="#969696"] { fill: var(--nt-staff); }
+.nt text[style*="Arial"] { fill: var(--nt-barno); }
+.nt-own-barno text[style*="Arial"] { display: none; }
+
+.nt-loop, .nt-out, .nt-cur { position: absolute; }
+.nt-cursor { position: absolute; width: 4px; margin-left: -2px; background: var(--nt-cursor); border-radius: 2px; }
+.nt-stick {
+  position: absolute; transform: translateX(-50%);
+  font: 600 var(--nt-stick-size, 26px)/1 var(--nt-stick-font, ui-monospace, "Cascadia Mono", Consolas, monospace);
+  color: var(--nt-stick); letter-spacing: 0.02em; white-space: nowrap;
+}
+.nt-sec { position: absolute; white-space: nowrap; }
+.nt-barno { position: absolute; }
+.nt-rep { position: absolute; display: none; }

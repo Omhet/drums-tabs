@@ -1,17 +1,54 @@
-# Handoff: the grid and the reading are done; the rest of M3 is next
+# Handoff: polish the foundation and the interface first
 
-Written 2026-09-16. Read this, then `README.md` "Where things stand". The plan
-files (`practice-plan.md`, `avatar-plan.md`) are the *reasoning*, not the status
-— and §3 below records where the built thing now deliberately departs from them.
+Written 2026-09-16, redirected 2026-11-21. Read §0, then `README.md` "Where
+things stand". The plan files (`practice-plan.md`, `avatar-plan.md`) are the
+*reasoning*, not the status -- and §3 below records where the built thing now
+deliberately departs from them.
+
+---
+
+## 0. Since 2026-11-21: no new features until the foundation is polished
+
+The project had stalled on its own surface. What gets used is the play-along
+player: notation on the drummer's own clock, the stems, a click, the tempo, the
+sticking. What the user does in a session is play along with a whole song,
+often slower; loop the hard parts slower; and raise the tempo about 10% at a
+time. Most sessions are free playing, nothing recorded. The disk agreed: 14
+takes, all from 13-16 September, no routine ever opened, one exercise.
+
+So the work is in three parts:
+
+- **A. Remove routines and exercises -- done (2026-11-21).** Code, data, routes
+  and checks. Scoring stays: `Record` plays the whole song at the tempo set and
+  the reading is unchanged. See README "Where things stand".
+- **B. The play-along features, under the old look.** Loop a section (or a
+  range of bars) on the song page, with a count-in and optionally a bar of
+  rest between passes; tempo steps of 5 and 10 and a ramp ("+5% every 2
+  passes up to 100%"); a count-in when Play starts from a pause; the status
+  line in plain words with the diagnostics moved to the console; each song
+  remembering its last loop and tempo; and, since scoring stays, `Record`
+  grading each pass of a loop. The loop the exercises had is the starting
+  point: `git show 5c21a14:app/src/practice.ts` (`endRep`, `nextRep`, the
+  grace window) and `git show 5c21a14:app/scripts/check-exercise.mjs` for what
+  it was held to.
+- **C. The new interface, once a design is picked.** The brief is
+  `design/claude-design-prompt.md`; it asks Claude Design for three directions
+  first. Screenshots of the page as it was are in `design/now/`.
+
+**The screen is two metres away.** A 31.5" 4K monitor at 175% scaling, about
+2 m from the throne: a maximised page is about 2194x1100 CSS px. Check layouts
+at that size, not at 1600x900. The brief's minimums: 20 px between staff lines
+(9 today), 64 px type for anything caught at a glance, 32-40 px for anything
+read, 64 px targets for anything clicked mid-song.
 
 ---
 
 ## 1. Where things stand
 
-M0, M1 and M2 of `practice-plan.md` are complete, and M3 has been started from
-the far end: the *reading* was rebuilt and a per-section history added, which is
-what the user actually wanted from it. The per-cell trend lines and the
-take-vs-take overlay Q14 specifies are still unbuilt.
+M0 and M1 of `practice-plan.md` are complete; M2 was built and then removed.
+M3 was started from the far end: the *reading* was rebuilt, which is what the
+user actually wanted from it. The take-vs-take overlay Q14 specifies is still
+unbuilt.
 
 **M0** pivoted the clock onto `<audio>` on `mix.wav`, prepped the original track
 as its own song, and added `drums sections` and `drums sticking`.
@@ -19,39 +56,31 @@ as its own song, and added `drums sections` and `drums sticking`.
 **M1** is the thin slice: Web MIDI in, the calibration ritual, a take on disk,
 the scorer, and the grade drawn on the staff.
 
-**M2** is the routine grid: the fixed set of cells one run walks, filled a cell
-at a time, resumable across sittings and sealed by hand. **Reshaped on
-2026-09-19** -- it is four cells now, the whole song at each tempo, and the
-stretch of bars you drill is an exercise instead.
+**M2** was the routine grid. It was removed on 2026-11-21 with the exercises,
+never having been opened for real; see §0 and §2.
 
-**The reading** (2026-09-16) is three dials, a bar strip, three notehead colours
-and a per-section trend column, replacing a table nobody could read. See §3.
+**The reading** (2026-09-16) is three dials, a bar strip and three notehead
+colours, replacing a table nobody could read. See §3.
 
 ```
-app/src/routine.ts     the grid, the rules, and the history maths. Pure; tested.
-app/src/grade.ts       the scorer. Pure, and the other part with tests on it.
+app/src/grade.ts       the scorer. Pure, and tested.
 app/src/reference.ts   the floor: how far behind the chart the record plays
-app/src/practice.ts    the panel: select, record, fill, seal, and the reading
-app/plugins/practice.ts  /practice/routine(s), /practice/take, virtual:kit
+app/src/practice.ts    the panel: MIDI, calibrate, record the whole song, and the reading
+app/plugins/practice.ts  /practice/take, /practice/calibration, virtual:kit
 app/src/midi-in.ts     the module -> hits, stamped in mix time
 app/src/chart.ts       tab.mid -> notes, placed in the mix, given limbs
 app/src/calibrate.ts   tap-to-click, median of N, two clocks bridged
 app/src/take.ts        the take format (Q8). The important one.
 app/src/heatmap.ts     noteheads coloured by verdict + the extras lane
-app/src/exercise.ts    the pool: what an exercise and a drill are. Pure; tested.
-app/src/exercises.ts   the panels: the song's list, the cutting form, the pool page
-app/src/clock.ts       what the page needs from a clock, whoever is counting
-app/src/timer-clock.ts a clock with no media behind it: an exercise's own line
-app/src/transport.ts   which of the two alphaTab follows, and the one swap
+app/src/clock.ts       the narrow view of the mix clock the rest of the page gets
 app/src/kit.ts         the written notes, sounded: when each one fires
 app/src/bank.ts        ...and which recording it fires, and how loud
-exercises/<id>/        the pool itself, at the repo root: one dir per exercise
 kit/samples/           the bank: 255 recordings; `drums kit-bake` writes it
 kit.toml [render]      what to render it from (NOT the module's numbering)
 kit.toml [sampler]     chokes and trims: how the bank is played
 kit.toml [input]       what your module sends (NOT the chart's numbering)
 pipeline/reference.py  measures the floor, writes reference.lock.json
-songs/<slug>/routines/ the runs. The open one has `sealedAt: null`.
+songs/<slug>/takes/    every take, never rewritten
 ```
 
 ### Checks
@@ -59,18 +88,16 @@ songs/<slug>/routines/ the runs. The open one has `sealedAt: null`.
 From `app/`, with `npm run dev` running in its own terminal:
 
 ```
-npm run smoke · check-sync · check-mix · check-ui out.png · check-practice · check-exercise · check-solo
-npm test                                   # scorer + chart + routine + exercise + bar_offset, 106, no browser
-.venv/Scripts/python -m pytest -q tests    # 116, no browser
+npm run smoke · check-sync · check-mix · check-ui out.png · check-practice · node scripts/check-nokit.mjs
+npm test                                   # scorer + chart + bar_offset, 34, no browser
+.venv/Scripts/python -m pytest -q tests    # 234 (16 skipped: the slow cover e2e), no browser
 cd app && npm run typecheck
 ```
 
-**Known-good as of 2026-09-19:** 116 pytest, 106 node tests, clean typecheck, and
-every browser check. Run the important ones once per song (`SONG=<slug>`).
-`check-practice` now records the whole song, so it takes about as long as the
-record does; `check-exercise` is the fast proof of the same path, and
-`check-solo` is the other half of it -- an exercise on its own notes, with no
-song loaded at all. `check-solo` and `check-mix` need a baked bank, so run
+**Known-good as of 2026-11-21:** 234 pytest, 34 node tests, clean typecheck,
+and every browser check on One For The Road (smoke, sync, ui, mix, nokit) and
+Kill Me (practice). `check-practice` records the whole song, so it takes about
+as long as the record does. `check-mix` needs a baked bank, so run
 `drums kit-pick` and `drums kit-bake` once if `kit/samples/` is not there;
 `check-nokit` is the opposite, and hides the bank to read the message a fresh
 checkout gets.
@@ -148,61 +175,27 @@ whole-song take logs two extras, which never touch accuracy.
 
 ### What the user still owes the work
 
-1. **Cut the first real exercises.** The pool holds six near-duplicate test
-   cuts of bars 1-2 of One For The Road, made while the panels were being
-   tried. They are `version: 1` — from before the notes moved into the file —
-   so they play against the record only, and the ✕ on each row throws them
-   away. Every fill in the two prepared songs is already a `[[section]]` of its
-   own, so `Cut bars…` is one click each. Nothing about the loop's *feel* —
-   chiefly whether one bar of rest is the right amount, and whether the kit is
-   good enough to practise to now that it is rendered out of SD3 — can be
-   settled without playing it, and `restBars` is per-exercise precisely so it
-   can be argued with. The soundfont one-shots it used to be were not good
-   enough; whether ten velocity layers and four takes of each are is the
-   question that replaced it.
-2. **Play a run and seal it.** Nothing has been sealed yet on any song, so the
-   trend row has never appeared outside a headless check. It needs one sealed
-   run to show anything and three to start smoothing. A run is four cells now,
-   not forty-four, so this is an afternoon rather than a week.
-3. **Name One For The Road's sections.** It still has the lettered seed
-   `drums sections` proposed -- fifteen blocks, A-N. This used to be urgent
-   because renaming changed `sectionsHash` and threw the history away; since
-   2026-09-19 the epoch key is the bar span, so a rename costs nothing and this
-   can be done whenever the names come to you.
-4. **Check the module's hi-hat offset** (parked). Closed only registers under
+1. **Name One For The Road's sections.** It still has the lettered seed
+   `drums sections` proposed -- fifteen blocks, A-N. They are about to be the
+   song map and the loop picker, so names will matter there.
+2. **Check the module's hi-hat offset** (parked). Closed only registers under
    heavy pressure, which is either a miscalibrated offset or honest reporting of
    a loose-hat style. The Monitor tells them apart: press to what *you* call
    closed and see whether note 42 or 46 comes out. Nothing depends on the
    outcome — `[input]` maps both and takes re-grade from raw stamps.
-5. **Read the R/L letters** and tune `kit.toml` if they are not what they would
+3. **Read the R/L letters** and tune `kit.toml` if they are not what they would
    play, then `drums sticking <slug> --restick`.
 
 ---
 
-## 2. What M2 built
+## 2. What M2 built, and where it went
 
-The rules live in `app/src/routine.ts`, which is pure and has 39 tests on it.
-Read that file first: every rule below is a named export with its reasoning above
-it.
-
-- **The grid** is `[[section]]` blocks × 70/80/90/100, walked section-major, then
-  the whole song at each tempo, with the whole song at 100% last. **Two blocks
-  with the same name are one cell**, practised against the first — the only lever
-  that makes a routine smaller; cutting fills out is the one that makes it bigger.
-- **Only a complete take fills a cell**, and **the last complete take counts, not
-  the best**. An abandoned take is still written; it just fills nothing.
-- **A cell below 90% (`PASS`) goes red and blocks nothing.**
-- **Where next:** finishing a cell walks *forwards* from it; picking a run up in a
-  new sitting goes to the first hole in the grid.
-- **The open routine is a file**, rewritten after every cell, because Live
-  reloads the page on every Ctrl+S. At most one per song, enforced by the route
-  rather than the page — the page is the thing that keeps being reloaded.
-- **Two grades of epoch break.** Sections moved → the grid is a different shape
-  and the routine cannot be resumed at all. Chart edited → the run carries on,
-  each fill records the chart it was graded against, and sealing across two marks
-  the routine `mixed`.
-- **Sealing** refuses a routine with holes and records the date span.
-  **Discarding** deletes the run and never the takes.
+M2 was the routine grid: a fixed set of (section x tempo) cells one run walked,
+open across sittings and sealed by hand. It was built on 2026-09-13, cut down
+to the whole song at four tempos on 2026-09-19, and **removed on 2026-11-21**
+without ever having been opened for real. The rules it held are in
+`git show 5c21a14:app/src/routine.ts`, and README "Where things stand" has the
+history.
 
 ### The two oldest takes are the proof of the format
 
@@ -236,8 +229,6 @@ What it is now:
   *when* it happened is a quantity and is shown as one. Hue has no direction, so
   the early/late split was a decode step on every take.
 - **The old table survives** behind a `the numbers` toggle.
-- **The history is one line per section**, not per cell: 44 sparklines is not
-  something anyone reads, and a section is the unit you think in.
 
 **The reference floor is applied, not just reported.** This reverses a decision
 M1 left deliberately open. `drums reference` writes `reference.lock.json`, pinned
@@ -247,34 +238,24 @@ number for the whole kit, which is a real simplification: only kick and snare ar
 measurable, and Song 2's kick is +10.7 while its snare is −1.3. The per-instrument
 split is in the lock for a later version to use without re-measuring.
 
-**The progress line is a rolling median of three.** What makes the grid honest —
-counting your last take, not your best — makes a raw series jumpy, where one good
-run makes the next look like a regression. The median keeps the trend and drops a
-single outlier either way.
-
 ---
 
 ## 4. What is left
 
+**Before any of this: §0.** Parts B and C come first. Everything below waits.
+
 **The rest of M3.** The take-vs-take overlay (Q14). The per-cell trend lines it
-also asked for were built on 2026-09-19, when the grid shrank to four cells and
-four sparklines became a reading rather than a wall.
+also asked for were built on the routine grid and went with it.
 
 **M4, the coach.** Two halves that do not belong together:
 - **Step-by-step** (Q12) — transport paused, the cursor waits for you to play the
   next note. No scoring, no take, no calibration. Nearer to a play-along feature
   than a coaching one, and buildable on its own.
-- **Exercises** (Q13) — **both halves are built** (2026-09-19). An exercise is a
-  few bars looped with a bar of click between the reps and graded every time
-  round; drills fill its own tempo ladder and touch no routine cell. The
-  constructible grid Q13 called the largest structural consequence **arrived and
-  was small**: `syntheticGrid` in `syncpoints.ts`, because everything already
-  goes through `slotToMixMs` and `barStartMs`. An exercise now carries its own
-  notes (`version: 2`, `ExerciseChart`) and plays with no song loaded, on
-  `TimerClock` and a bank of samples (`kit.ts`). What an agent writing exercises
-  needs is the file format (`app/src/exercise.ts`) and `POST /practice/exercise`
-  — and note it can now write the **notes** too, as a `chart` of re-based
-  `ChartHit`s rather than as alphaTex, which retires the heredoc hazard.
+- **Exercises** (Q13) — built on 2026-09-19 and **removed on 2026-11-21**:
+  the user did not like their shape (a pool, a page of their own, a ladder).
+  What survives of the idea is the loop, which comes back as part B in §0.
+  If an agent is ever to write exercises, it starts again from what the user
+  wants then; the old format is `git show 5c21a14:app/src/exercise.ts`.
 
 **M5, the artifact.** Take → `.mid` warped onto the straight grid for Ableton
 (small, all the machinery exists); phone-video alignment by onset-envelope
@@ -285,13 +266,8 @@ export itself.
 **M6, the avatar.** Three.js sticks over a top-down kit, driven by the sticking
 lock. Explicitly last.
 
-**Small and unscheduled, but wanted:** the user has said the thing they actually
-value is playing along with the notation at different tempos. **Bigger notes**
-(2026-09-16) and **the loop** are done — and the loop is no longer only a drill:
-Play on an armed exercise loops it with no MIDI and no dev server (2026-09-19).
-What is left of that list is a **tempo ramp** across a drill's reps — the loop
-and the ladder both exist now, so it is a small thing on top of them — and a
-**count-in on a paused start**, which is still only inside a run.
+**Small and unscheduled, but wanted** has become part B in §0: the user values
+playing along with the notation at different tempos above everything else.
 
 **The avatar's input already exists.** `Kit.onNote` (`app/src/kit.ts`) fires per
 note as it is booked, carrying instrument, limb, velocity and the AudioContext

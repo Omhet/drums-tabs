@@ -54,7 +54,7 @@ export interface PlayedNote extends ExpectedNote {
 }
 
 export interface Kit {
-  /** The whole part, in time order. Set once per arm; the same every rep. */
+  /** The whole part, in time order. Set once per song. */
   load(notes: readonly ExpectedNote[]): void;
   /** Drop what is booked and continue from `mixNow` (seconds) next time. */
   rewind(mixNow: number): void;

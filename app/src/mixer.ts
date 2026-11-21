@@ -93,21 +93,16 @@ export class Mixer {
   private stemGain = new Map<StemName, GainNode>();
   // The kit starts at zero for the same reason the click does: over a record
   // it is a comparison you ask for, not a thing that should start happening.
-  // The exercise page turns it up (practice.ts `ensureKitAudible`).
   private levels: Record<Fader, number> = { nodrums: 1, drums: 1, click: 0, kit: 0 };
   private timer = 0;
-  /** Drops the current clock's transport subscription when it is swapped out. */
-  private unlisten: () => void = () => {};
-  /** True while an exercise is playing with no recording behind it. */
-  private solo = false;
   /** The part the kit should play, kept for when the graph exists. */
   private pending: readonly ExpectedNote[] | undefined;
   /**
    * Who wants telling about each note.
    *
    * Held here rather than on the kit, because the kit is built on the first
-   * user gesture and a page opened straight onto an exercise subscribes before
-   * that -- and because replacing the kit must not silently drop the avatar.
+   * user gesture and a listener may subscribe before that -- and because
+   * replacing the kit must not silently drop the avatar.
    */
   private readonly noteListeners = new Set<(note: PlayedNote) => void>();
   private beats: number[] = [];
@@ -117,7 +112,7 @@ export class Mixer {
     /** The clock element: alphaTab drives it, everything else follows it. */
     private readonly mixEl: HTMLMediaElement,
     videoEl: HTMLVideoElement,
-    private clock: PlayClock,
+    private readonly clock: PlayClock,
     private readonly options: MixerOptions = {}
   ) {
     mixEl.preservesPitch = true;
@@ -137,10 +132,10 @@ export class Mixer {
     });
     this.followers = [...this.stems, this.picture];
 
-    // Transport comes off the clock, not off the element: an exercise plays on
-    // a clock that is not an element at all (timer-clock.ts), and the click has
-    // to follow it exactly as the stems follow the mix.
-    this.unlisten = clock.onTransport((e) => this.onTransport(e));
+    // Play, pause, seek and rate come off the clock (media.ts raises them from
+    // the element's own events), so the click and the kit follow exactly what
+    // the stems follow.
+    clock.onTransport((e) => this.onTransport(e));
     // Stalling is the exception, and stays on the element: it is a fact about
     // a media file arriving, not about a transport.
     mixEl.addEventListener('playing', () => this.follow());
@@ -163,50 +158,14 @@ export class Mixer {
     void this.bank.ready();
   }
 
-  /**
-   * Follow a different timeline (transport.ts).
-   *
-   * The followers are stopped on the way out rather than left running against
-   * a clock that is no longer telling them anything -- and the click forgets
-   * what it had booked, because those blips were for a beat map that is about
-   * to be replaced.
-   */
-  setClock(clock: PlayClock) {
-    if (clock === this.clock) return;
-    this.onPause();
-    this.unlisten();
-    this.clock = clock;
-    this.unlisten = clock.onTransport((e) => this.onTransport(e));
-  }
-
   /** Point every follower at a song and give the click its beat map. */
   load(song: MixerSong) {
-    this.solo = false;
     this.beats = song.beats;
     this.accent = song.accent;
     this.click?.load(song.beats, song.accent);
     const media = (path: string) => `/media/${encodeURIComponent(song.slug)}/${path}`;
     for (const stem of this.stems) stem.load(media(`stems/${stem.name}.wav`));
     this.picture.load(song.video ? media('audio/video.mp4') : null, song.videoOffsetMs);
-    this.routeMix();
-  }
-
-  /**
-   * An exercise with no song behind it: a beat map for the click and nothing
-   * to follow.
-   *
-   * The stems and the picture are unloaded rather than left holding the last
-   * song's buffers -- an element that still has a `src` is an element that can
-   * still be started by something, and the whole point here is that there is
-   * no recording in the room.
-   */
-  loadSolo(beats: number[], accent: (beat: number) => boolean) {
-    this.solo = true;
-    this.beats = beats;
-    this.accent = accent;
-    this.click?.load(beats, accent);
-    for (const stem of this.stems) stem.load(null);
-    this.picture.load(null);
     this.routeMix();
   }
 
@@ -222,9 +181,8 @@ export class Mixer {
   /**
    * The written notes, to be sounded under whatever is playing.
    *
-   * Remembered when the graph does not exist yet: the part is loaded when an
-   * exercise is armed, and the AudioContext is not built until the first
-   * gesture -- which, on a page opened straight onto an exercise, comes after.
+   * Remembered when the graph does not exist yet: the part is loaded with the
+   * song, and the AudioContext is not built until the first gesture.
    */
   loadKit(notes: readonly ExpectedNote[]) {
     this.pending = notes;
@@ -370,10 +328,7 @@ export class Mixer {
    */
   private routeMix() {
     if (!this.mixGain || !this.ctx) return;
-    // With nothing loaded there is no mix to fall back to, and the element is
-    // still holding whatever song was open last: silence is the only honest
-    // setting.
-    const noStems = !this.solo && this.stems.every((s) => s.failed);
+    const noStems = this.stems.every((s) => s.failed);
     this.mixGain.gain.setTargetAtTime(noStems ? 1 : 0, this.ctx.currentTime, 0.01);
   }
 }

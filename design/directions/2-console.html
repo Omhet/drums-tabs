@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/bravura.css">
+<link rel="stylesheet" href="assets/notation.css">
+<style>
+/* Direction 2 -- Console.
+   The notation owns a fixed column that never changes width; everything you
+   touch lives in one rack beside it, like a module next to the kit. */
+:root {
+  --bg: #0c0f12;
+  --rack: #12171b;
+  --key: #1a2127;
+  --key-hi: #212a31;
+  --line: #27313a;
+  --text: #e2e8ed;
+  --muted: #8796a3;
+  --faint: #55636f;
+  --accent: #5cc9a7;
+  --accent-wash: rgba(92, 201, 167, 0.14);
+
+  --paper: #151a1f;
+  --nt-ink: #e4eaee;
+  --nt-staff: #4a5662;
+  --nt-barno: #5b6976;
+  --nt-cursor: #f2c14e;
+  --nt-stick: #8e9fad;
+  --nt-current: rgba(242, 193, 78, 0.09);
+  --nt-loop: rgba(92, 201, 167, 0.055);
+  --nt-out: rgba(21, 26, 31, 0.66);
+
+  --ui: "Barlow Semi Condensed", "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); overflow: hidden; }
+.frame {
+  position: relative; width: 2194px; height: 1100px; overflow: hidden; transform-origin: 0 0;
+  background: var(--bg); font-family: var(--ui);
+}
+
+/* ---- the notation column ---- */
+.sheet {
+  position: absolute; left: 24px; top: 24px; width: 1548px; height: 1052px;
+  background: var(--paper); border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); overflow: hidden;
+}
+.sheet .map { position: absolute; left: 24px; top: 14px; }
+.sheet .nt { position: absolute; left: 24px; top: 132px; }
+
+.sm { position: relative; height: 104px; }
+.sm-tier { position: absolute; left: 0; right: 0; top: 0; height: 32px; }
+.sm-tlabel { position: absolute; transform: translateX(-50%); top: 0; font: 500 32px/1 var(--ui); color: var(--faint); white-space: nowrap; }
+.sm-tlabel.in-loop { color: var(--accent); }
+.sm-strip { position: absolute; left: 0; right: 0; top: 40px; height: 64px; }
+.sm-block {
+  position: absolute; top: 0; height: 64px; border-right: 3px solid var(--paper);
+  display: flex; align-items: center; padding: 0 8px; overflow: hidden; background: #1e262d;
+}
+.sm-block.k-chorus { background: #26323b; }
+.sm-block.k-fill { background: #34434e; }
+.sm-block.short { padding: 0; }
+.sm-label { font: 600 32px/1 var(--ui); color: var(--muted); }
+.sm-block.in-loop { background: rgba(92, 201, 167, 0.2); }
+.sm-block.in-loop .sm-label { color: var(--accent); }
+.sm-block.now .sm-label { color: var(--text); }
+.sm-loop { position: absolute; top: -4px; height: 72px; border: 3px solid var(--accent); border-radius: 6px; }
+.sm-head { position: absolute; top: -8px; width: 4px; height: 80px; margin-left: -2px; background: var(--nt-cursor); border-radius: 2px; }
+
+.nt-cur { background: var(--nt-current); border-radius: 6px; }
+.nt-out { background: var(--nt-out); }
+.nt-loop { background: var(--nt-loop); }
+.nt-loop.first { box-shadow: inset 5px 0 0 var(--accent); }
+.nt-loop.last { box-shadow: inset -5px 0 0 var(--accent); }
+.nt-sec { top: 0; margin-left: 14px; }
+.nt-sec-name { font: 600 38px/1 var(--ui); color: var(--muted); }
+.nt-row.has-label .nt-loop.first + * {}
+.nt-stick { --nt-stick-size: 25px; }
+
+/* ---- the rack ---- */
+.rack { position: absolute; left: 1596px; top: 24px; width: 574px; bottom: 24px; }
+.video { width: 574px; height: 323px; border-radius: 12px; overflow: hidden; background: #000; }
+.video img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.title { margin-top: 10px; height: 44px; display: flex; align-items: center; justify-content: space-between; }
+.title .name { font: 500 34px/1 var(--ui); color: var(--muted); }
+.title .name b { color: var(--text); font-weight: 600; }
+.icons { display: flex; gap: 6px; }
+.icons button { width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; color: var(--faint); display: grid; place-items: center; }
+.icons svg { width: 26px; height: 26px; }
+
+.where { margin-top: 8px; }
+.where .section { font: 600 96px/0.9 var(--ui); letter-spacing: -0.01em; }
+.where .row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; }
+.where .bar { font: 600 64px/1 var(--ui); font-variant-numeric: tabular-nums; }
+.where .bar small { font: 500 34px/1 var(--ui); color: var(--muted); margin-left: 6px; }
+.where .pass { display: flex; align-items: center; gap: 12px; font: 600 64px/1 var(--ui); color: var(--accent); }
+.where .pass svg { width: 52px; height: 52px; }
+
+.card { margin-top: 16px; background: var(--rack); border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); padding: 12px 14px 14px; }
+.cap { font: 600 22px/1 var(--ui); letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); display: flex; justify-content: space-between; }
+.cap span { letter-spacing: 0.02em; text-transform: none; font-weight: 500; font-size: 24px; }
+.tempo { display: flex; align-items: baseline; gap: 18px; margin-top: 2px; }
+.tempo .pct { font: 500 136px/1 var(--ui); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.tempo .pct span { font-size: 76px; color: var(--muted); }
+.tempo .bpm { font: 500 44px/1 var(--ui); color: var(--muted); font-variant-numeric: tabular-nums; }
+.tempo .bpm b { color: var(--text); font-weight: 600; }
+
+.keys { display: grid; gap: 10px; margin-top: 12px; }
+.keys.five { grid-template-columns: repeat(5, 1fr); }
+.keys.four { grid-template-columns: repeat(4, 1fr); }
+.key {
+  height: 80px; border: 0; border-radius: 10px; background: var(--key); box-shadow: inset 0 0 0 1px var(--line), 0 2px 0 #070a0c;
+  color: var(--text); font: 600 34px/1 var(--ui); display: flex; align-items: center; justify-content: center; gap: 12px;
+  font-variant-numeric: tabular-nums; position: relative;
+}
+.key.dim { color: var(--muted); }
+.key svg { width: 34px; height: 34px; }
+.key.on { background: var(--accent-wash); box-shadow: inset 0 0 0 2px var(--accent), 0 2px 0 #070a0c; color: var(--accent); }
+.key.go { background: var(--text); color: var(--bg); box-shadow: 0 2px 0 #070a0c; }
+.transport { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; margin-top: 14px; }
+.transport .key { height: 80px; }
+
+.mix .key { flex-direction: column; gap: 8px; height: 72px; font-size: 32px; }
+.mix .lvl { width: 70%; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.mix .lvl i { display: block; height: 100%; background: var(--muted); }
+.mix .key.muted { color: var(--faint); }
+.mix .key.muted .name { text-decoration: line-through; text-decoration-thickness: 3px; }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="sheet">
+    <div class="map" id="map"></div>
+    <div id="score"></div>
+  </div>
+
+  <div class="rack">
+    <div class="video"><img src="assets/song2-chorus.jpg" alt=""></div>
+    <div class="title">
+      <div class="name"><b>Song 2</b> · Blur</div>
+      <div class="icons">
+        <button title="Songs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+        <button title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg></button>
+      </div>
+    </div>
+
+    <div class="where">
+      <div class="section">chorus</div>
+      <div class="row">
+        <div class="bar">bar 9<small>/ 64</small></div>
+        <div class="pass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l3 3-3 3"/><path d="M4 11V9a3 3 0 0 1 3-3h13"/><path d="M7 21l-3-3 3-3"/><path d="M20 13v2a3 3 0 0 1-3 3H4"/></svg>pass 3</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cap">Tempo <span>record 130 BPM</span></div>
+      <div class="tempo"><div class="pct">80<span>%</span></div><div class="bpm"><b>104</b> BPM</div></div>
+      <div class="keys five">
+        <button class="key">−10</button><button class="key">−5</button><button class="key dim">100%</button><button class="key">+5</button><button class="key">+10</button>
+      </div>
+    </div>
+
+    <div class="transport">
+      <button class="key go"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1"/><rect x="14" y="4.5" width="4" height="15" rx="1"/></svg>Pause</button>
+      <button class="key on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l3 3-3 3"/><path d="M4 11V9a3 3 0 0 1 3-3h13"/><path d="M7 21l-3-3 3-3"/><path d="M20 13v2a3 3 0 0 1-3 3H4"/></svg>Loop</button>
+      <button class="key dim">Ramp</button>
+    </div>
+
+    <div class="keys four mix">
+      <button class="key"><span class="name">Band</span><span class="lvl"><i style="width:80%"></i></span></button>
+      <button class="key muted"><span class="name">Drums</span><span class="lvl"><i style="width:0"></i></span></button>
+      <button class="key"><span class="name">Click</span><span class="lvl"><i style="width:60%"></i></span></button>
+      <button class="key muted"><span class="name">Kit</span><span class="lvl"><i style="width:0"></i></span></button>
+    </div>
+  </div>
+</div>
+<script src="assets/song2-3bars.js"></script>
+<script src="assets/notation.js"></script>
+<script src="assets/songmap.js"></script>
+<script>
+  document.fonts.ready.then(() => {
+  const song = SongMap.SONGS.song2;
+  SongMap.render(document.getElementById('map'), {
+    song: 'song2', width: 1500, loop: { from: 9, to: 16 }, at: 9.3, wrap: true,
+    kind: (n) => (/^(into|break)/.test(n) ? 'k-fill' : /chorus/.test(n) ? 'k-chorus' : 'k-verse'),
+  });
+  Notation.render(document.getElementById('score'), {
+    score: 'song2-3', rows: [2, 3, 4], lane: 30, trimTop: 4, labelLane: 46,
+    cursor: { bar: 9, slot: 4 }, current: 9, loop: { from: 9, to: 16 },
+    sections: song.sections,
+  });
+  Notation.fit();
+  });
+</script>
+</body>
+</html>

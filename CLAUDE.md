@@ -2,8 +2,8 @@
 
 ## This is an active, single-user work in progress
 
-Nothing is deployed. Nobody else has a checkout. The data under `songs/`,
-`exercises/` and `kit/` belongs to this one machine.
+Nothing is deployed. Nobody else has a checkout. The data under `songs/` and
+`kit/` belongs to this one machine.
 
 **So there is no backward compatibility to keep, and no migrations to write.**
 When a file format changes, change it and regenerate the files. Do not add a
@@ -15,14 +15,14 @@ That is not a style preference. On 2026-09-20 the exercise format's version-1
 path — a `1 | 2` union, an optional `chart`, nine fallbacks across five files
 and a whole "orphan exercise" UI state — was supporting exactly zero files,
 because the only exercise on disk was version 2. It all came out and nothing
-changed.
+changed. (Exercises themselves, and routines, were removed on 2026-11-21.)
 
 **The one exception is `songs/*/takes/`.** A take is a record of what was
 actually played. It cannot be regenerated, it is never rewritten, and its older
 shapes are tolerated on read — see the rules at the top of `app/src/take.ts`.
 Everything else is derived and can be rebuilt: `grid.lock.json`,
 `sticking.lock.json`, `reference.lock.json`, `tab.mid` (from the Ableton set),
-`exercise.json`, and `kit/samples/` (`drums kit-bake`).
+and `kit/samples/` (`drums kit-bake`).
 
 ## Where things are written down
 
@@ -35,16 +35,22 @@ Keep these current as part of the work, not afterwards.
 - **`practice-plan.md`, `avatar-plan.md`** are the *reasoning* — requirements
   interviews for milestones, some still unbuilt. Not status. Do not edit their
   Q&A rounds to match today; they are a record of what was decided and why.
+- **`design/claude-design-prompt.md`** is the brief for the interface redesign,
+  with screenshots of the page before it in `design/now/`.
 
-## Two greps that lie
+## The screen is two metres away
+
+The user plays in front of a 31.5" 4K monitor at 175% scaling, about 2 m from
+the drum throne: a maximised page is about 2194x1100 CSS px. Check layouts and
+take screenshots at that size. Anything used mid-song has to be readable and
+clickable from the throne; the brief has the minimum sizes.
+
+## A grep that lies
 
 Before deleting anything that looks unreferenced, note that some names are built
-rather than written:
-
-- `app/src/routine.ts` builds `/practice/routines` as `` `${ROUTE}s` ``, so a
-  grep for the plural finds nothing although the handler is live.
-- `app/src/main.ts` builds fader element ids as `` `fader-${f}` ``, so
-  `#fader-drums` and friends in `index.html` look orphaned and are not.
+rather than written: `app/src/main.ts` builds fader element ids as
+`` `fader-${f}` ``, so `#fader-drums` and friends in `index.html` look orphaned
+and are not.
 
 ## Verifying
 

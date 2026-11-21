@@ -130,11 +130,7 @@ function renderVoice(
 }
 
 /**
- * A song's tab.mid, engraved.
- *
- * Two steps, and they are separable on purpose: reading the MIDI is the only
- * part that needs a song, and an exercise that carries its own notes has
- * already done it (`hitsToAlphaTex`).
+ * A song's tab.mid, engraved: read the MIDI (chart.ts), then lay the hits out.
  */
 export function midiToAlphaTex(bytes: Uint8Array, opts: TabOptions): TabResult {
   const { hits, unmapped } = readChart(bytes, opts.map);
@@ -143,17 +139,10 @@ export function midiToAlphaTex(bytes: Uint8Array, opts: TabOptions): TabResult {
 
 /**
  * Chart hits, engraved. Everything below here is `slot` arithmetic and knows
- * nothing about where the notes came from.
- *
- * `unmapped` is carried through rather than computed: it is a fact about
- * reading a particular MIDI file, and hits that arrived some other way have no
- * such thing to report.
+ * nothing about where the notes came from. `unmapped` is carried through: it
+ * is a fact about reading the MIDI file, not about the hits.
  */
-export function hitsToAlphaTex(
-  read: readonly ChartHit[],
-  opts: TabOptions,
-  unmapped: number[] = []
-): TabResult {
+function hitsToAlphaTex(read: readonly ChartHit[], opts: TabOptions, unmapped: number[]): TabResult {
   const slotsPerBar = opts.beatsPerBar * SLOTS_PER_BEAT;
 
   // An instrument the kit knows but the staff cannot draw is dropped here

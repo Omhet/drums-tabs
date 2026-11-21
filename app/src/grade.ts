@@ -82,7 +82,7 @@ export interface ExtraVerdict {
   note: number;
   velocity: number;
   instrument?: string;
-  /** 1-based bar it fell in, when it fell inside the cell at all. */
+  /** 1-based bar it fell in, when it fell inside the take's bars at all. */
   bar?: number;
 }
 
@@ -136,7 +136,7 @@ export interface Grade {
   unmappedNotes: number[];
 }
 
-/** One bar of the cell, as it went. */
+/** One bar of the take, as it went. */
 export interface BarGrade {
   bar: number;
   /** Written notes in this bar, and how many landed on the right drum. */

@@ -2,18 +2,14 @@ import * as alphaTab from '@coderline/alphatab';
 import songs from 'virtual:songs';
 import { say } from './icons';
 import { MixClock } from './media';
-import { hitsToAlphaTex, midiToAlphaTex, type TabResult } from './midi-tab';
+import { midiToAlphaTex, type TabResult } from './midi-tab';
 import { FADERS, Mixer, type Fader } from './mixer';
 import { Practice, readPracticeSong } from './practice';
 import { chartHash } from './chart';
-import { Exercises } from './exercises';
-import type { Exercise } from './exercise';
 import type { ReferenceLock } from './reference';
 import { ScoreWindow, barAtTick, type Lines } from './score-window';
 import { StickingLetters, type StickingLock } from './sticking';
-import { barStartMs, gridSyncPoints, syncSafeTempo, syntheticGrid, type Grid } from './syncpoints';
-import { TimerClock } from './timer-clock';
-import { Transport } from './transport';
+import { barStartMs, gridSyncPoints, syncSafeTempo, type Grid } from './syncpoints';
 
 // Per-song inputs, imported straight from songs/ (outside the Vite root, which
 // is why vite.config.ts opens server.fs.allow). tab.mid is rewritten by the
@@ -510,11 +506,12 @@ const clock = new MixClock(mixEl, {
     setStatus(`The browser refused to start the audio: ${err}`, true);
   },
 });
-// The other clock: an exercise with no song behind it plays on a line this
-// counts out rather than on a recording. Which of the two alphaTab follows is
-// `transport`'s to say, and it is constructed once everything that holds a
-// clock exists to be told about the swap.
-const timerClock = new TimerClock();
+/** Hand alphaTab's external-media output to the clock. Safe to call again. */
+function attachClock() {
+  const output = api.player?.output as alphaTab.synth.IExternalMediaSynthOutput | undefined;
+  if (output && 'handler' in output) clock.attach(output);
+}
+attachClock();
 
 // --- mixer --------------------------------------------------------------------
 // The stems, the click and the picture follow the clock on their own (see
@@ -655,21 +652,11 @@ const practice = new Practice(
     calibrate: byId('calibrate'),
     calibration: byId('calibration'),
     record: byId('record'),
-    cell: byId('cell'),
+    target: byId('take-target'),
     monitorOn: byId('monitor-on'),
     monitor: byId('monitor'),
     report: byId('report'),
     clickFader: byId('fader-click'),
-    kitFader: byId('fader-kit'),
-    speedFader: byId('speed'),
-    grid: byId('routine'),
-    start: byId('routine-start'),
-    seal: byId('routine-seal'),
-    discard: byId('routine-discard'),
-    routineState: byId('routine-state'),
-    reps: byId('reps'),
-    mix: byId('mix-group'),
-    stemFaders: [faderEl('nodrums'), faderEl('drums')],
   },
   scoreEl,
   (text, isError = false) => {
@@ -680,44 +667,6 @@ const practice = new Practice(
 );
 onThemeChange = (dark) => practice.setTheme(dark);
 practice.setTheme(isTabDark());
-
-// Which clock alphaTab follows, and the one place it changes. Everything that
-// holds on to a clock is listed here, so a swap cannot leave one of them
-// reading a timeline nobody is advancing any more.
-const transport = new Transport(api, clock, timerClock, [practice, practice.midi, mixer]);
-transport.attach();
-
-// The exercises: the pool, the song's list, and the ladder of whatever is
-// armed. It renders and hands `practice` something to aim at; everything that
-// touches the kit or the clock stays over there.
-const exercises = new Exercises(
-  {
-    list: byId('exercises'),
-    form: byId('exercise-form'),
-    cut: byId('exercise-new'),
-    pool: byId('pool'),
-    ladder: byId('ladder'),
-    drillState: byId('drill-state'),
-    against: byId('drill-against'),
-    againstRow: byId('drill-against-row'),
-    back: byId('drill-back'),
-    kill: byId('drill-delete'),
-  },
-  practice,
-  playable,
-  (hash) => {
-    location.hash = hash;
-  },
-  (text, isError = false) => {
-    practiceNote = text;
-    practiceError = isError;
-    showStatus();
-  },
-  () => currentBar() + 1,
-  (startBar, endBar) => practice.notesIn(startBar, endBar),
-  () => practice.chartHash,
-  (id) => void go({ page: 'exercise', id })
-);
 
 // Handlers must be attached *before* api.tex(), which fires renderStarted
 // synchronously -- otherwise the first event is missed.
@@ -738,59 +687,27 @@ api.error.on((error) => setStatus(`alphaTab error: ${error.message ?? error}`, t
 // silently no-op. (With external media that is immediate; the video itself
 // buffers on demand.)
 api.playerReady.on(() => {
-  transport.attach();
+  attachClock();
   playBtn.disabled = false;
   stopBtn.disabled = false;
   playerLoaded = true;
   showStatus();
 });
 
-/**
- * What the Play button says: what the *page* is doing, not what the transport
- * is doing this second.
- *
- * A loop pauses the transport at the end of every rep and again through the
- * rest -- and it starts on a bar of count-in, before the transport has moved
- * at all -- so alphaTab is legitimately stopped several times a minute while
- * the thing you asked for is very much still running.
- */
+/** What the Play button says, from the transport's own state. */
 function paintPlay(state = api.playerState) {
-  const playing = state === alphaTab.synth.PlayerState.Playing || practice.looping;
   // The word and the glyph that stands in for it when the rail is collapsed,
   // written together so they cannot disagree (icons.ts).
-  if (playing) say(playBtn, 'Pause', '⏸');
+  if (state === alphaTab.synth.PlayerState.Playing) say(playBtn, 'Pause', '⏸');
   else say(playBtn, 'Play', '▶');
 }
 
 api.playerStateChanged.on((e) => paintPlay(e.state));
+api.playerFinished.on(() => paintPlay());
 
-// The end of the score. On a song that is the last bar of it; on an exercise
-// playing its own notes the score is the exercise, so this is the end of every
-// time round the loop -- and alphaTab rewinds as it says so, which is why the
-// loop has to be told rather than left to notice (practice.ts `reachedEnd`).
-api.playerFinished.on(() => {
-  practice.reachedEnd();
-  paintPlay();
-});
-
-/**
- * Play, wherever it is pressed from.
- *
- * One function because an armed exercise means something different by it: not
- * "roll the record from here" but "play these bars, wait, play them again".
- * That loop used to exist only inside Record, which wanted a kit and a dev
- * server before it would happen -- so the one thing an exercise is for was
- * the one thing you could not just listen to.
- */
 function togglePlay() {
   if (playBtn.disabled) return;
-  if (practice.looping) practice.stopLoop();
-  else if (practice.armed && !practice.busy) practice.playLoop();
-  else api.playPause();
-  // A loop's first sound is a count-in, which moves no transport and so fires
-  // no state change: without this the button would still say Play for the bar
-  // it takes, which is the bar you are most likely to press it again in.
-  paintPlay();
+  api.playPause();
 }
 
 // Blur after a click so a following Space toggles playback once, not twice
@@ -808,8 +725,6 @@ stopBtn.addEventListener('click', () => {
 // seeks to the score's tick 0, which is the first beat of bar 1, a couple of
 // seconds in.
 function stop() {
-  // Home is the top of the song, which is nowhere a loop wants to be.
-  if (practice.looping) practice.stopLoop();
   api.stop();
   mixEl.currentTime = 0;
 }
@@ -888,8 +803,7 @@ async function load(slug: string) {
 
   // The section names over the staff, from song.toml's [[section]] blocks.
   // alphaTab draws these as rehearsal marks, which is exactly what they are:
-  // you cannot sensibly rename a boundary you cannot see, and the routine a
-  // practice run walks is built from these names (practice-plan Q5).
+  // you cannot sensibly rename a boundary you cannot see.
   for (const section of song.sections) {
     const bar = score.masterBars[section.start_bar - 1];
     if (!bar || !section.name) continue;
@@ -928,13 +842,8 @@ async function load(slug: string) {
   // the notes on the page, from one parse.
   practiceNote = '';
   practiceError = false;
-  // Not awaited: it ends by reading the open routine off the dev server, and
-  // the page should finish loading whether or not there is one to read.
-  void practice.load(await readPracticeSong(song, bytes, grid, lock, reference));
+  practice.load(await readPracticeSong(song, bytes, grid, lock, reference));
   void showKitNote();
-  // The pool, for the same reason and off the same server: which exercises name
-  // this song, and how their ladders stand.
-  void exercises.load(song);
 
   const problems = [
     tab.unmapped.length ? `unmapped MIDI keys: ${tab.unmapped.join(', ')}` : '',
@@ -972,72 +881,6 @@ async function load(slug: string) {
   stageEl.classList.toggle('no-video', !hasVideo);
   applyLines(savedLines() ?? (hasVideo ? 2 : 'fit'));
   api.renderScore(score);
-}
-
-/**
- * An exercise on its own notes, with no song behind it at all.
- *
- * The short sibling of `load`. There is no mix to fetch, no stems, no picture,
- * no sections, no reference and no routine -- the exercise carries its notes,
- * its tempo and its meter, and a grid is built at that tempo to put them in
- * time (`syntheticGrid`). Everything after that is the same code the song path
- * runs: the same engraver, the same sync points, the same scorer.
- */
-async function loadExercise(exercise: Exercise): Promise<boolean> {
-  const chart = exercise.chart;
-  if (!chart) return false;
-  playBtn.disabled = true;
-  stopBtn.disabled = true;
-  api.stop();
-  setStatus(`Loading ${exercise.name}…`);
-
-  const grid = syntheticGrid(chart.bpm, chart.meter.beats_per_bar, chart.bars, chart.meter.beat_unit);
-  const tab = hitsToAlphaTex(chart.hits, {
-    title: exercise.name,
-    // Written at a tempo alphaTab can add up exactly, and corrected back to
-    // the real one by the sync points -- the same trick the song path uses,
-    // and the reason staying in external-media mode was worth it.
-    bpm: syncSafeTempo(chart.bpm),
-    map: {},
-    beatsPerBar: chart.meter.beats_per_bar,
-    barCount: chart.bars,
-  });
-  const score = parseTex(tab.tex, tab.hiddenRests);
-  const bars = score.masterBars.length;
-  const syncPoints = gridSyncPoints(grid, bars);
-  if (syncPoints.length > 0) score.applyFlatSyncPoints(syncPoints);
-
-  const lengthMs = (barStartMs(grid, chart.bars) ?? 0) || 1;
-  transport.useTimer(lengthMs);
-  // Its own bar 1 is the first note: there is no count-in baked into this
-  // timeline, and nothing before the music to hold the cursor back from.
-  transport.timer.floorMs = 0;
-  transport.timer.seekTo(0);
-
-  current = { slug: '', grid, syncPoints, bars, video: false };
-  // The letters ride on the exercise's own strokes, re-based with the notes.
-  sticking.load(chart.strokes ? { strokes: chart.strokes } : undefined);
-  stickingStale = '';
-  practiceNote = '';
-  practiceError = false;
-  void practice.load({
-    grid,
-    hits: chart.hits,
-    chartHash: chart.hash,
-    sticking: chart.strokes ? { strokes: chart.strokes } : undefined,
-    reference: undefined,
-    referenceMs: 0,
-  });
-  void showKitNote();
-
-  stemsMissing = [];
-  pictureFailed = '';
-  mixer.loadSolo(grid.beats, (beat) => beat % chart.meter.beats_per_bar === 0);
-  summary = `${Math.round(chart.bpm)} BPM, ${tab.notes} notes over ${chart.bars} bar${chart.bars > 1 ? 's' : ''}, played on its own.`;
-  stageEl.classList.toggle('no-video', true);
-  applyLines(savedLines() ?? 'fit');
-  api.renderScore(score);
-  return true;
 }
 
 // alphaTex cannot mark a rest as hidden, so the converter says which rests are
@@ -1201,80 +1044,25 @@ document.addEventListener('keydown', (e) => {
 });
 
 // --- the router -------------------------------------------------------------------
-// The hash is the whole of it. It survives the full reload Ableton triggers on
-// every Ctrl+S, and it makes a song, the pool and a single exercise each a link
-// you can keep. The page itself goes on <html> as an attribute and the CSS does
-// the showing and hiding -- the same arrangement as zen and the rails, for the
-// same reason: there is nothing for the script to keep in step.
-//
-// `exercises` and `exercise/<id>` are matched before song slugs, so a song
-// directory called either would be shadowed. That is the trade for a hash that
-// reads, and no song is called that.
+// The hash is the song's slug, and that is the whole of it. It survives the
+// full reload Ableton triggers on every Ctrl+S, and it makes a song a link you
+// can keep.
 
-type Route =
-  | { page: 'song'; slug: string }
-  | { page: 'pool' }
-  | { page: 'exercise'; id: string };
+const slugOfHash = (hash: string) => decodeURIComponent(hash.replace(/^#/, ''));
 
-function parseHash(hash: string): Route {
-  const raw = decodeURIComponent(hash.replace(/^#/, ''));
-  if (raw === 'exercises') return { page: 'pool' };
-  if (raw.startsWith('exercise/')) return { page: 'exercise', id: raw.slice('exercise/'.length) };
-  return { page: 'song', slug: raw };
-}
-
-async function go(route: Route) {
-  document.documentElement.dataset.page = route.page;
-  if (route.page === 'pool') {
-    await exercises.reload();
-    return;
+async function go(wanted: string) {
+  const slug = playable.some((s) => s.slug === wanted) ? wanted : playable[0]?.slug ?? '';
+  if (!slug) return;
+  if (slug !== songEl.value || !current) {
+    songEl.value = slug;
+    await load(slug);
   }
-  if (route.page === 'song') {
-    practice.disarm();
-    // Back onto the record's own timeline, if an exercise had taken it away.
-    transport.useMix();
-    const slug = playable.some((s) => s.slug === route.slug) ? route.slug : playable[0]?.slug ?? '';
-    if (!slug) return;
-    if (slug !== songEl.value || !current) {
-      songEl.value = slug;
-      await load(slug);
-    }
-    return;
-  }
-  // An exercise, one of two ways. On its own notes: no song is loaded at all,
-  // and the page runs on a clock it counts out itself. Against a record: make
-  // sure that song is the one on screen, then aim at it -- one code path, so
-  // arming cannot race the load, because `load` ends by reading the open
-  // routine off the dev server and the exercise rides along with it.
-  await exercises.reload();
-  const exercise = exercises.exerciseOf(route.id);
-  if (!exercise) {
-    setStatus(`No exercise called ${route.id}.`, true);
-    return;
-  }
-  if (exercises.standalone(route.id)) {
-    if (await loadExercise(exercise)) {
-      exercises.arm(route.id, { standalone: true });
-      return;
-    }
-  }
-  const source = exercises.sourceOf(route.id);
-  if (!source) {
-    setStatus(`${exercise.name} has no notes of its own and no song to play it from.`, true);
-    return;
-  }
-  transport.useMix();
-  if (source.slug !== songEl.value || !current || current.slug !== source.slug) {
-    songEl.value = source.slug;
-    await load(source.slug);
-  }
-  exercises.arm(route.id);
 }
 
 songEl.addEventListener('change', () => {
   location.hash = encodeURIComponent(songEl.value);
 });
-window.addEventListener('hashchange', () => void go(parseHash(location.hash)));
+window.addEventListener('hashchange', () => void go(slugOfHash(location.hash)));
 
 // Handle for the headless checks in scripts/ -- they drive playback and read
 // the position back, which is the only way to verify the player from outside.
@@ -1288,18 +1076,10 @@ if (import.meta.env.DEV) {
     mix: mixEl,
     video: videoEl,
     clock,
-    // Whichever clock is driving, which is not the same object on an exercise
-    // playing on its own: a check that read `clock` there would be reading the
-    // record's timeline while the page ran on another one.
-    transport,
-    get playClock() {
-      return transport.clock;
-    },
     mixer,
     scoreWindow,
     sticking,
     practice,
-    exercises,
     go,
     seekToBar,
     // The bar->ms primitive, so a check can work out where a range starts and
@@ -1311,4 +1091,4 @@ if (import.meta.env.DEV) {
   };
 }
 
-void go(parseHash(location.hash));
+void go(slugOfHash(location.hash));

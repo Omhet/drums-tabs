@@ -246,7 +246,7 @@ export class Heatmap {
     while (i < r.length && r[i]!.tMs < tMs) i++;
     const after = r[Math.min(i, r.length - 1)]!;
     const before = r[Math.max(0, i - 1)]!;
-    // Off the ends of the notated cell: pin to the nearest beat rather than
+    // Off the ends of the notated bars: pin to the nearest beat rather than
     // extrapolating an x that would land outside the staff.
     if (i === 0 || i >= r.length) {
       const edge = i === 0 ? after : before;

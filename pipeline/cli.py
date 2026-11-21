@@ -176,7 +176,7 @@ def grid(
 
     The lock file is the keystone: bar indices must stay stable across pipeline
     runs, because everything downstream is bar-scoped -- the sections in
-    song.toml, the bar range an exercise was cut from, the cell a take filled.
+    song.toml, the bars a take covered.
     So an existing grid is never silently replaced -- --regrid is the
     deliberate act.
     """
@@ -292,19 +292,17 @@ def sections(
 ) -> None:
     """Propose sections from the repeats in tab.mid and write them to song.toml.
 
-    A routine is a fixed grid of (section x tempo) cells, so the sections decide
-    the shape of every run and of the progress history: this proposes them once,
-    you rename and nudge them by hand, and song.toml is the truth from then on.
-    Re-detecting can move a boundary, which changes the grid and makes old runs
-    incomparable -- hence --redetect, like --regrid.
+    The sections are the song's map: the names over the notation, and the
+    stretches you will loop. This proposes them once, you rename and nudge them
+    by hand, and song.toml is the truth from then on. Re-detecting throws the
+    names away -- hence --redetect, like --regrid.
     """
     target = _resolve(song)
     existing = sections_mod.read(target)
     if existing and not redetect:
         console.print(
             f"[yellow]{target.toml.name} already has {len(existing)} sections.[/yellow] "
-            "Edit them by hand, or pass --redetect to replace them (this starts a new "
-            "comparison epoch: old routines stay readable but leave the progress line)."
+            "Edit them by hand, or pass --redetect to replace them (and lose their names)."
         )
         _print_sections(existing)
         raise typer.Exit(code=1)
@@ -327,28 +325,16 @@ def sections(
             f"{loaded.bar_count}[/yellow]"
         )
     _print_sections(found)
-    # Not cosmetic: a routine is every section at 70/80/90/100% plus the whole
-    # song at each, and every cell is played to the end. A section the song
-    # plays twice is one thing to practise, so the cells count the names.
-    cells = _cells(found)
     console.print(
-        f"\n{len(found)} blocks, {len(sections_mod.distinct(found))} sections to practise"
-        f" -> a routine of [bold]{cells} cells[/bold]"
-        f" (roughly {cells * 2}-{cells * 4} minutes a run)."
+        f"\n{len(found)} blocks, {len(sections_mod.distinct(found))} different sections."
     )
     alternatives = [
-        f"--min-bars {other}: {_cells(sections_mod.detect(bars, min_section=other))} cells"
+        f"--min-bars {other}: {len(sections_mod.detect(bars, min_section=other))} blocks"
         for other in (4, 6, 8, 12, 16)
         if other != min_bars
     ]
     console.print("[dim]" + "  |  ".join(alternatives) + "[/dim]")
     console.print(f"written to {target.toml} -- rename and nudge them by hand.")
-
-
-def _cells(found: list[sections_mod.Section]) -> int:
-    """How big a routine these sections make: each at four tempos, plus the
-    whole song at four."""
-    return len(sections_mod.distinct(found)) * 4 + 4
 
 
 def _print_sections(found: list[sections_mod.Section]) -> None:

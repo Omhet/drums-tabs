@@ -67,14 +67,9 @@ export class MidiIn {
   private injected = false;
 
   constructor(
-    private clock: PlayClock,
+    private readonly clock: PlayClock,
     private readonly options: MidiInOptions
   ) {}
-
-  /** Stamp strokes against a different timeline (transport.ts). */
-  setClock(clock: PlayClock) {
-    this.clock = clock;
-  }
 
   get state(): MidiState {
     return this._state;

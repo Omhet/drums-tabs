@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Chart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@400;500;600;700&family=Big+Shoulders+Display:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/bravura.css">
+<link rel="stylesheet" href="assets/notation.css">
+<style>
+/* Direction 3 -- Chart.
+   Read it like a printed drum part: the page on top, the loop drawn as real
+   repeat signs in red pencil, and a stage clock of big numbers along the
+   bottom with the keys built into it. */
+:root {
+  --bg: #0f0f0f;
+  --dock: #151515;
+  --key: #1c1c1c;
+  --line: #2c2c2c;
+  --text: #efede8;
+  --muted: #9b9892;
+  --faint: #605e5a;
+  --pencil: #e0533a;
+  --pencil-wash: rgba(224, 83, 58, 0.14);
+
+  --paper: #e7e5df;
+  --nt-ink: #141414;
+  --nt-staff: #9a978f;
+  --nt-barno: #8d8a83;
+  --nt-cursor: #d4432b;
+  --nt-stick: #66635d;
+  --nt-current: rgba(212, 67, 43, 0.09);
+
+  --big: "Big Shoulders Display", "Arial Narrow", sans-serif;
+  --ui: "Archivo Narrow", "Arial Narrow", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); overflow: hidden; }
+.frame { position: relative; width: 2194px; height: 1100px; overflow: hidden; transform-origin: 0 0; background: var(--bg); font-family: var(--ui); }
+
+/* ---- the page ---- */
+.paper { position: absolute; left: 24px; top: 24px; width: 2146px; height: 632px; background: var(--paper); border-radius: 4px; overflow: hidden; }
+.paper .nt { position: absolute; left: 52px; top: 0; }
+.head { position: absolute; right: 40px; top: 12px; display: flex; align-items: center; gap: 22px; color: #5f5c56; z-index: 2; }
+.head .t { font: 600 34px/1 var(--ui); color: #2a2926; }
+.head .t span { font-weight: 400; color: #6d6a64; }
+.head button { width: 44px; height: 44px; border: 0; background: transparent; color: #8a877f; display: grid; place-items: center; padding: 0; }
+.head svg { width: 26px; height: 26px; }
+
+.nt-cur { background: var(--nt-current); border-radius: 3px; }
+.nt-sec { top: 6px; margin-left: 2px; }
+.nt-sec-name { display: inline-block; font: 700 36px/1 var(--ui); color: var(--nt-ink); border: 3px solid var(--nt-ink); padding: 3px 12px 5px; }
+.nt-stick { --nt-stick-size: 25px; }
+/* the loop as repeat signs, pencilled over the engraving */
+.nt-rep { display: block; width: 34px; }
+.nt-rep.start { margin-left: -2px; background:
+  linear-gradient(to right, var(--pencil) 0 9px, transparent 9px 15px, var(--pencil) 15px 19px, transparent 19px) no-repeat; }
+.nt-rep.end { margin-left: -32px; background:
+  linear-gradient(to left, var(--pencil) 0 9px, transparent 9px 15px, var(--pencil) 15px 19px, transparent 19px) no-repeat; }
+.nt-rep::after { content: ""; position: absolute; width: 11px; height: 32px; top: calc(50% - 16px);
+  background: radial-gradient(circle at 50% 5.5px, var(--pencil) 5px, transparent 5.6px),
+              radial-gradient(circle at 50% 26.5px, var(--pencil) 5px, transparent 5.6px); }
+.nt-rep.start::after { left: 25px; }
+.nt-rep.end::after { right: 25px; }
+.nt-rep.start::before { content: "pass 3"; position: absolute; left: 44px; top: -92px; font: 700 34px/1 var(--ui); color: var(--pencil); display: none; }
+
+/* ---- the road map ---- */
+.map { position: absolute; left: 24px; top: 676px; }
+.sm { position: relative; height: 96px; }
+.sm-strip { position: absolute; left: 0; right: 0; top: 0; height: 52px; }
+.sm-tier { position: absolute; left: 0; right: 0; top: 60px; height: 34px; }
+.sm-block { position: absolute; top: 0; height: 52px; box-shadow: inset 0 0 0 2px #3a3a3a; display: flex; align-items: center; padding: 0 12px; overflow: hidden; margin-right: 4px; }
+.sm-block.k-fill { background: repeating-linear-gradient(135deg, #3a3a3a 0 3px, transparent 3px 11px); }
+.sm-block.short { padding: 0; }
+.sm-label { font: 600 32px/1 var(--ui); color: var(--muted); white-space: nowrap; }
+.sm-tlabel { position: absolute; transform: translateX(-50%); top: 0; font: 500 32px/1 var(--ui); color: var(--faint); white-space: nowrap; }
+.sm-tlabel.in-loop { color: var(--pencil); }
+.sm-block.now .sm-label { color: var(--text); }
+.sm-block.in-loop { box-shadow: inset 0 0 0 2px #3a3a3a; background: var(--pencil-wash); }
+.sm-block.in-loop .sm-label { color: var(--text); }
+.sm-loop { position: absolute; top: -6px; height: 64px; border: 4px solid var(--pencil); border-radius: 3px; }
+.sm-head { position: absolute; top: -12px; width: 5px; height: 76px; margin-left: -2.5px; background: var(--text); }
+
+/* ---- the stage clock ---- */
+.dock { position: absolute; left: 24px; top: 792px; width: 1624px; height: 284px; }
+.clock { position: absolute; left: 0; top: 0; right: 0; height: 196px; display: flex; }
+.play {
+  width: 172px; height: 196px; border-radius: 10px; border: 0; background: var(--key); box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--text); display: grid; place-items: center; margin-right: 12px;
+}
+.play svg { width: 72px; height: 72px; }
+.cell { padding: 10px 26px 0; border-left: 1px solid var(--line); }
+.cell .cap { font: 600 24px/1 var(--ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); white-space: nowrap; }
+.cell .cap b { color: var(--muted); font-weight: 600; letter-spacing: 0.04em; }
+.cell .val { font: 700 136px/1 var(--big); margin-top: 14px; letter-spacing: 0.005em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cell .val small { font: 600 48px/1 var(--big); color: var(--muted); margin-left: 6px; }
+.cell.loop .val { color: var(--pencil); }
+.cell.section { width: 430px; border-left: 0; }
+.cell.bar { width: 250px; }
+.cell.loop { width: 370px; }
+.cell.tempo { flex: 1; }
+
+.keys { position: absolute; left: 0; right: 0; bottom: 0; height: 72px; display: flex; gap: 10px; }
+.key {
+  height: 72px; padding: 0 26px; border: 0; border-radius: 8px; background: var(--key); box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--text); font: 600 34px/1 var(--ui); display: inline-flex; align-items: center; gap: 12px; font-variant-numeric: tabular-nums;
+}
+.key svg { width: 32px; height: 32px; }
+.key.on { box-shadow: inset 0 0 0 3px var(--pencil); color: var(--pencil); background: var(--pencil-wash); }
+.key.dim { color: var(--muted); }
+.key.step { min-width: 98px; justify-content: center; padding: 0 18px; }
+.gap { flex: 1; }
+
+.video { position: absolute; left: 1672px; top: 792px; width: 498px; height: 280px; overflow: hidden; border-radius: 4px; background: #000; }
+.video img { width: 100%; height: 100%; object-fit: cover; display: block; }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="paper">
+    <div class="head">
+      <div class="t">Song 2 <span>— Blur</span></div>
+      <button title="Songs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+      <button title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg></button>
+    </div>
+    <div id="score"></div>
+  </div>
+
+  <div class="map" id="map"></div>
+
+  <div class="dock">
+    <div class="clock">
+      <button class="play" title="Pause (Space)"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1"/><rect x="14" y="4.5" width="4" height="15" rx="1"/></svg></button>
+      <div class="cell section"><div class="cap">Section</div><div class="val">chorus</div></div>
+      <div class="cell bar"><div class="cap">Bar</div><div class="val">11<small>/ 64</small></div></div>
+      <div class="cell loop"><div class="cap">Loop <b>· bars 9–16</b></div><div class="val">pass 3</div></div>
+      <div class="cell tempo"><div class="cap">Tempo <b>· 104 BPM · record 130</b></div><div class="val">80%</div></div>
+    </div>
+    <div class="keys">
+      <button class="key on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l3 3-3 3"/><path d="M4 11V9a3 3 0 0 1 3-3h13"/><path d="M7 21l-3-3 3-3"/><path d="M20 13v2a3 3 0 0 1-3 3H4"/></svg>Loop</button>
+      <button class="key dim">Ramp</button>
+      <button class="key dim">Mix</button>
+      <div class="gap"></div>
+      <button class="key step">−10</button>
+      <button class="key step">−5</button>
+      <button class="key step dim">100%</button>
+      <button class="key step">+5</button>
+      <button class="key step">+10</button>
+    </div>
+  </div>
+
+  <div class="video"><img src="assets/song2-chorus.jpg" alt=""></div>
+</div>
+<script src="assets/song2-4bars.js"></script>
+<script src="assets/notation.js"></script>
+<script src="assets/songmap.js"></script>
+<script>
+  document.fonts.ready.then(() => {
+  const song = SongMap.SONGS.song2;
+  SongMap.render(document.getElementById('map'), {
+    song: 'song2', width: 2146, loop: { from: 9, to: 16 }, at: 11.4,
+    kind: (n) => (/^(into|break)/.test(n) ? 'k-fill' : /chorus/.test(n) ? 'k-chorus' : 'k-verse'),
+  });
+  Notation.render(document.getElementById('score'), {
+    score: 'song2-4', rows: [2, 3], lane: 30, trimTop: 4, labelLane: 56,
+    cursor: { bar: 11, slot: 6 }, current: 11, loop: { from: 9, to: 16 },
+    sections: song.sections,
+  });
+  Notation.fit();
+  });
+</script>
+</body>
+</html>

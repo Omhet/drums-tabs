@@ -5,11 +5,13 @@
 // analyser on the graph is quiet with every fader at 0 and loud with only the
 // click up.
 //
-// And one thing that is about the sampler rather than the mixer, but is only
-// true here: on a song page the kit holds the *whole* chart, so dropping Drums
-// to nothing and bringing Kit up plays the written part over the nodrums stem.
-// That is the whole of what used to be described as a switch -- there is no
-// mode, only three faders and somebody having handed the kit the notes.
+// And the sampler. On a song page the kit holds the *whole* chart, so dropping
+// Drums to nothing and bringing Kit up plays the written part over the nodrums
+// stem -- there is no mode, only three faders and somebody having handed the
+// kit the notes. And three things about the bank that fail silently and show
+// up in no screenshot: it loaded at all, the same note twice is two different
+// recordings, and a closed hi-hat knows it cuts a ringing open one short.
+// Needs a baked bank: run `drums kit-pick` and `drums kit-bake` once.
 //
 // Followers are the two stems and, when the song has a video, the picture.
 // The two are held to different contracts: a stem must be on the clock the
@@ -183,6 +185,37 @@ const result = await page.evaluate(
       out.sampler.notes > 100 &&
       out.sampler.unplayable.length === 0 &&
       out.sampler.peakRms > 0.02;
+
+    // The bank is a sampler, not a bag of one-shots. The same note twenty
+    // times over: several different recordings, never the same one twice
+    // running. A ghost note and an accent are different recordings, not one
+    // turned down. And the closed hat chokes the open one.
+    const b = window.drums.mixer.bank;
+    await b.ready();
+    const picks = [];
+    for (let i = 0; i < 20; i++) picks.push(b.pick('snare', 100));
+    const buffers = picks.map((p) => p && p.buffer);
+    let repeated = 0;
+    for (let i = 1; i < buffers.length; i++) if (buffers[i] && buffers[i] === buffers[i - 1]) repeated++;
+    const soft = b.pick('snare', 40);
+    const hard = b.pick('snare', 115);
+    out.bank = {
+      baked: b.baked,
+      size: b.size,
+      missing: b.missing.length,
+      distinct: new Set(buffers.filter(Boolean)).size,
+      repeated,
+      layered: Boolean(soft && hard && soft.buffer !== hard.buffer),
+      chokes: b.chokes('hihat_closed'),
+    };
+    out.bank.ok =
+      out.bank.baked &&
+      out.bank.size > 0 &&
+      out.bank.missing === 0 &&
+      out.bank.distinct > 1 &&
+      out.bank.repeated === 0 &&
+      out.bank.layered &&
+      out.bank.chokes.includes('hihat_open');
     setSlider('fader-kit', 0);
     api.pause();
     // The clock's pause event reaches the followers a task later.
@@ -210,11 +243,12 @@ const ok =
   result.quiet.ok &&
   result.click.ok &&
   result.sampler.ok &&
+  result.bank.ok &&
   Object.values(result.pausedAtEnd).every(Boolean) &&
   errors.length === 0;
 console.log(
   ok
-    ? `OK: stems within ${toleranceMs} ms of the mix clock at 100% and 50% (picture ${pictureToleranceMs} ms), silent at 0, click audible, and the kit plays ${result.sampler.notes} written notes over nodrums`
+    ? `OK: stems within ${toleranceMs} ms of the mix clock at 100% and 50% (picture ${pictureToleranceMs} ms), silent at 0, click audible, the kit plays ${result.sampler.notes} written notes over nodrums, and the bank is a sampler (${result.bank.distinct} recordings for one snare note, hats choke)`
     : 'FAILED'
 );
 process.exit(ok ? 0 : 1);

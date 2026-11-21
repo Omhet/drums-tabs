@@ -1,12 +1,9 @@
 """Sections: where the song repeats itself, read off the notation.
 
-A section is a stretch of bars you can practise on its own -- and a practice
-routine is a fixed grid of (section x tempo) cells, so the sections decide the
-shape of every routine and of the whole progress history. That is why they are
-*frozen*: this command proposes them once, you rename and nudge them by hand,
-and from then on ``song.toml`` is the truth. Re-detecting needs ``--redetect``
-and starts a new comparison epoch, because a boundary that moves changes the
-cell grid and old runs stop being comparable to new ones.
+A section is a stretch of bars you can practise on its own -- the names over
+the notation, and the stretches you loop. This command proposes them once, you
+rename and nudge them by hand, and from then on ``song.toml`` is the truth.
+Re-detecting needs ``--redetect``, because it throws the names away.
 
 What it can and cannot know. It reads ``tab.mid`` and finds **pattern**
 boundaries: it will say "bars 15-22 come back at 43-50" and call them both B.
@@ -193,27 +190,19 @@ def _letter(index: int) -> str:
 
 _HEADER = "[[section]]"
 _INTRO = (
-    "# The sections a routine is built from, proposed by `drums sections` from\n"
-    "# the repeats in tab.mid and then yours: rename them, nudge the bar\n"
-    "# numbers, merge or split. Bars are 1-based and inclusive, and together\n"
-    "# they cover the song in order.\n"
-    "#\n"
-    "# Two blocks with the same name are one section the song plays twice --\n"
-    "# name both choruses `chorus` and you practise it once, against the first\n"
-    "# of them, instead of learning the same music twice in a run.\n"
-    "#\n"
-    "# Once you have played a routine these are frozen: a boundary that moves\n"
-    "# changes the shape of every routine, and old runs stop being comparable\n"
-    "# to new ones.\n"
+    "# The song's sections, proposed by `drums sections` from the repeats in\n"
+    "# tab.mid and then yours: rename them, nudge the bar numbers, merge or\n"
+    "# split. Bars are 1-based and inclusive, and together they cover the song\n"
+    "# in order. Two blocks with the same name are one section the song plays\n"
+    "# twice: name both choruses `chorus`.\n"
 )
 
 
 def distinct(sections: list[Section]) -> list[str]:
     """The section names, once each, in the order they first occur.
 
-    A name repeated in ``song.toml`` is the same section played again, so this
-    is what a routine's cells are counted from: the song's *layout* is every
-    block in order, the things to *practise* are these.
+    A name repeated in ``song.toml`` is the same section played again: the
+    song's *layout* is every block in order, the things to *practise* are these.
     """
     names: list[str] = []
     for section in sections:

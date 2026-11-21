@@ -6,28 +6,23 @@ and a tempo control. A song may also have a video bound to its timeline -- a
 cover to learn from now, your own cover later -- and then the notation sits over
 the bottom of it.
 
-It also marks you. With an electronic kit on a MIDI port, `Record` plays a
-section and scores what you played against what is written. The reading is three
-dials -- did you play the right notes, were you steady, where do you sit against
-the record's own feel -- plus coloured noteheads and a map of the bars that went
-wrong, with the numbers behind them folded away. The whole attempt is kept as
-JSON so the history is readable by you and by an agent. A **routine** is the
-fixed grid those attempts fill: the whole song at 70/80/90/100%, four cells, the
-same set every run so that two runs can be compared, open across as many
-sittings as it takes and sealed by hand. The stretch of bars you actually need
-to drill is an **exercise** instead -- a few bars cut out of a chart and played
-on a loop with a bar of click between the reps, graded every time round, with a
-history of its own. An exercise **carries its own notes**, so it plays with no
-song loaded at all, on a clock counted out at its own tempo and a kit of drum
-samples; it also remembers the records it was cut from, and can be played
-against one of those instead. Exercises live in a shared pool at the repo root
-and one can name several songs, because the same lick turns up in more than one
-tune. Two
-things it needs: the dev server, because writing files is a Vite plugin's job here and not
-a built page's; and a MIDI port Chrome can open **while your sampler is already
-holding one** -- the kit is a controller for Superior Drummer in Ableton, so
-two applications want the same module. See `handoff.md` §1 for the test and
-the virtual-port fallback.
+It also marks you. With an electronic kit on a MIDI port, `Record` plays the
+whole song at the tempo set, after a bar of count-in, and scores what you played
+against what is written. The reading is three dials -- did you play the right
+notes, were you steady, where do you sit against the record's own feel -- plus
+coloured noteheads and a map of the bars that went wrong, with the numbers
+behind them folded away. The whole attempt is kept as JSON so the history is
+readable by you and by an agent. Two things it needs: the dev server, because
+writing files is a Vite plugin's job here and not a built page's; and a MIDI
+port Chrome can open **while your sampler is already holding one** -- the kit
+is a controller for Superior Drummer in Ableton, so two applications want the
+same module. See `handoff.md` §1 for the test and the virtual-port fallback.
+
+**Where it is going (2026-11-21):** the foundation and the interface get
+polished before any new feature. Routines and exercises were removed for that
+(see "Where things stand"); the redesign brief for the interface is
+[`design/claude-design-prompt.md`](design/claude-design-prompt.md), written for
+a screen two metres from the drum throne.
 
 The earlier automatic-transcription work is in this branch's own history, up to
 commit `a374a18` ("player plan", 2026-09-09); the files it added were deleted
@@ -52,44 +47,18 @@ songs/<slug>/
   tab.mid                   your notation: constant-tempo MIDI, bar 1 = song bar 1
   sticking.lock.json        which hand plays what, and the hi-hat foot
   reference.lock.json       how far behind the chart the record itself plays
-  takes/<when>-<cell>.json  every attempt you have recorded, and its grade
-  routines/<when>.json      every run of the grid: the open one has sealedAt null
+  takes/<when>-<what>-<pct>.json  every attempt you have recorded, and its grade
   audio/mix.wav             (untracked) the song, and the clock
   audio/video.mp4           (untracked, optional) a picture on that timeline
   stems/drums.wav, nodrums.wav          (untracked) separated stems
   stems/straight-*.wav, straight.json   (untracked) tempo-straightened renders for authoring
 ```
 
-## The exercise pool
-
-Shared across songs, so it sits at the repo root rather than under one of them:
-an exercise can be played from several songs, and a file cannot live in two
-directories.
+## The kit
 
 ```
-exercises/<id>/exercise.json          what it is: kind, rest, backing, its own notes, every source
-exercises/<id>/drills/<when>-<pct>.json   one sitting at one tempo, every rep in it
-
-kit/samples/<instrument>.wav          what an exercise sounds like, played on its own
+kit/samples/<instrument>.wav          the written part, sounded: what the Kit fader plays
 ```
-
-A **chart** is the exercise's own notes, re-based so its first bar is bar 1,
-with the tempo and the meter it was written at. That is what makes it a thing
-rather than a view: with a chart it plays on a grid built at that tempo
-(`syntheticGrid`), a clock that is not a recording (`timer-clock.ts`) and a kit
-of one-shot samples (`kit.ts`), and no song is loaded at all.
-
-A **source** is `{slug, section, startBar, endBar, chartHash}` -- a record this
-same figure can *also* be played against, with the drummer's own feel under it.
-A song's page lists every exercise naming its slug, which is the whole of the
-many-to-many link and leaves nothing to keep in step. `backing` says which of
-the three you get: `kit` (its own notes), `record`, or `click` (the record with
-the stems down). The choice on the page is for the sitting, like the tempo; the
-file is not rewritten.
-
-A **drill** is one sitting; it scores as the *median* of its complete reps and
-fills one square of the exercise's own 70/80/90/100 ladder. There is nothing to
-seal: the newest drill at a tempo simply is that square.
 
 The sample bank is rendered once, out of a drum plugin you own, by
 `drums kit-pick` and then `drums kit-bake`. It is 255 recordings -- velocity
@@ -168,12 +137,12 @@ the two things worth keeping.
    every set authored the usual way.
 
    Then `drums sections <slug>` reads the repeats out of the notation and
-   proposes `[[section]]` blocks -- the stretches a practice routine is built
-   from. It is a seed, not an answer: rename A/B/C to verse/chorus, nudge the
-   bar numbers, and give two blocks the same name to say they are one section
-   the song plays twice. After that `song.toml` is the truth, because a routine
-   is a fixed grid of (section x tempo) cells and a boundary that moves makes
-   old runs incomparable -- which is why re-running needs `--redetect`.
+   proposes `[[section]]` blocks -- the song's map: the names drawn over the
+   notation, and the stretches you will loop. It is a seed, not an answer:
+   rename A/B/C to verse/chorus, nudge the bar numbers, and give two blocks the
+   same name to say they are one section the song plays twice. After that
+   `song.toml` is the truth, which is why re-running (and losing the names)
+   needs `--redetect`.
 
    `drums sticking <slug>` then works out which hand plays what and writes
    `sticking.lock.json`, which the player draws as R and L under the notation.
@@ -248,7 +217,7 @@ the two things worth keeping.
    -- a button keeps its word for the tooltip and grows a glyph in place of it,
    a select keeps its native popup, a checkbox is already icon-sized. What has
    no icon is hidden until the rail is opened again: the faders (they are on
-   `1` `2` `3`), the tempo (`[` and `]`), the readings and the routine grid.
+   `1` `2` `3`), the tempo (`[` and `]`) and the reading.
    `Z` goes further -- **zen**: the picture and the notation edge to edge,
    everything else gone, and the browser taken fullscreen with it. `Esc` or `Z`
    leaves, as does the corner that appears when the mouse goes looking for it.
@@ -1185,6 +1154,57 @@ face detector could see one, and all eleven head points were under it in all 60.
   one-frame render can end before the foot phone's first frame arrives. The
   videos are not affected.
 
+**Routines and exercises came out (2026-11-21).** The project had stalled on
+its own surface. The foundation -- notation on the drummer's own clock, the
+stems, the tempo, the sticking -- is what gets used; the machinery on top of it
+mostly was not. On disk that day: 14 takes, all from 13-16 September, **no
+routine ever opened**, and one exercise. What the user actually does is play
+along with a whole song, often slowed down, loop the hard parts slower, and
+raise the tempo about 10% at a time. Routines did not fit that at all, and
+exercises as built -- bars cut into a pool, drilled on a page of their own
+against a ladder -- got in the way of it. Both are gone, code, data and checks:
+`routine.ts`, `exercise.ts`, `exercises.ts`, the pool page and the Exercises
+link, the routine and drill groups in the right rail, the routine, exercise and
+drill routes in `plugins/practice.ts`, `exercises/`, and with them the two
+things that existed only so an exercise could play with no song loaded --
+`timer-clock.ts` and `transport.ts`'s clock swap (`syntheticGrid` too). The
+page has one clock again, `MixClock`, and `PlayClock` is the narrow view of it
+the mixer, the MIDI input and practice mode are given.
+
+**Scoring stays.** `Record` now plays the whole song at whatever tempo the page
+is set to -- a bar of count-in at that tempo, then bar 1 to the end -- and the
+reading is what it was: three dials, the bar strip, coloured noteheads. The
+take format did not change. A take still has a `cell` (it is a record, never
+rewritten, and the older takes carry one), now `{section: "whole song", tempo,
+startBar, endBar}` with no routine `id`; `take.ts` says why the name stayed.
+The file is still `<when>-whole-song-<pct>.json`.
+
+**What comes next is the interface.** The redesign brief for Claude Design is
+`design/claude-design-prompt.md`, with screenshots of the page as it was in
+`design/now/`. While that is designed, the play-along features it asks for get
+built under the old look: loop a section on the song page, tempo steps and a
+ramp, and a count-in from a pause. The loop the exercises had -- the seek back,
+the grace window for a late last note, the rest bar -- is the starting point;
+it is in git history at `5c21a14` (`app/src/practice.ts`, `endRep`/`nextRep`,
+and `check-exercise.mjs` for what it was held to).
+
+Three things learned:
+
+- **The screen is two metres away.** The user plays in front of a 31.5" 4K
+  monitor at 175% scaling, about 2 m from the throne: a maximised page is
+  about 2194x1100 CSS px, and one CSS pixel is about half an arc-minute there.
+  The interface's 13 px text is at the limit of 20/20 eyesight from the
+  throne, and the default staff space (9 px) is half a printed part on a music
+  stand. It is a ten-foot interface, and the brief says so with numbers.
+- **A take's end has to be a bar the beat map can close.** A take ends where
+  the bar after its last bar begins, so the last bar needs a beat after it.
+  One For The Road's notation is 73 bars against a 72-bar beat map, and the
+  routine's whole-song cell asked for bar 73. `Record` now stops at the last
+  bar the beat map can close.
+- **Record pauses before it seeks.** Pressing Record during playback used to
+  seek the playing record to bar 1 and let it run under the count-in. It now
+  pauses first, so the count-in is a count-in.
+
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections
 "Transport", "Sync points", "Notation window").
@@ -1197,7 +1217,7 @@ and paused, asserts the notation never overlaps the picture, that Fill leaves
 the picture the third of the screen `--fill-picture` sets and that the video
 fills that region on one axis rather than sitting letterboxed in it, then
 collapses both rails -- asserting they reach one icon wide, that the stage
-takes the room, that the controls survive as icons and the grid does not, and
+takes the room, that the controls survive as icons, and
 that it is remembered across a reload -- enters zen, asserting the
 rails and the status line go, the grid drops to one column and an error on the
 status line is still shown, and finally works the Layout group: that `+`
@@ -1206,7 +1226,8 @@ keep the lines it was asked for, that the sticking letters grow with the notes,
 that `-` and the remembered rung agree, that each of the other three faders
 reaches alphaTab and is remembered (eight bars a line really puts eight on the
 row and still fits the pane; a wider line gap makes the window taller), and
-that `0` puts all four back. Screenshots line 2 eight times:
+that `0` puts all four back; last, that the header's song picker changes the
+song and the hash with it. Screenshots line 2 eight times:
 `<png>`, `<png minus
 .png>-dark.png`, `-dark-light-tabs.png` (the dark interface with light notation
 the two themes are for), `-icons.png`, `-zen.png`, `-zoom.png`, `-dense.png`
@@ -1215,50 +1236,26 @@ and `-loose.png`), and
 within 15 ms, then plays through the count-in), `check-mix.mjs` (plays at
 100% and 50% and asserts the stems stay within 20 ms of the clock and the
 picture settles within 60 ms of it, the graph is silent with every fader at 0,
-and the click is audible), `check-practice.mjs` (opens a routine,
-records one of its cells with injected strokes -- one of each mistake -- and
-asserts the grade, the three dials, the bar strip, the take on disk and the cell
-it filled, including that the lateness which comes back is the lateness that
-went in *minus the song's reference floor*; screenshots the reading in its rail
-to `app/shots/practice.png`, because whether it fits is not a thing a count can
-answer; **reloads the page** the way a
-Ctrl+S in Live does and asserts the run came back with the cell still in it;
-posts synthetic sealed runs and asserts the trend row reads them and smooths
-them; then runs the calibration ritual with strokes placed a known lateness
-after each click is *heard* and asserts that number comes back. It deletes
-everything it wrote and restores the machine's own calibration -- **and note
-that its cell is now the whole song, so it sits there for the length of the
-record**), and `check-exercise.mjs`, which is the fast end-to-end proof of the
-same path because a loop is three bars: it cuts an exercise out through the real
-form, asserts the three refusals that cannot be fixed afterwards, drills it for
-three reps and stops part way through a fourth, and then asserts the two things
-the loop lives or dies on -- that **every rep starts on the same millisecond of
-the record**, and that a stroke played past the end of the range **stays in the
-rep that asked for it, still as late as it was played**. It also asserts the
-drill on disk, the median rule, the ladder, that a click-only drill gives the
-faders back, that a reload does not lose the square, and that the trend reads a
-posted history. It deletes the exercise it made, drills and all -- **through
-the button on the page**, because that is the only place delete is exercised.
-Before any of that, and before MIDI is ever enabled, it asserts the loop works
-with no kit in the room: Play alone turns it round, every time to the same
-millisecond, writing nothing. `check-solo.mjs` is the other half -- an exercise
-carrying its own notes, opened on a page whose first hash is that exercise, and
-asserting the four things that were not true before: no song is ever fetched
-(the mix element's `src` is still empty), the notes came with the file and the
-scorer marks against them, it loops on a clock that is not a recording, and it
-makes a sound of its own -- the kit bus, loud when it is up and silent at 0,
-measured on the graph's analyser. They
+and the click is audible; then that the kit plays the whole written part over
+the nodrums stem with Drums down, and three things about the sampler that fail
+silently and show up in no screenshot -- the bank loaded, one note picks more
+than one recording and never the same twice running, and a closed hi-hat knows
+it cuts a ringing open one short), and `check-practice.mjs` (records the whole
+song at 100% with injected strokes -- one of each mistake -- and asserts the
+grade, the three dials, the bar strip and the take on disk, including that the
+lateness which comes back is the lateness that went in *minus the song's
+reference floor*; screenshots the reading in its rail to
+`app/shots/practice.png`, because whether it fits is not a thing a count can
+answer; then runs the calibration ritual with strokes placed a known lateness
+after each click is *heard* and asserts that number comes back. It deletes the
+take it wrote and restores the machine's own calibration -- **and it sits there
+for the length of the record**, about three minutes). They
 launch the installed Chrome or Edge (`browser.mjs`): Playwright's own Chromium
 cannot decode the H.264 video. Each checks the first song in the list unless
 `SONG=<slug>` names another.
 
-`check-solo` also asserts the three things about the sampler that fail
-silently and show up in no screenshot: the bank loaded, one note picks more
-than one recording and never the same twice running, and a closed hi-hat knows
-it cuts a ringing open one short. `check-mix` asserts the other half -- that a
-song page hands the kit the whole chart, so the written part plays over the
-nodrums stem with Drums down. Both need a bank, so run `drums kit-pick` and
-`drums kit-bake` once before them.
+`check-mix` needs a bank, so run `drums kit-pick` and `drums kit-bake` once
+before it.
 
 `check-nokit.mjs` is the odd one out: it hides `kit/kit.lock.json`, reloads,
 and asserts the page says why the Kit fader is silent and which command fixes
@@ -1267,6 +1264,6 @@ that message, because baking a kit is what makes it unreachable, and it is the
 state every fresh checkout starts in.
 
 Tests that need no browser: `.venv/Scripts/python -m pytest -q tests` for the
-pipeline, and `npm test` in `app/` for the scorer, the chart reader, the routine
-grid and the exercise ladder -- Node runs the TypeScript source directly, with
+pipeline, and `npm test` in `app/` for the scorer and the chart reader -- Node
+runs the TypeScript source directly, with
 `scripts/ts-resolve.mjs` supplying the file extensions a bundler would.

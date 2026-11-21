@@ -265,7 +265,6 @@ check(s.row === 1 && s.cursorInside, `after the collapse re-render the window is
 check(!s.overlap, 'the notation overlaps the picture with the rails collapsed');
 check(await page.locator('#play').isVisible(), 'the Play button went with the labels');
 check(await page.locator('#lines').isVisible(), 'the Lines select went with the labels');
-check(await page.locator('#routine').isHidden(), 'the routine grid is still drawn in a collapsed rail');
 await page.screenshot({ path: out.replace(/\.png$/, '-icons.png') });
 // Remembered, and applied before first paint: the score is engraved once, for
 // the width the page is going to keep.
@@ -425,69 +424,43 @@ check(
 check(Math.abs(s.box.h - home.box.h) <= 2, `0 left the window at ${s.box.h}px (was ${home.box.h}px)`);
 check(s.cursorInside, 'cursor not inside the window after the Layout group went home');
 
-// 15. The header: the only part of the page that knows there is more than one
-// page. Every route has to be able to reach every other one from it -- before
-// it existed the pool was behind a button on the song page and neither the
-// pool nor an exercise page had any way back at all.
+// 15. The header: the song picker and the chrome, and the picker navigates.
 const header = async () =>
   page.evaluate(() => {
     const nav = document.getElementById('nav');
-    const link = document.getElementById('nav-exercises');
     return {
-      page: document.documentElement.dataset.page ?? 'song',
       shown: getComputedStyle(nav).display !== 'none',
-      // The current page marks itself off [data-page]; `lit` is that marking,
-      // asked by the filled background, which is the one thing hovering the
-      // link does not also do.
-      lit: getComputedStyle(link).backgroundColor !== 'rgba(0, 0, 0, 0)',
       song: !!document.getElementById('song'),
       rails: !!document.getElementById('rail-toggle') && !!document.getElementById('desk-toggle'),
       zen: !!document.getElementById('zen'),
+      hash: decodeURIComponent(location.hash.slice(1)),
+      picked: document.getElementById('song').value,
     };
   });
 
 let h = await header();
-console.log('header on a song:', JSON.stringify(h));
-check(h.shown && h.song && h.rails && h.zen, `the header is missing controls on a song page: ${JSON.stringify(h)}`);
-check(!h.lit, 'Exercises is marked as the current page while on a song');
+console.log('header:', JSON.stringify(h));
+check(h.shown && h.song && h.rails && h.zen, `the header is missing controls: ${JSON.stringify(h)}`);
 
-// Song -> pool, from the header.
-await page.locator('#nav-exercises').click();
-await page.waitForTimeout(800);
-h = await header();
-console.log('header on the pool:', JSON.stringify(h));
-check(h.page === 'pool', `Exercises went to ${h.page}`);
-check(h.shown && h.song, 'the pool page lost the header');
-check(h.lit, 'the pool page does not mark Exercises as where you are');
-
-// Pool -> an exercise -> back out again. The exercise page is the one that
-// used to be a dead end: its own group is hidden there by [data-page].
-const first = page.locator('#pool .ex-open').first();
-if (await first.count()) {
-  await first.click();
-  await page.waitForTimeout(2500);
+// Another song from the picker, and back: the hash follows, so a reload (every
+// Ctrl+S in Live) lands on the song you were on.
+const slugs = await page.evaluate(() => [...document.querySelectorAll('#song option')].map((o) => o.value));
+if (slugs.length > 1) {
+  // The page may have been opened with no hash at all: it shows the first song.
+  const from = h.picked;
+  const other = slugs.find((s) => s !== from);
+  await page.selectOption('#song', other);
+  await waitForPlayer(page);
+  await page.waitForTimeout(1500);
   h = await header();
-  console.log('header on an exercise:', JSON.stringify(h));
-  check(h.page === 'exercise', `a pool row went to ${h.page}`);
-  check(h.shown && h.song, 'the exercise page lost the header');
-  check(h.lit, 'an exercise does not mark Exercises as where you are');
-  await page.locator('#nav-exercises').click();
-  await page.waitForTimeout(800);
-  check((await header()).page === 'pool', 'there is no way back to the pool from an exercise');
+  check(h.hash === other, `the picker went to ${h.hash}, not ${other}`);
+  await page.selectOption('#song', from);
+  await waitForPlayer(page);
+  await page.waitForTimeout(1500);
+  check((await header()).hash === from, 'the picker did not come back to the first song');
 } else {
-  console.log('header on an exercise: skipped, the pool is empty');
+  console.log('song picker: skipped, only one song');
 }
-
-// ...and the song picker still navigates from its new home in the header.
-// The pointer goes somewhere neutral first: a link left under the mouse draws
-// its hover, and the marking has to be read with nothing else painting it.
-await page.mouse.move(0, 0);
-await page.selectOption('#song', { index: 0 });
-await page.waitForTimeout(2500);
-h = await header();
-console.log('header back to a song:', JSON.stringify(h));
-check(h.page === 'song', `the header's song picker left the page on ${h.page}`);
-check(!h.lit, 'Exercises is still marked after going back to a song');
 
 // Zen takes the header with the rails.
 await page.locator('#zen').click();

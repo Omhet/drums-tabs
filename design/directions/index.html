@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Player directions</title>
+<style>
+:root { --bg: #111; --card: #191919; --line: #2b2b2b; --text: #ecebe8; --muted: #9d9b96; --accent: #e3a94e; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 18px/1.5 "Segoe UI", system-ui, sans-serif; }
+main { max-width: 2100px; margin: 0 auto; padding: 40px 32px 64px; }
+h1 { font-size: 34px; font-weight: 600; margin: 0 0 6px; }
+.lede { color: var(--muted); margin: 0 0 32px; max-width: 980px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(620px, 1fr)); gap: 28px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px 20px 22px; }
+.card h2 { margin: 0; font-size: 28px; font-weight: 600; }
+.card h2 span { color: var(--muted); font-weight: 400; font-size: 20px; margin-left: 10px; }
+.card p { margin: 6px 0 16px; color: #cfcdc8; }
+.thumb { position: relative; width: 100%; aspect-ratio: 2194 / 1100; overflow: hidden; border-radius: 8px; background: #000; }
+.thumb iframe { position: absolute; left: 0; top: 0; width: 2194px; height: 1100px; border: 0; transform-origin: 0 0; pointer-events: none; }
+.card a { display: inline-block; margin-top: 14px; color: var(--accent); text-decoration: none; font-weight: 600; }
+.card a:hover { text-decoration: underline; }
+table { border-collapse: collapse; margin-top: 40px; width: 100%; max-width: 1500px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; }
+td:first-child { color: var(--muted); white-space: nowrap; }
+h3 { margin: 48px 0 8px; font-size: 22px; font-weight: 600; }
+ul { margin: 0; padding-left: 22px; color: #cfcdc8; max-width: 1200px; }
+li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>The Player: three directions</h1>
+  <p class="lede">One moment in all three: Song 2 with its video, the chorus (bars 9–16) looped at 80%, pass 3, the record's drummer muted and a click on.
+    The notation is the app's real alphaTab engraving of Song 2 at 20 px between staff lines, with the real sticking.
+    Open each one full size in a maximised Chrome on the practice monitor and judge it from the throne; every frame is exactly 2194 × 1100.</p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>1 · Lamp <span>stacked, warm</span></h2>
+      <p>A lit music stand in a dark room: warm cream paper under the light, with the picture and the big numbers above it and everything else as quiet type.</p>
+      <div class="thumb"><iframe src="1-lamp.html" loading="lazy" title="Lamp"></iframe></div>
+      <a href="1-lamp.html">Open Lamp at full size →</a>
+    </div>
+    <div class="card">
+      <h2>2 · Console <span>side by side, cool</span></h2>
+      <p>The notation gets a fixed column whose width never changes and shows three lines even with the video; everything you touch sits in one rack beside it, like a drum module next to the kit.</p>
+      <div class="thumb"><iframe src="2-console.html" loading="lazy" title="Console"></iframe></div>
+      <a href="2-console.html">Open Console at full size →</a>
+    </div>
+    <div class="card">
+      <h2>3 · Chart <span>page on top, clock below</span></h2>
+      <p>Read it like a printed drum part: the page on top, the loop pencilled in as real repeat signs, and a stage clock of big numbers along the bottom with the keys built in.</p>
+      <div class="thumb"><iframe src="3-chart.html" loading="lazy" title="Chart"></iframe></div>
+      <a href="3-chart.html">Open Chart at full size →</a>
+    </div>
+  </div>
+
+  <table>
+    <tr><th></th><th>Lamp</th><th>Console</th><th>Chart</th></tr>
+    <tr><td>Notation</td><td>2 lines × 4 bars, full width</td><td>3 lines × 3 bars, in a fixed column</td><td>2 lines × 4 bars, full width</td></tr>
+    <tr><td>Video hidden</td><td>the header folds to one row; the page grows toward a third line</td><td>nothing in the notation moves; the rack's numbers get the room</td><td>the clock spans the full width; the page grows toward a third line</td></tr>
+    <tr><td>Video</td><td>588 × 331, top left</td><td>574 × 323, top of the rack</td><td>498 × 280, bottom right</td></tr>
+    <tr><td>Where the hands go</td><td>one row of buttons under the numbers</td><td>the rack: tempo keys, transport, the four mix channels</td><td>the keys row under the clock</td></tr>
+    <tr><td>Song map</td><td>a ruler across the top of the page</td><td>at the top of the notation column</td><td>a road map between the page and the clock</td></tr>
+    <tr><td>Loop in the notation</td><td>a brass bracket over the looped bars</td><td>a tinted band, bars outside it dimmed</td><td>repeat signs |: :| in red pencil</td></tr>
+    <tr><td>Notation theme shown</td><td>dark room, cream paper</td><td>dark room, dark paper</td><td>black room, grey-white paper</td></tr>
+    <tr><td>Type</td><td>Fraunces (numbers, names) + Source Sans 3</td><td>Barlow Semi Condensed (signage)</td><td>Big Shoulders Display (numbers) + Archivo Narrow</td></tr>
+  </table>
+
+  <h3>What all three share</h3>
+  <ul>
+    <li>Staff lines 20 px apart; glance numbers (section, bar, pass, tempo) at 64 px or more; section names and button labels at 32 px or more; every mid-song target at least 64 px.</li>
+    <li>Section names are drawn by the page, in a lane above a line that opens a section, so they never cover a note. Today they sit on top of the first beat.</li>
+    <li>The song map names short sections such as a one-bar "into chorus" outside the strip, so every fill is labelled.</li>
+    <li>Library and settings are two small icons in a corner. They are used between songs, not from the throne.</li>
+  </ul>
+</main>
+<script>
+  function fitThumbs() {
+    for (const t of document.querySelectorAll('.thumb')) {
+      t.querySelector('iframe').style.transform = `scale(${t.clientWidth / 2194})`;
+    }
+  }
+  window.addEventListener('resize', fitThumbs);
+  fitThumbs();
+</script>
+</body>
+</html>

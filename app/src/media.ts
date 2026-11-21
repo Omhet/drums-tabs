@@ -90,13 +90,6 @@ export class MixClock implements PlayClock {
     output.handler = this;
   }
 
-  /** Let go: stop pushing positions at an output that is somebody else's now. */
-  detach() {
-    this.stopPump();
-    this.el.pause();
-    this.output = undefined;
-  }
-
   // --- IExternalMediaHandler ------------------------------------------------
 
   /** Mix time in ms: the media's own position, there being nothing between. */

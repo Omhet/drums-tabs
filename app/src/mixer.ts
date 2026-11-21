@@ -9,6 +9,7 @@
 //   nodrums -> source -> gain (fader)  -+-> master -> analyser -> speakers
 //   drums   -> source -> gain (fader)  -+
 //   click   ->           gain (fader)  -+
+//   count-in ->          gain          -+   (see countInOut)
 //
 // The mix's own gain is 0 while the stems play -- it is the same music twice
 // -- and 1 when neither stem loads, so a song that has not been separated
@@ -45,6 +46,8 @@ export const FADERS: readonly Fader[] = ['nodrums', 'drums', 'click', 'kit'];
 
 const STEMS: readonly StemName[] = ['nodrums', 'drums'];
 const TICK_MS = 25;
+/** How loud a count-in is while the Click fader is down: where Record used to raise it to. */
+const COUNT_IN_LEVEL = 0.7;
 
 export interface MixerOptions {
   /** A stem did not load (probably missing from songs/<slug>/stems/). */
@@ -79,6 +82,7 @@ export class Mixer {
   private click: Click | undefined;
   private mixGain: GainNode | undefined;
   private clickGain: GainNode | undefined;
+  private countInGain: GainNode | undefined;
   private kitGain: GainNode | undefined;
   private kit: SampleKit | undefined;
   /**
@@ -179,6 +183,24 @@ export class Mixer {
   }
 
   /**
+   * Where a count-in goes -- before a take, before a loop's pass, and when Play
+   * starts from a pause -- at the Click fader's level, or a fixed one while
+   * that fader is down.
+   *
+   * Its own bus rather than the click's, because the click at 0 is the usual
+   * way to play along and a count-in you cannot hear is no count-in. Raising
+   * the fader for it would leave the click on for the whole song after. It
+   * joins the same master as everything else, so it reaches the speakers with
+   * the same delay as the music it counts in.
+   */
+  countInOut(): GainNode | undefined {
+    if (!this.ctx || !this.countInGain) return undefined;
+    const level = this.levels.click > 0 ? this.levels.click : COUNT_IN_LEVEL;
+    this.countInGain.gain.setValueAtTime(level, this.ctx.currentTime);
+    return this.countInGain;
+  }
+
+  /**
    * The written notes, to be sounded under whatever is playing.
    *
    * Remembered when the graph does not exist yet: the part is loaded with the
@@ -241,6 +263,8 @@ export class Mixer {
     this.clickGain = ctx.createGain();
     this.clickGain.gain.value = this.levels.click;
     this.clickGain.connect(master);
+    this.countInGain = ctx.createGain();
+    this.countInGain.connect(master);
     this.click = new Click(ctx, this.clickGain);
 
     this.kitGain = ctx.createGain();

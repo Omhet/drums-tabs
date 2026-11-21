@@ -1,16 +1,17 @@
 // Practice mode: play the song on the kit, get marked on it.
 //
 // MIDI in, a calibration ritual, a take on disk, a grade, and the grade drawn
-// on the staff. A take is the whole song at whatever tempo the page is set to:
-// a bar of count-in, then the record from bar 1 to the end, every stroke
-// stamped in mix time and marked against the chart when it stops.
+// on the staff. What Record plays is whatever the page is aimed at:
 //
-// There used to be two more layers on top of this -- a routine (a grid of
-// whole-song tempos you opened, filled and sealed) and exercises (bars cut into
-// a pool and drilled on a loop with a ladder of their own). Both were removed
-// on 2026-11-21: they were barely used and got in the way of playing along.
-// The loop they had is in git history (`git show 5c21a14:app/src/practice.ts`)
-// for when looping a section on the song page is built.
+//   - with the loop off, the whole song at the tempo set -- a bar of count-in,
+//     then the record from bar 1 to the end, marked when it stops;
+//   - with the loop on, the loop (loop.ts), marked one pass at a time. Every
+//     pass is a take of its own, written as it ends, and a row of chips under
+//     Record is the history of the sitting at a glance.
+//
+// Either way every stroke is stamped in mix time and the take format is the
+// same one (take.ts). There used to be two more layers on top of this -- a
+// routine and exercises -- removed on 2026-11-21; see README.
 import type * as alphaTab from '@coderline/alphatab';
 import type { SongMeta } from 'virtual:songs';
 import kitInput from 'virtual:kit';
@@ -22,11 +23,12 @@ import {
   type Calibration,
   type CalibrationRun,
 } from './calibrate';
-import { Click } from './click';
-import { grade, type Grade, type GradeResult, type TakeEvent, type Timing } from './grade';
+import { countIn, type CountIn } from './click';
+import { grade, PASS, type Grade, type GradeResult, type TakeEvent, type Timing } from './grade';
 import { Heatmap } from './heatmap';
 import { say } from './icons';
 import type { PlayClock } from './clock';
+import { EDGE_MS, type Grader, type Loop, type LoopRange } from './loop';
 import { MidiIn, type MidiHit } from './midi-in';
 import type { Mixer } from './mixer';
 import { referenceMs as floorOf, referenceNote, type ReferenceLock } from './reference';
@@ -36,16 +38,8 @@ import { barStartMs, type Grid } from './syncpoints';
 
 /** Bars of click before the take starts. Not recorded, not graded. */
 const COUNT_IN_BARS = 1;
-/** Hits this far outside the take's range still belong to it: a late last note counts. */
-const EDGE_MS = 250;
 /** A take whose mean is further than this from the stored calibration nags. */
 const DRIFT_MS = 10;
-/**
- * At or above this share of the written notes, a take -- or a bar of one --
- * reads as good. Below it the dial and the bar go red, and nothing else
- * happens: it is a signal, not a gate.
- */
-const PASS = 0.9;
 /**
  * Inside this many milliseconds nobody hears it; beyond `LOOSE_MS` everybody
  * does. Two thresholds serve both the spread and the offset, because the ear
@@ -85,6 +79,35 @@ interface Run {
   started: string;
 }
 
+/** One pass of a loop, marked. */
+interface Pass {
+  n: number;
+  /** Whether it reached the end of the range. */
+  complete: boolean;
+  startedAt: string;
+  /** Playback rate it was played at. A ramp changes it between passes. */
+  tempo: number;
+  result: GradeResult;
+}
+
+/**
+ * A loop being marked: everything the passes share, fixed when Record was
+ * pressed so that a re-save in Live or a song change cannot pull it from under
+ * a pass that is still being written.
+ */
+interface LoopTake {
+  song: PracticeSong;
+  range: LoopRange;
+  /** What `cell.section` says: the section's name, or `bars 12-14`. */
+  section: string;
+  /** The notes the range asks for. The same every pass: every pass is the same ms of the record. */
+  written: ExpectedNote[];
+  passes: Pass[];
+  /** When the pass under way started, and how fast. */
+  startedAt: string;
+  tempo: number;
+}
+
 export interface PracticeSong {
   song: SongMeta;
   grid: Grid | undefined;
@@ -113,6 +136,8 @@ export interface PracticeElements {
   monitorOn: HTMLInputElement;
   monitor: HTMLElement;
   report: HTMLElement;
+  /** One chip per marked pass of a loop. */
+  passes: HTMLElement;
   /**
    * The click fader, which the count-in and the ritual need audible. Driven by
    * dispatching the `input` event the page already listens for, so the slider,
@@ -128,11 +153,16 @@ export class Practice {
   private loaded: PracticeSong | undefined;
   private calibration: Calibration | undefined;
   private running: CalibrationRun | undefined;
-  /** Recording: the hits landing in the take. Unset through the count-in. */
+  /**
+   * Recording: the hits landing in the take, or in the pass of a loop under
+   * way. Unset through a count-in and between passes.
+   */
   private capture: TakeEvent[] | undefined;
   private run: Run | undefined;
+  /** The loop being marked, while Record has it going round. */
+  private loopTake: LoopTake | undefined;
   private timer = 0;
-  private countInTimer = 0;
+  private counting: CountIn | undefined;
   private recent: MidiHit[] = [];
   /** The last graded take, for the headless check and the console. */
   result: GradeResult | undefined;
@@ -147,6 +177,8 @@ export class Practice {
     private readonly api: alphaTab.AlphaTabApi,
     private readonly clock: PlayClock,
     private readonly mixer: Mixer,
+    /** The loop on the song page: what Record marks pass by pass when it is on. */
+    private readonly loop: Loop,
     private readonly el: PracticeElements,
     scoreEl: HTMLElement,
     private readonly onStatus: (text: string, isError?: boolean) => void
@@ -181,9 +213,13 @@ export class Practice {
   /** Point practice mode at the song the player just loaded. */
   load(loaded: PracticeSong) {
     this.stopRun(false);
-    this.heatmap.clear();
+    // The score these marks were drawn on is about to be replaced, so there is
+    // nothing to repaint -- and a repaint of the old score here would finish
+    // after the new one had started, and read as the new song being drawn.
+    this.heatmap.forget();
     this.result = undefined;
     this.el.report.hidden = true;
+    this.drawPasses(undefined);
     this.loaded = loaded;
     this.showTarget();
     // The kit gets the whole part up front: this is what the Kit fader plays.
@@ -225,12 +261,21 @@ export class Practice {
     // from, which `showPorts` cannot know before the first one lands.
     if (this.el.record.disabled) this.showTarget();
     const take = this.capture;
-    const rec = this.run;
-    if (!take || !rec) return;
-    if (hit.tMs < rec.startMs - EDGE_MS || hit.tMs > rec.endMs + EDGE_MS) return;
+    if (!take) return;
     // Raw, uncorrected, and the module's own note number: the take stores the
     // measurement, and the grade is a reading of it (practice-plan Q8).
-    take.push({ tMs: hit.tMs, note: hit.note, velocity: hit.velocity, instrument: hit.instrument });
+    const stroke = { note: hit.note, velocity: hit.velocity, instrument: hit.instrument };
+    if (this.loopTake) {
+      // The loop knows where its pass is -- including the moment after the end,
+      // when the transport is parked and cannot stamp anything.
+      const tMs = this.loop.placeStroke(hit.wallMs, hit.tMs);
+      if (tMs !== undefined) take.push({ tMs, ...stroke });
+      return;
+    }
+    const rec = this.run;
+    if (!rec) return;
+    if (hit.tMs < rec.startMs - EDGE_MS || hit.tMs > rec.endMs + EDGE_MS) return;
+    take.push({ tMs: hit.tMs, ...stroke });
   }
 
   private drawMonitor() {
@@ -322,19 +367,23 @@ export class Practice {
   // --- the take -------------------------------------------------------------------
 
   /**
-   * What Record plays: the whole song, as far as the beat map can place it.
+   * What Record plays: the loop when it is on, else the whole song, as far as
+   * the beat map can place it.
    *
    * Bar 1 to the last bar of the sections when there are any -- they are the
    * song as you named it -- else to the end of the beat map. Either way it is
    * cut back to the last bar the beat map has an end for: a take ends where
    * the bar after its last bar begins, and a chart that runs a bar past the
    * beat map (Song 2's last crash, One For The Road's 73 bars against 72) would
-   * otherwise refuse to record at all.
+   * otherwise refuse to record at all. The loop holds itself to the same rule
+   * (loop.ts `checkRange`).
    */
   private target(): Target | undefined {
     const loaded = this.loaded;
     const grid = loaded?.grid;
     if (!loaded || !grid) return undefined;
+    const looped = this.loop.armed ? this.loop.range : undefined;
+    if (looped) return { ...looped, label: this.loop.describe() };
     const sections = loaded.song.sections;
     let endBar = sections.length ? Math.max(...sections.map((s) => s.end_bar)) : grid.bar_count;
     endBar = Math.min(endBar, grid.bar_count);
@@ -364,6 +413,20 @@ export class Practice {
     return this.running;
   }
 
+  /**
+   * Whether practice mode has the transport to itself: a whole-song take, or
+   * the calibration. A marked loop is the loop's, and the loop knows it is
+   * going round.
+   */
+  get busy(): boolean {
+    return !!this.run || !!this.running;
+  }
+
+  /** The loop was turned on or off, or went round or stopped: what Record offers changes. */
+  refresh() {
+    this.showTarget();
+  }
+
   /** The notes a take is marked against, placed in the mix. */
   expected(): ExpectedNote[] {
     const loaded = this.loaded;
@@ -391,27 +454,40 @@ export class Practice {
 
   private showTarget() {
     const at = this.target();
-    this.el.target.textContent = at?.label ?? 'no beat map';
-    const ready = !!at && !this.running && this.midi.hasSource && import.meta.env.DEV;
+    const looped = this.loop.armed;
+    this.el.target.textContent = at ? (looped ? `${at.label}, every pass` : at.label) : 'no beat map';
+    // A loop going round that Record did not start: Record is not the way into
+    // it half way, and not the way out either -- Space is.
+    const listening = this.loop.running && !this.loopTake;
+    const ready = !!at && !this.running && !listening && this.midi.hasSource && import.meta.env.DEV;
     // Record is the way out of a take it started.
-    this.el.record.disabled = !this.run && !ready;
+    const recording = !!this.run || !!this.loopTake;
+    this.el.record.disabled = !recording && !ready;
     // Calibrating needs something sending strokes and nothing else running --
     // not a song, which is the point: the click it measures against is its own.
-    if (!this.running) this.el.calibrate.disabled = !this.midi.hasSource || !!this.run;
+    if (!this.running) {
+      this.el.calibrate.disabled = !this.midi.hasSource || recording || this.loop.running;
+    }
     // A disabled button should say what would enable it.
-    this.el.record.title = this.run
+    this.el.record.title = recording
       ? 'Stop the take'
       : !import.meta.env.DEV
         ? 'Recording needs the dev server (npm run dev)'
         : !at
           ? 'No grid.lock.json: nothing can be placed in the mix'
-          : !this.midi.hasSource
-            ? 'Enable MIDI first: there is nothing to record'
-            : 'Play the whole song at the tempo set, and be marked on it';
+          : listening
+            ? 'Stop the loop first (Space): Record starts it again and marks every pass'
+            : !this.midi.hasSource
+              ? 'Enable MIDI first: there is nothing to record'
+              : looped
+                ? 'Play the loop, and be marked on every pass'
+                : 'Play the whole song at the tempo set, and be marked on it';
   }
 
   private toggleRecord() {
-    if (this.run) this.stopRun(false);
+    if (this.loopTake) this.loop.stop();
+    else if (this.run) this.stopRun(false);
+    else if (this.loop.armed) this.startLoop();
     else this.startRun();
   }
 
@@ -428,9 +504,7 @@ export class Practice {
       return;
     }
 
-    this.heatmap.clear();
-    this.result = undefined;
-    this.el.report.hidden = true;
+    this.clearReading();
     // `capture` stays unset until the music actually starts: the transport is
     // parked on the first beat through the count-in, so a stroke played over
     // the count-in would otherwise be stamped exactly on that beat and
@@ -469,8 +543,13 @@ export class Practice {
     const perBar = grid.meter.beats_per_bar;
     const barMs = (barStartMs(grid, at.startBar) ?? startMs + 2000) - startMs;
     const beatS = barMs / perBar / 1000 / tempo;
-    void this.countIn(beatS, perBar * COUNT_IN_BARS).then((go) => {
+    const ctx = this.mixer.ctx;
+    const out = this.mixer.countInOut();
+    const counting = ctx && out ? countIn(ctx, out, beatS, perBar * COUNT_IN_BARS) : undefined;
+    this.counting = counting;
+    void (counting?.done ?? Promise.resolve(true)).then((go) => {
       if (!go || this.run !== rec) return; // stopped during the count-in
+      this.counting = undefined;
       this.capture = [];
       this.api.play();
       clearInterval(this.timer);
@@ -486,47 +565,10 @@ export class Practice {
   }
 
   /**
-   * Click for `beats` beats, then resolve at the moment the music should start.
-   *
-   * Both the clicks and the song go through the same audio graph, so they reach
-   * the speakers with the same delay and nothing has to be corrected for: the
-   * beat after the last click is where bar one lands.
+   * The click bus at zero is right for playing along and wrong for the
+   * calibration, which measures the click you practise to. (A count-in has a
+   * bus of its own and needs none of this: mixer.ts `countInOut`.)
    */
-  private countIn(beatS: number, beats: number): Promise<boolean> {
-    const ctx = this.mixer.ctx;
-    const out = this.mixer.clickOut;
-    if (!ctx || !out || beatS <= 0) return Promise.resolve(true);
-    this.ensureClickAudible();
-    const click = new Click(ctx, out);
-    click.load(
-      Array.from({ length: beats }, (_, i) => i * beatS),
-      (beat) => beat === 0
-    );
-    // A moment's grace so the first click is not clipped by the scheduler.
-    const first = ctx.currentTime + 0.25;
-    const music = first + beats * beatS;
-    return new Promise<boolean>((resolve) => {
-      const pump = window.setInterval(() => {
-        if (!this.run) {
-          clearInterval(pump);
-          clearTimeout(this.countInTimer);
-          click.forget();
-          resolve(false);
-          return;
-        }
-        click.book(ctx.currentTime - first, 1);
-      }, 25);
-      this.countInTimer = window.setTimeout(
-        () => {
-          clearInterval(pump);
-          resolve(this.run !== undefined);
-        },
-        Math.max(0, (music - ctx.currentTime) * 1000)
-      );
-    });
-  }
-
-  /** The click bus at zero is right for playing along and wrong for counting in. */
   private ensureClickAudible(): boolean {
     if (Number(this.el.clickFader.value) > 0) return false;
     this.el.clickFader.value = '70';
@@ -536,7 +578,8 @@ export class Practice {
 
   private stopRun(complete: boolean) {
     clearInterval(this.timer);
-    clearTimeout(this.countInTimer);
+    this.counting?.cancel();
+    this.counting = undefined;
     this.timer = 0;
     const rec = this.run;
     const events = this.capture;
@@ -549,6 +592,200 @@ export class Practice {
     // played, so there is nothing to write.
     if (rec && events) void this.finish(rec, events, complete);
     this.showTarget();
+  }
+
+  /** Nothing on the staff, no reading, no chips: a new take is about to start. */
+  private clearReading() {
+    this.heatmap.clear();
+    this.result = undefined;
+    this.el.report.hidden = true;
+    this.drawPasses(undefined);
+  }
+
+  // --- a loop, marked pass by pass ----------------------------------------------
+
+  /**
+   * Record with the loop on: the loop goes round as it would on Play, and each
+   * pass is marked and written as a take of its own when it ends.
+   *
+   * One take per pass rather than one file for the sitting, because the take
+   * format already says everything a pass is -- which bars, how fast, the raw
+   * strokes, the grade -- and a pass is the thing that happened. A loop going
+   * round for an hour is that many files, each one a measurement.
+   */
+  private startLoop() {
+    const loaded = this.loaded;
+    const range = this.loop.range;
+    if (!loaded?.grid || !range) return;
+    this.clearReading();
+    this.capture = undefined;
+    const take: LoopTake = {
+      song: loaded,
+      range,
+      section: this.loop.name(),
+      written: expectedNotes(
+        loaded.hits,
+        loaded.grid,
+        { start: range.startBar, end: range.endBar },
+        loaded.sticking
+      ),
+      passes: [],
+      startedAt: '',
+      tempo: 1,
+    };
+    const grader: Grader = {
+      open: () => {
+        take.startedAt = new Date().toISOString();
+        take.tempo = this.api.playbackSpeed || 1;
+        this.capture = [];
+      },
+      close: (n, complete) => this.closePass(take, n, complete),
+      done: () => this.finishLoop(take),
+    };
+    this.loopTake = take;
+    if (!this.loop.start(grader)) {
+      this.loopTake = undefined;
+      return;
+    }
+    say(this.el.record, 'Stop', '⏹');
+    this.el.record.dataset.armed = '1';
+    this.showTarget();
+    this.onStatus(
+      `Counting in ${this.loop.describe()} at ${Math.round((this.api.playbackSpeed || 1) * 100)}%, ` +
+        'marking every pass' +
+        (!this.calibration ? ' -- uncalibrated, so the timing will include the audio path.' : '.')
+    );
+  }
+
+  /**
+   * A pass is over: mark it, show it, write it. Returns its accuracy when it
+   * reached its end, which is what a ramp waiting for a good pass steps on.
+   */
+  private closePass(take: LoopTake, n: number, complete: boolean): number | undefined {
+    const events = this.capture;
+    this.capture = undefined;
+    if (!events) return undefined;
+    const song = take.song;
+    const calibrationMs = this.calibration?.offsetMs ?? 0;
+    const result = grade(take.written, events, {
+      calibrationMs,
+      referenceMs: song.referenceMs,
+      sameDrum: kitInput.same_drum,
+    });
+    const pass: Pass = { n, complete, startedAt: take.startedAt, tempo: take.tempo, result };
+    take.passes.push(pass);
+
+    // The dials and the bar strip follow the passes as they go: they are the
+    // page, not the notation. The noteheads wait until the loop stops, because
+    // colouring them re-engraves the score -- a stall in the cursor, and a late
+    // start to the next pass when the turn-round is only a grace window long.
+    this.result = result;
+    this.reportRange = take.range;
+    this.drawReport(result, { n });
+    this.el.report.hidden = false;
+    this.drawPasses(take);
+
+    const g = result.grade;
+    this.onStatus(
+      complete
+        ? `Pass ${n}: ${pct(g.accuracy)} of the notes, ${steadiness(g.timing.overall.sdMs)} (±${g.timing.overall.sdMs} ms).`
+        : `Pass ${n} stopped part way: ${g.hit} of ${g.expected} notes played.`
+    );
+
+    const record: Take = {
+      version: 1,
+      cell: {
+        section: take.section,
+        tempo: pass.tempo,
+        startBar: take.range.startBar,
+        endBar: take.range.endBar,
+      },
+      startedAt: pass.startedAt,
+      calibrationMs,
+      calibrationNote: this.calibration?.note,
+      referenceMs: song.referenceMs,
+      chartHash: song.chartHash,
+      sectionsHash: song.song.sectionsHash,
+      complete,
+      events,
+      grade: g,
+    };
+    writeTake(song.song.slug, record).catch((err: Error) =>
+      this.onStatus(`Pass ${n} not written: ${err.message}`, true)
+    );
+    return complete ? g.accuracy : undefined;
+  }
+
+  /** The loop stopped: Record is Record again, and the noteheads can be coloured. */
+  private finishLoop(take: LoopTake) {
+    if (this.loopTake !== take) return;
+    this.loopTake = undefined;
+    this.capture = undefined;
+    say(this.el.record, 'Record', '⏺');
+    delete this.el.record.dataset.armed;
+    // The last pass that reached its end, else the last there is: the one the
+    // reading was showing anyway, now on the staff too.
+    const shown = [...take.passes].reverse().find((p) => p.complete) ?? take.passes.at(-1);
+    if (shown) this.showPass(take, shown.n);
+    const done = take.passes.filter((p) => p.complete);
+    const partial = take.passes.length - done.length;
+    this.onStatus(
+      done.length === 0
+        ? partial
+          ? 'No pass reached its end. The one you stopped is written to takes/ as unfinished.'
+          : 'Stopped before the first pass.'
+        : `${done.length} pass${done.length > 1 ? 'es' : ''} marked: ` +
+            `${list(done.map((p) => pct(p.result.grade.accuracy)))}` +
+            (partial ? ', and one stopped part way' : '') +
+            '. Each is a take in takes/.'
+    );
+    this.showTarget();
+  }
+
+  /** Put one pass's reading on the staff and in the panel. */
+  private showPass(take: LoopTake, n: number) {
+    const pass = take.passes.find((p) => p.n === n);
+    const grid = take.song.grid;
+    if (!pass || !grid || this.loaded !== take.song) return;
+    this.result = pass.result;
+    this.heatmap.show(pass.result, grid);
+    this.reportRange = take.range;
+    this.drawReport(pass.result, { n, of: take.passes.length });
+    this.el.report.hidden = false;
+    for (const chip of this.el.passes.querySelectorAll<HTMLElement>('.pass')) {
+      chip.classList.toggle('at', chip.dataset.n === String(n));
+    }
+  }
+
+  /**
+   * One chip per pass, in the order they were played, coloured against the
+   * same line the dials use. The question a sitting asks is whether it got
+   * better, and a row of numbers answers it in one look where a single
+   * reading cannot. Clicking one, once the loop has stopped, puts that pass
+   * on the staff.
+   */
+  private drawPasses(take: LoopTake | undefined) {
+    const el = this.el.passes;
+    el.replaceChildren();
+    const list = take?.passes ?? [];
+    el.hidden = list.length === 0;
+    for (const pass of list) {
+      const chip = document.createElement('button');
+      const accuracy = pass.result.grade.accuracy;
+      chip.className = `pass ${!pass.complete ? 'part' : accuracy >= PASS ? 'good' : 'bad'}`;
+      chip.dataset.n = String(pass.n);
+      chip.textContent = pass.complete ? pct(accuracy) : '–';
+      chip.title = pass.complete
+        ? `Pass ${pass.n} at ${pct(pass.tempo)}: ${pass.result.grade.hit} of ` +
+          `${pass.result.grade.expected} notes, ±${pass.result.grade.timing.overall.sdMs} ms`
+        : `Pass ${pass.n}: stopped part way`;
+      chip.addEventListener('click', () => {
+        chip.blur();
+        // While the loop goes round, colouring the staff would stall it.
+        if (take && !this.loopTake) this.showPass(take, pass.n);
+      });
+      el.appendChild(chip);
+    }
   }
 
   private async finish(rec: Run, events: TakeEvent[], complete: boolean) {
@@ -644,7 +881,7 @@ export class Practice {
    * is the playing, and one number averaging them would send you off to
    * practise a problem you do not have.
    */
-  private drawReport(result: GradeResult) {
+  private drawReport(result: GradeResult, pass?: { n: number; of?: number }) {
     const g = result.grade;
     const el = this.el.report;
     el.replaceChildren();
@@ -655,7 +892,11 @@ export class Practice {
       dial({
         label: 'Notes',
         big: `${Math.round(g.accuracy * 100)}%`,
-        sub: `${g.hit} of ${g.expected}`,
+        // Which pass, because after a loop the staff shows one of many and a
+        // reading that did not say which would be a reading of nothing.
+        sub: pass
+          ? `pass ${pass.n}${pass.of ? ` of ${pass.of}` : ''} · ${g.hit} of ${g.expected}`
+          : `${g.hit} of ${g.expected}`,
         tone: g.accuracy >= PASS ? 'good' : 'bad',
         title:
           `${g.hit} of ${g.expected} written notes landed on the right drum. ` +
@@ -879,6 +1120,9 @@ function row(cell: 'th' | 'td', values: string[]): HTMLTableRowElement {
 
 /** `+12` / `-12` / `0`: the sign is the whole point, so it is never dropped. */
 const signed = (ms: number) => (ms > 0 ? `+${ms}` : String(ms));
+
+/** `0.95` -> `95%`. */
+const pct = (share: number) => `${Math.round(share * 100)}%`;
 
 /** Everything practice mode needs about a song, read once when it loads. */
 export async function readPracticeSong(

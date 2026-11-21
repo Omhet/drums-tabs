@@ -23,11 +23,19 @@ export function pageUrl(base = 'http://localhost:5173/') {
   return process.env.SONG ? `${base}#${encodeURIComponent(process.env.SONG)}` : base;
 }
 
-/** Wait until the page reports the player ready. */
-export async function waitForPlayer(page, timeout = 60000) {
+/**
+ * Wait until the page says a song is ready: engraved, and the player able to
+ * play it. main.ts puts the song's slug on `<html data-ready>` when it is, and
+ * takes it off when another song starts loading -- so `slug` waits for that
+ * particular song, which is what a check that has just changed songs needs.
+ */
+export async function waitForPlayer(page, slug = undefined, timeout = 60000) {
   await page.waitForFunction(
-    () => /Player loaded/.test(document.getElementById('status')?.textContent ?? ''),
-    null,
+    (want) => {
+      const ready = document.documentElement.dataset.ready;
+      return want ? ready === want : !!ready;
+    },
+    slug,
     { timeout }
   );
 }

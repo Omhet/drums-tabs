@@ -143,6 +143,14 @@ export class Heatmap {
     this.render(first);
   }
 
+  /** The same, without the re-render: for when the score itself is being replaced. */
+  forget() {
+    this.clearStyles();
+    this.extras = [];
+    this.ruler = [];
+    this.lane.replaceChildren();
+  }
+
   private clearStyles(): number {
     let first = Infinity;
     for (const note of this.styled) {

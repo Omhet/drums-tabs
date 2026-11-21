@@ -21,16 +21,26 @@ So the work is in three parts:
 - **A. Remove routines and exercises -- done (2026-11-21).** Code, data, routes
   and checks. Scoring stays: `Record` plays the whole song at the tempo set and
   the reading is unchanged. See README "Where things stand".
-- **B. The play-along features, under the old look.** Loop a section (or a
-  range of bars) on the song page, with a count-in and optionally a bar of
-  rest between passes; tempo steps of 5 and 10 and a ramp ("+5% every 2
-  passes up to 100%"); a count-in when Play starts from a pause; the status
-  line in plain words with the diagnostics moved to the console; each song
-  remembering its last loop and tempo; and, since scoring stays, `Record`
-  grading each pass of a loop. The loop the exercises had is the starting
-  point: `git show 5c21a14:app/src/practice.ts` (`endRep`, `nextRep`, the
-  grace window) and `git show 5c21a14:app/scripts/check-exercise.mjs` for what
-  it was held to.
+- **B. The play-along features, under the old look -- done (2026-11-21).**
+  All six parts, in a Loop group under Transport in the left rail:
+  - B1 loop a section or a range of bars (`app/src/loop.ts`), on/off with
+    `L`, a pass counter, a bar of count-in before the first pass, a bar of
+    click between passes or straight back (rest bar on by default), the bars
+    tinted in the notation;
+  - B2 tempo steps of 5 and 10 (`[` `]`, Shift, buttons) and `\` back to
+    100%, and the ramp ("from 70% to 100%, +5% every 2 passes");
+  - B3 a count-in when Play starts from a pause, from the start of the bar
+    the cursor is in (a setting, on by default);
+  - B4 the status line in plain words, the diagnostics in the console, and
+    readiness as `<html data-ready="<slug>">`;
+  - B5 each song remembering its tempo and loop (`localStorage` `song:<slug>`);
+  - B6 `Record` with the loop on marking every pass and writing each as a
+    take, a chip per pass, and the ramp optionally waiting for a pass of 90%+.
+
+  See README "Where things stand" for what was decided and learned. What the
+  redesign will have to redo rather than restyle: the loop is picked from a
+  select and two number fields, not on a song map; the loop is drawn as a tint
+  over the staff only; the count-in is heard but not shown as a big 1 2 3 4.
 - **C. The new interface, once a design is picked.** The brief is
   `design/claude-design-prompt.md`; it asks Claude Design for three directions
   first. Screenshots of the page as it was are in `design/now/`.
@@ -65,7 +75,8 @@ colours, replacing a table nobody could read. See §3.
 ```
 app/src/grade.ts       the scorer. Pure, and tested.
 app/src/reference.ts   the floor: how far behind the chart the record plays
-app/src/practice.ts    the panel: MIDI, calibrate, record the whole song, and the reading
+app/src/loop.ts        the loop: bars round and round on the mix clock, its count-ins and ramp
+app/src/practice.ts    the panel: MIDI, calibrate, record the song or every pass of the loop, the reading
 app/plugins/practice.ts  /practice/take, /practice/calibration, virtual:kit
 app/src/midi-in.ts     the module -> hits, stamped in mix time
 app/src/chart.ts       tab.mid -> notes, placed in the mix, given limbs
@@ -88,16 +99,18 @@ songs/<slug>/takes/    every take, never rewritten
 From `app/`, with `npm run dev` running in its own terminal:
 
 ```
-npm run smoke · check-sync · check-mix · check-ui out.png · check-practice · node scripts/check-nokit.mjs
-npm test                                   # scorer + chart + bar_offset, 34, no browser
+npm run smoke · check-sync · check-mix · check-ui out.png · check-practice · check-loop [out.png] · node scripts/check-nokit.mjs
+npm test                                   # scorer + chart + bar_offset + loop, 45, no browser
 .venv/Scripts/python -m pytest -q tests    # 234 (16 skipped: the slow cover e2e), no browser
 cd app && npm run typecheck
 ```
 
-**Known-good as of 2026-11-21:** 234 pytest, 34 node tests, clean typecheck,
-and every browser check on One For The Road (smoke, sync, ui, mix, nokit) and
-Kill Me (practice). `check-practice` records the whole song, so it takes about
-as long as the record does. `check-mix` needs a baked bank, so run
+**Known-good as of 2026-11-21 (after part B):** 234 pytest, 45 node tests,
+clean typecheck, and every browser check on One For The Road (smoke, sync,
+ui, mix, nokit) and Kill Me (practice, loop). `check-practice` records the
+whole song, so it takes about as long as the record does; `check-loop` takes
+about a minute and a half. Every check waits for `<html data-ready>`, not for
+words on the status line. `check-mix` needs a baked bank, so run
 `drums kit-pick` and `drums kit-bake` once if `kit/samples/` is not there;
 `check-nokit` is the opposite, and hides the bank to read the message a fresh
 checkout gets.
@@ -242,7 +255,7 @@ split is in the lock for a later version to use without re-measuring.
 
 ## 4. What is left
 
-**Before any of this: §0.** Parts B and C come first. Everything below waits.
+**Before any of this: §0.** Part C comes first (B is done). Everything below waits.
 
 **The rest of M3.** The take-vs-take overlay (Q14). The per-cell trend lines it
 also asked for were built on the routine grid and went with it.
@@ -253,7 +266,8 @@ also asked for were built on the routine grid and went with it.
   than a coaching one, and buildable on its own.
 - **Exercises** (Q13) — built on 2026-09-19 and **removed on 2026-11-21**:
   the user did not like their shape (a pool, a page of their own, a ladder).
-  What survives of the idea is the loop, which comes back as part B in §0.
+  What survives of the idea is the loop, which came back as part B in §0
+  (`app/src/loop.ts`).
   If an agent is ever to write exercises, it starts again from what the user
   wants then; the old format is `git show 5c21a14:app/src/exercise.ts`.
 

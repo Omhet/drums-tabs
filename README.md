@@ -6,9 +6,14 @@ and a tempo control. A song may also have a video bound to its timeline -- a
 cover to learn from now, your own cover later -- and then the notation sits over
 the bottom of it.
 
+It loops: a section, or any run of bars, round and round at the tempo set,
+with a bar of count-in, and a ramp that raises the tempo between passes if
+you ask for one.
+
 It also marks you. With an electronic kit on a MIDI port, `Record` plays the
-whole song at the tempo set, after a bar of count-in, and scores what you played
-against what is written. The reading is three dials -- did you play the right
+whole song at the tempo set -- or, with the loop on, the loop, marking every
+pass -- after a bar of count-in, and scores what you played against what is
+written. The reading is three dials -- did you play the right
 notes, were you steady, where do you sit against the record's own feel -- plus
 coloured noteheads and a map of the bars that went wrong, with the numbers
 behind them folded away. The whole attempt is kept as JSON so the history is
@@ -172,13 +177,55 @@ the two things worth keeping.
    to make room for. The line being played is the top one, and the window moves
    down a line as soon as the cursor enters the next. Space plays and pauses,
    the arrow keys go a bar or a line back and forward, Home stops (rewinds to
-   the start of the song), `[` and `]` step the tempo, `+` and `-` size the
+   the start of the song), `[` and `]` step the tempo by 5% and with Shift by
+   10%, `\` puts it back to 100% (the five small buttons under the Tempo fader
+   do the same), `L` turns the loop on and off, `+` and `-` size the
    notation (`0` puts the whole Layout group back to its defaults), `1` `2` `3` mute and
    unmute the faders, `Z` is zen, a click on the score seeks there, and the
    mouse wheel over the notation browses it while paused. The faders mix the
    no-drums stem, the drums stem and a click on the beat map (the clock's own sound is muted: it
    is the full mix, and with no stem to play it is unmuted instead). Tempo
    slows all of it, pitch kept.
+
+   **Play from a pause counts you in.** A bar of click at the tempo set, and
+   the music comes back at the start of the bar the cursor is in -- the clicks
+   end on a downbeat, so the music has to start on one. Before bar 1, a record
+   with a run-up of its own (One For The Road's intro) just plays; one that
+   starts on its first beat (Kill Me) is counted in to bar 1. Space during the
+   count-in calls it off. It is the *Count in from a pause* box under the
+   Tempo fader, on by default.
+
+   **The Loop group loops a section or any run of bars.** Pick a section from
+   the list (every `[[section]]` of the song, with its bars, because names
+   repeat), or type the bars -- a fill and the bar before it, two sections in
+   a row -- and press `L` or the Loop button. The bars are tinted in the
+   notation and Play plays the loop: a bar of count-in, then the bars, then
+   back to the top, with a pass counter beside the button. Between passes it
+   gives you a bar of click to come back in on, or, with *A bar of click
+   between passes* unticked, jumps straight back (a quarter of a second for a
+   late last note, then the seek). Space or Home stops it and the loop stays
+   on; `L` again turns it off. Pressed while the song is playing, `L` starts
+   looping straight away. It runs on the record's own clock -- every pass is
+   the same milliseconds of `mix.wav` -- so the stems, the click, the kit and
+   the cursor follow it with nothing to set.
+
+   *Ramp the tempo* raises the tempo between passes the way you would by
+   hand: from 70% to 100%, +5% every 2 passes, by default, and the line under
+   it says where it is ("80% → 100%, next step after this pass"). Starting
+   the loop puts the tempo at the ramp's first step; a tempo you nudge by hand
+   while it runs is where it carries on from. With *Only on a pass of 90%+*,
+   only passes `Record` marks at 90% or better count towards a step.
+
+   **Each song remembers its tempo and its loop** -- the bars, whether it was
+   on, the ramp -- so the reload Live triggers on every Ctrl+S lands you back
+   where you were, with nothing playing. The rest bar and the count-in from a
+   pause are habits rather than properties of a song, and are remembered once.
+
+   **The status line says only what a drummer needs**: something missing from
+   the song (no stems, no video alignment, no beat map), and what the loop,
+   a count-in or practice mode last had to say. The numbers -- BPM, notes,
+   sync points, bars engraved, the notation against the beat map -- go to the
+   browser console as `[drums] ...` when the song is ready.
 
    **The Layout group fits the notation to your screen.** Four faders in the
    left rail, each remembered as a default: **Size** (a ladder from 60% to
@@ -217,7 +264,8 @@ the two things worth keeping.
    -- a button keeps its word for the tooltip and grows a glyph in place of it,
    a select keeps its native popup, a checkbox is already icon-sized. What has
    no icon is hidden until the rail is opened again: the faders (they are on
-   `1` `2` `3`), the tempo (`[` and `]`) and the reading.
+   `1` `2` `3`), the tempo and its steps (`[` and `]`), the loop's bar and ramp
+   fields (the Loop button stays, as ↻) and the reading.
    `Z` goes further -- **zen**: the picture and the notation edge to edge,
    everything else gone, and the browser taken fullscreen with it. `Esc` or `Z`
    leaves, as does the corner that appears when the mouse goes looking for it.
@@ -230,7 +278,7 @@ the two things worth keeping.
    this is animated. Zen is deliberately *not* remembered -- a page cannot ask
    for fullscreen without a gesture, so a remembered zen would come back
    half-applied. Faders, lines, the Layout group, sticking, both themes and
-   both rails are remembered per browser.
+   both rails are remembered per browser; the tempo and the loop per song.
 
 ## Where things stand
 
@@ -1205,6 +1253,69 @@ Three things learned:
   seek the playing record to bar 1 and let it run under the count-in. It now
   pauses first, so the count-in is a count-in.
 
+**Looping, tempo steps and count-ins, under the old look (2026-11-21).** Part
+B of `handoff.md` §0: the play-along features the redesign brief asks for,
+built into the page as it is so they can be used now and drawn properly later.
+
+The loop is `app/src/loop.ts`, and it is the exercises' loop lifted out of
+practice mode: pick a section or type a run of bars, turn it on with `L`, and
+Play goes round -- a bar of count-in, the bars, a pause at the end, a quarter
+of a second for a late last note, a seek back, a bar of click if the rest bar
+is set, and again. It runs on the record's own clock, so every pass is the
+same milliseconds of `mix.wav`, and it needs no kit. The ramp raises the tempo
+between passes ("from 70% to 100%, +5% every 2 passes"), through the same
+setter as the slider, the keys and the new step buttons (-10 -5 100% +5 +10,
+and `[` `]` with and without Shift, and `\`), so none of them can disagree
+about the tempo. Play from a pause counts you in, from the start of the bar
+the cursor is in. Each song remembers its tempo and its loop.
+
+Record with the loop on marks every pass and writes each as a take of its
+own, in the take format unchanged: `cell` is `{section, tempo, startBar,
+endBar}`, where `section` is the section's name when the loop is exactly one
+section and `bars 12-14` when it is not, and a pass stopped part way is
+written with `complete: false`. A row of chips under Record is the sitting at
+a glance. The dials and the bar strip follow the passes as they go; the
+noteheads are coloured when the loop stops, because colouring them
+re-engraves the score and a re-engrave between passes would stall the cursor
+and make the next pass late. A ramp can wait for a pass of 90% or better
+before it steps.
+
+The status line lost its developer numbers (they are in the console as
+`[drums] ...`), and the page says it is ready with `data-ready="<slug>"` on
+`<html>` instead of the words "Player loaded", which every headless check used
+to wait for.
+
+Four things learned:
+
+- **alphaTab puts a paused transport back on the start of the written beat
+  under the cursor** (`_onPlayerStateChanged`), which moves the media by up to
+  a beat. A loop pausing at the end of a pass was left 340 ms *before* the end
+  on one pass and exactly on it the next, depending on whether the cursor had
+  stepped onto the next bar's first beat yet. Nothing here minds -- the loop
+  seeks to the top anyway, a late stroke is placed from the wall clock, and a
+  count-in snaps to the bar -- but it is why `check-loop` measures how far a
+  pass got while it was playing, never where it paused.
+- **The header's song picker never loaded the song.** `go` compared the
+  route with the picker, which already showed the new song by the time its
+  hash arrived, so picking one changed the address and nothing else until the
+  next reload -- which Live supplies on every save, and which is how it went
+  unnoticed. `check-ui` did not catch it either: it only asserted the hash,
+  and its wait for "Player loaded" matched the previous song's status line.
+  `go` now compares with the song actually loaded, and the check waits for
+  the song it picked to be ready.
+- **A count-in needs a bus of its own.** With the Click fader at 0, which is
+  how a song is usually played along to, a count-in on the click bus is
+  silent, and raising the fader for it -- which Record used to do -- leaves
+  the click on for the whole song after. The mixer has a count-in bus now, at
+  the click's level or 70% while the click is down; Record, the loop and
+  Play from a pause all use it. The calibration ritual still raises the
+  fader, on purpose: it measures the click you practise to.
+- **Node's type stripping refuses parameter properties.** `npm test` runs the
+  TypeScript source directly, and a `constructor(private readonly x: T)`
+  anywhere in what a test imports stops it with "not supported in
+  strip-only mode". `loop.ts` imports `click.ts`, so `Click` spells its
+  constructor out.
+
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections
 "Transport", "Sync points", "Notation window").
@@ -1249,10 +1360,33 @@ reference floor*; screenshots the reading in its rail to
 answer; then runs the calibration ritual with strokes placed a known lateness
 after each click is *heard* and asserts that number comes back. It deletes the
 take it wrote and restores the machine's own calibration -- **and it sits there
-for the length of the record**, about three minutes). They
+for the length of the record**, about three minutes), and `check-loop.mjs
+[png]` (the loop, the tempo steps and the count-ins in a minute and a half,
+on a one-bar section: that `[` `]`, Shift and `\` and the step buttons agree
+with the slider and alphaTab; that Play from mid-bar parks on the bar line,
+counts in a bar that can be heard with the Click fader down, and comes in on
+the downbeat, that Space calls a count-in off and that the setting turns it
+off; that the loop goes round five times starting on the same millisecond of
+the record every pass, plays to the end of its bars and no further, counts
+in before the first pass and before every pass while the rest bar is set and
+not after it is unset; that the ramp steps 80-90-100-100 and says so; that a
+reload keeps the tempo, the loop, the ramp and the rest bar with nothing
+playing, and that another song keeps its own; then Record on the loop with
+injected strokes, a gated ramp and a half-played first pass -- one chip and
+one take per pass with the right cell and name, the gated ramp holding on
+the bad pass and stepping on the good one, the pass stopped part way written
+as unfinished, every pass starting on the same millisecond, and a stroke 60
+ms past the end kept in its own pass as late as it was played. It deletes the
+takes it wrote, puts the calibration back, and screenshots at 2194x1100 to
+`<png>` (the ramp running), `-going.png` and `-scored.png`; by default
+`app/shots/loop.png`). They
 launch the installed Chrome or Edge (`browser.mjs`): Playwright's own Chromium
-cannot decode the H.264 video. Each checks the first song in the list unless
-`SONG=<slug>` names another.
+cannot decode the H.264 video. Each waits for the page to say a song is ready
+-- `data-ready="<slug>"` on `<html>`, set once the score is engraved and the
+player can play it, and taken off when another song starts loading
+(`waitForPlayer(page, slug)` waits for a particular one) -- and checks the
+first song in the list unless `SONG=<slug>` names another (`check-practice`
+and `check-loop` default to Kill Me).
 
 `check-mix` needs a bank, so run `drums kit-pick` and `drums kit-bake` once
 before it.
@@ -1264,6 +1398,8 @@ that message, because baking a kit is what makes it unreachable, and it is the
 state every fresh checkout starts in.
 
 Tests that need no browser: `.venv/Scripts/python -m pytest -q tests` for the
-pipeline, and `npm test` in `app/` for the scorer and the chart reader -- Node
+pipeline, and `npm test` in `app/` for the scorer, the chart reader and the
+loop's arithmetic (which bars can be looped, what a range is called, how a
+ramp steps, which bar a paused transport is in) -- Node
 runs the TypeScript source directly, with
 `scripts/ts-resolve.mjs` supplying the file extensions a bundler would.

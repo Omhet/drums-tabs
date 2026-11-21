@@ -27,10 +27,16 @@ export class Click {
   private next = 0;
   private booked: Booked[] = [];
 
-  constructor(
-    private readonly ctx: AudioContext,
-    readonly out: GainNode
-  ) {}
+  private readonly ctx: AudioContext;
+  readonly out: GainNode;
+
+  // Spelled out rather than as parameter properties, which Node's type
+  // stripping refuses: loop.ts imports this, and its arithmetic is tested
+  // under plain `node --test` (scripts/test-loop.mjs).
+  constructor(ctx: AudioContext, out: GainNode) {
+    this.ctx = ctx;
+    this.out = out;
+  }
 
   /** `accent(i)` says whether beat `i` is the first of a bar. */
   load(beats: number[], accent: (beat: number) => boolean) {
@@ -95,4 +101,48 @@ export class Click {
     osc.stop(when + BLIP_S);
     this.booked.push({ osc, env, ends: when + BLIP_S });
   }
+}
+
+/** A count-in under way: what it resolves to, and the way to call it off. */
+export interface CountIn {
+  /**
+   * True at the moment the music should start, false if it was called off.
+   * The beat after the last click is where the music lands.
+   */
+  readonly done: Promise<boolean>;
+  cancel(): void;
+}
+
+/**
+ * Click for `beats` beats with nothing else moving, then say when to go.
+ *
+ * Both the clicks and the song go through the same audio graph, so they reach
+ * the speakers with the same delay and nothing has to be corrected for. A Click
+ * of its own rather than the beat-map one in the mixer: that one follows the
+ * clock, and through a count-in the clock is parked.
+ */
+export function countIn(ctx: AudioContext, out: GainNode, beatS: number, beats: number): CountIn {
+  if (beatS <= 0 || beats <= 0) return { done: Promise.resolve(true), cancel: () => {} };
+  const click = new Click(ctx, out);
+  click.load(
+    Array.from({ length: beats }, (_, i) => i * beatS),
+    (beat) => beat === 0
+  );
+  // A moment's grace so the first click is not clipped by the scheduler.
+  const first = ctx.currentTime + 0.25;
+  const music = first + beats * beatS;
+  let pump = 0;
+  let timer = 0;
+  let settle: (go: boolean) => void = () => {};
+  const done = new Promise<boolean>((resolve) => {
+    settle = (go) => {
+      clearInterval(pump);
+      clearTimeout(timer);
+      if (!go) click.forget();
+      resolve(go);
+    };
+    pump = window.setInterval(() => click.book(ctx.currentTime - first, 1), 25);
+    timer = window.setTimeout(() => settle(true), Math.max(0, (music - ctx.currentTime) * 1000));
+  });
+  return { done, cancel: () => settle(false) };
 }

@@ -32,8 +32,9 @@ import type { Grade, TakeEvent } from './grade';
  * What was played: which bars, at what tempo.
  *
  * Called a cell because takes were once the cells of a routine grid (section x
- * tempo). The grid was removed on 2026-11-21 and a take is now the whole song,
- * but takes are never rewritten, so the name and its older shapes stay.
+ * tempo). The grid was removed on 2026-11-21; a take is now the whole song or
+ * one pass of a loop, but takes are never rewritten, so the name and its older
+ * shapes stay.
  */
 export interface Cell {
   /**
@@ -42,7 +43,10 @@ export interface Cell {
    * written now.
    */
   id?: string;
-  /** The `[[section]]` name, or `whole song`. */
+  /**
+   * The `[[section]]` name, `whole song`, or -- for a loop over anything other
+   * than exactly one section -- its bars, `bars 12-14` (loop.ts `rangeName`).
+   */
   section: string;
   /** Playback rate it was played at: 1 is the record's tempo. */
   tempo: number;

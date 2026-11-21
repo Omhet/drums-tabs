@@ -1,6 +1,8 @@
 import * as alphaTab from '@coderline/alphatab';
 import songs from 'virtual:songs';
+import { countIn, type CountIn } from './click';
 import { say } from './icons';
+import { Loop, snapTempo, type LoopMemory } from './loop';
 import { MixClock } from './media';
 import { midiToAlphaTex, type TabResult } from './midi-tab';
 import { FADERS, Mixer, type Fader } from './mixer';
@@ -9,7 +11,7 @@ import { chartHash } from './chart';
 import type { ReferenceLock } from './reference';
 import { ScoreWindow, barAtTick, type Lines } from './score-window';
 import { StickingLetters, type StickingLock } from './sticking';
-import { barStartMs, gridSyncPoints, syncSafeTempo, type Grid } from './syncpoints';
+import { barAtMs, barStartMs, gridSyncPoints, syncSafeTempo, type Grid } from './syncpoints';
 
 // Per-song inputs, imported straight from songs/ (outside the Vite root, which
 // is why vite.config.ts opens server.fs.allow). tab.mid is rewritten by the
@@ -48,6 +50,8 @@ const stickingEl = document.getElementById('sticking') as HTMLInputElement;
 const themeBtn = document.getElementById('theme') as HTMLButtonElement;
 const tabThemeBtn = document.getElementById('tab-theme') as HTMLButtonElement;
 const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+const countInEl = byId<HTMLInputElement>('count-in');
+const loopRestEl = byId<HTMLInputElement>('loop-rest');
 
 // --- themes -------------------------------------------------------------------
 // Two of them, and they do not have to agree: the chrome is one thing to look
@@ -93,9 +97,9 @@ function setStatus(text: string, isError = false) {
 
 // Surface failures in the page, not only the devtools console -- otherwise a
 // broken init just looks like a page stuck on its initial message.
-window.addEventListener('error', (e) => setStatus(`Script error: ${e.message}`, true));
+window.addEventListener('error', (e) => setStatus(`Something broke: ${e.message}`, true));
 window.addEventListener('unhandledrejection', (e) =>
-  setStatus(`Unhandled rejection: ${e.reason}`, true)
+  setStatus(`Something broke: ${e.reason}`, true)
 );
 
 // '../../songs/<slug>/tab.mid' -> '<slug>'
@@ -442,6 +446,31 @@ function remember(key: string, value: string) {
     /* private mode: the choice lasts for this page */
   }
 }
+
+// What each song remembers: its tempo and its loop. Live reloads the page on
+// every Ctrl+S of the set, so without this a save in the middle of looping a
+// fill at 70% would land you on the whole song at 100%. It comes back as it
+// was left -- the same loop on, the same tempo -- but never playing: a reload
+// is not a gesture, and the browser would not let it make a sound anyway.
+interface SongMemory {
+  /** Percent of the record's tempo. */
+  tempo?: number;
+  loop?: LoopMemory;
+}
+const memoryKey = (slug: string) => `song:${slug}`;
+
+function recall(slug: string): SongMemory {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(memoryKey(slug)) ?? '{}');
+    return parsed && typeof parsed === 'object' ? (parsed as SongMemory) : {};
+  } catch {
+    return {};
+  }
+}
+
+function memorise(slug: string, patch: SongMemory) {
+  remember(memoryKey(slug), JSON.stringify({ ...recall(slug), ...patch }));
+}
 themeBtn.addEventListener('click', () => {
   const next = isDark() ? 'light' : 'dark';
   remember('theme', next);
@@ -527,7 +556,8 @@ const mixer = new Mixer(mixEl, videoEl, clock, {
   },
   onPictureError: () => {
     const err = videoEl.error;
-    pictureFailed = `Video failed to load: ${err?.message || `code ${err?.code}`}.`;
+    console.warn(`[drums] video: ${err?.message || `code ${err?.code}`}`);
+    pictureFailed = 'The video would not load, so there is no picture.';
     showStatus();
   },
 });
@@ -586,32 +616,45 @@ function toggleFader(f: Fader) {
   saveFaders();
 }
 
-let summary = '';
-let rendered = '';
-let playerLoaded = false;
-// What practice mode last had to say. It goes through the composed status
-// rather than straight to the element because drawing a heatmap re-renders the
-// score, and a re-render would otherwise wipe the result that caused it.
-let practiceNote = '';
-let practiceError = false;
-// Render and player readiness arrive in either order (with external media the
-// player is ready before the first row is drawn), so the status is composed
-// rather than written by whichever event came last.
+// --- the status line ----------------------------------------------------------
+// Only what a drummer needs, in plain words: something missing or wrong with
+// the song's files, and what the loop, a count-in or practice mode last had to
+// say. The numbers a developer wants -- notes, sync points, bars engraved, the
+// notation against the beat map -- go to the console when the song is ready,
+// and "ready" itself is an attribute on <html> rather than a sentence (see
+// `markReady`), so nothing has to read the status line to know.
+
+/** What is wrong with this song's files, in words, from `load`. */
+let problems = '';
+/**
+ * What the loop, a count-in or practice mode last had to say. It goes through
+ * the composed status rather than straight to the element, so the song's own
+ * problems stay on the line beside it.
+ */
+let note = '';
+let noteError = false;
 const showStatus = () =>
   setStatus(
-    [
-      summary,
-      rendered,
-      playerLoaded ? 'Player loaded.' : '',
-      stemsMissing.length ? `No ${stemsMissing.join(' or ')} stem: playing the mix itself.` : '',
-      pictureFailed,
-      stickingStale,
-      practiceNote,
-    ]
-      .filter(Boolean)
-      .join(' '),
-    practiceError
+    [problems, stemsNote(), pictureFailed, stickingStale, note].filter(Boolean).join(' '),
+    noteError
   );
+/** Say something on the status line, replacing whatever was said last. */
+function tell(text: string, isError = false) {
+  note = text;
+  noteError = isError;
+  showStatus();
+}
+
+/** A stem that would not load, as what it means for the faders. */
+function stemsNote(): string {
+  if (stemsMissing.length === 0) return '';
+  if (stemsMissing.length > 1) {
+    return 'This song has no separated tracks, so the whole record plays and No drums and Drums cannot be set apart.';
+  }
+  return stemsMissing[0] === 'drums'
+    ? "The record's drum track is missing, so the Drums fader is silent."
+    : 'The record without its drums is missing, so the No drums fader is silent.';
+}
 
 // The Kit fader's own line, shown only when there is something wrong with it.
 //
@@ -638,14 +681,59 @@ async function showKitNote() {
   kitNoteEl.hidden = lines.length === 0;
 }
 
+// --- the loop -----------------------------------------------------------------------
+// A section or a run of bars, round and round on the record's own clock
+// (loop.ts). The rest bar between passes is a habit rather than a property of
+// a song, so it is remembered once for all of them; the range, whether it is
+// on and the ramp are remembered per song (`memorise`).
+try {
+  loopRestEl.checked = localStorage.getItem('loopRest') !== 'off';
+} catch {
+  /* private mode: the default, a bar of rest */
+}
+const loop: Loop = new Loop(
+  api,
+  clock,
+  mixer,
+  {
+    section: byId('loop-section'),
+    from: byId('loop-from'),
+    to: byId('loop-to'),
+    toggle: byId('loop'),
+    pass: byId('loop-pass'),
+    rest: loopRestEl,
+    ramp: byId('ramp'),
+    rampFrom: byId('ramp-from'),
+    rampStep: byId('ramp-step'),
+    rampEvery: byId('ramp-every'),
+    rampTo: byId('ramp-to'),
+    rampGate: byId('ramp-gate'),
+    rampState: byId('ramp-state'),
+  },
+  scoreEl,
+  {
+    tempo: () => Number(speedEl.value),
+    setTempo: (percent) => applySpeed(percent),
+    say: tell,
+    changed: () => {
+      paintPlay();
+      practice.refresh();
+      remember('loopRest', loopRestEl.checked ? 'on' : 'off');
+      if (current) memorise(current.slug, { loop: loop.snapshot() });
+    },
+    busy: (): boolean => practice.busy,
+  }
+);
+
 // --- practice mode ----------------------------------------------------------------
 // What you play, marked against what is written (practice.ts). Everything it
 // needs is already on the page: the clock stamps the hits, the mixer's graph
 // carries the calibration click, and alphaTab colours its own noteheads.
-const practice = new Practice(
+const practice: Practice = new Practice(
   api,
   clock,
   mixer,
+  loop,
   {
     enable: byId('midi-enable'),
     port: byId('midi-port'),
@@ -656,32 +744,54 @@ const practice = new Practice(
     monitorOn: byId('monitor-on'),
     monitor: byId('monitor'),
     report: byId('report'),
+    passes: byId('passes'),
     clickFader: byId('fader-click'),
   },
   scoreEl,
-  (text, isError = false) => {
-    practiceNote = text;
-    practiceError = isError;
-    showStatus();
-  }
+  tell
 );
 onThemeChange = (dark) => practice.setTheme(dark);
 practice.setTheme(isTabDark());
 
+// --- ready ----------------------------------------------------------------------
+// A song is ready when its score is engraved and the player can play it. The
+// two arrive in either order (with external media the player is ready before
+// the first row is drawn), so each one checks for the other.
+//
+// It is said with `data-ready="<slug>"` on <html>, not on the status line:
+// the headless checks wait for it (scripts/browser.mjs `waitForPlayer`), and
+// they used to wait for the words "Player loaded", which is a sentence for a
+// developer that a drummer then had to read on every load.
+
+/** The song `load` is waiting to see engraved, and what to log once it is. */
+let pending: { slug: string; score: alphaTab.model.Score; rendered: boolean; diagnostics: string } | undefined;
+let playerLoaded = false;
+/** The count-in from a pause under way, if there is one (`resume`, further down). */
+let resuming: CountIn | undefined;
+const COUNTING_IN = 'Counting in.';
+
+function markReady() {
+  const p = pending;
+  if (!p || !p.rendered || !playerLoaded) return;
+  pending = undefined;
+  const staff = api.score?.tracks[0]?.staves[0];
+  console.info(`[drums] ${p.diagnostics}; engraved ${staff?.bars.length ?? 0} bars.`);
+  document.documentElement.dataset.ready = p.slug;
+  showStatus();
+}
+
 // Handlers must be attached *before* api.tex(), which fires renderStarted
 // synchronously -- otherwise the first event is missed.
-api.renderStarted.on(() => {
-  rendered = '';
-  setStatus('Rendering…');
-});
-
 api.renderFinished.on(() => {
-  const staff = api.score?.tracks[0]?.staves[0];
-  rendered = staff ? `Rendered ${staff.bars.length} bars.` : 'Rendered.';
-  showStatus();
+  // Only the render of the score `load` asked for: a re-render of the song
+  // being left (a theme switch a moment before) is not this one being ready.
+  if (pending && api.score === pending.score) {
+    pending.rendered = true;
+    markReady();
+  }
 });
 
-api.error.on((error) => setStatus(`alphaTab error: ${error.message ?? error}`, true));
+api.error.on((error) => setStatus(`The notation could not be drawn: ${error.message ?? error}`, true));
 
 // Playback stays disabled until the player reports ready, so a click cannot
 // silently no-op. (With external media that is immediate; the video itself
@@ -691,23 +801,144 @@ api.playerReady.on(() => {
   playBtn.disabled = false;
   stopBtn.disabled = false;
   playerLoaded = true;
-  showStatus();
+  markReady();
 });
 
-/** What the Play button says, from the transport's own state. */
+/**
+ * What the Play button says.
+ *
+ * Not only alphaTab's own state: a loop pauses the transport at the end of
+ * every pass, and a count-in -- a loop's, or one from a pause -- clicks before
+ * the transport has moved at all, so alphaTab is legitimately stopped while
+ * the thing you asked for is very much still going.
+ */
 function paintPlay(state = api.playerState) {
+  const playing = state === alphaTab.synth.PlayerState.Playing || loop.running || !!resuming;
   // The word and the glyph that stands in for it when the rail is collapsed,
   // written together so they cannot disagree (icons.ts).
-  if (state === alphaTab.synth.PlayerState.Playing) say(playBtn, 'Pause', '⏸');
+  if (playing) say(playBtn, 'Pause', '⏸');
   else say(playBtn, 'Play', '▶');
 }
 
 api.playerStateChanged.on((e) => paintPlay(e.state));
-api.playerFinished.on(() => paintPlay());
+// The end of the score. A loop over the last bars ends there, and alphaTab
+// rewinds as it says so -- which is why the loop is told rather than left to
+// notice (loop.ts `reachedEnd`).
+api.playerFinished.on(() => {
+  loop.reachedEnd();
+  paintPlay();
+});
 
+/**
+ * Play, or stop, wherever it is pressed from: the button, Space, the picture.
+ *
+ *   - a loop going round stops (where it is; the loop stays on);
+ *   - a count-in under way is called off;
+ *   - with the loop on, Play plays the loop: a bar of count-in, then pass 1;
+ *   - playing, it pauses;
+ *   - paused, it plays -- after a bar of count-in, unless that is turned off.
+ *
+ * While practice mode has the transport (a whole-song take, the calibration)
+ * it is a plain play/pause, as it always was: those have count-ins of their
+ * own and a second one would fight them.
+ */
 function togglePlay() {
   if (playBtn.disabled) return;
-  api.playPause();
+  if (loop.running) loop.stop();
+  else if (resuming) cancelResume();
+  else if (loop.armed && !practice.busy) loop.start();
+  else if (api.playerState === alphaTab.synth.PlayerState.Playing) api.pause();
+  else if (countInEl.checked && !practice.busy) resume();
+  else api.play();
+  // A count-in moves no transport and so fires no state change: without this
+  // the button would still say Play for the bar it takes, which is the bar you
+  // are most likely to press it again in.
+  paintPlay();
+}
+
+// --- count-in from a pause ---------------------------------------------------------
+// Play from a pause gives a bar of click at the tempo set before the music
+// comes back, so you come in with it instead of chasing it. A setting, on by
+// default, remembered once for every song.
+
+try {
+  countInEl.checked = localStorage.getItem('countIn') !== 'off';
+} catch {
+  /* private mode: the default, on */
+}
+countInEl.addEventListener('change', () => {
+  remember('countIn', countInEl.checked ? 'on' : 'off');
+  countInEl.blur();
+});
+
+/**
+ * Count in, then play.
+ *
+ * It resumes from the start of the bar the cursor is in, not from where the
+ * cursor is. A bar of clicks ends on a downbeat, so the music has to start on
+ * one: four clicks and then the record half way through a bar would put the
+ * record's beat between yours, which is worse than no count-in at all. The
+ * cost is hearing again up to a bar you have just heard -- and that is the bar
+ * you want to hear to come back in anyway.
+ *
+ * Before bar 1 it depends on the record. One with a run-up of its own (One For
+ * The Road has three bars of intro with a beat in them) plays it as it is:
+ * the record is the count-in. One that starts on its first beat (Kill Me,
+ * 0.36 s in) has nothing to come in on, so it is counted in to bar 1 -- the
+ * same reason Record counts a take in.
+ */
+function resume() {
+  const grid = current?.grid;
+  mixer.ensureGraph();
+  const ctx = mixer.ctx;
+  const out = mixer.countInOut();
+  if (!grid || !ctx || !out) {
+    api.play();
+    return;
+  }
+  let bar = barAtMs(grid, clock.mixTimeMs);
+  if (bar < 0) {
+    if (grid.bar_one_beat > 0) {
+      api.play();
+      return;
+    }
+    bar = 0;
+  }
+  const startMs = barStartMs(grid, bar);
+  if (startMs === undefined) {
+    api.play();
+    return;
+  }
+  // The bar's own length, at the tempo it is about to be played at: the
+  // drummer's tempo moves, and a 70% count-in is a 70% count-in.
+  const nextMs = barStartMs(grid, bar + 1);
+  const prevMs = barStartMs(grid, bar - 1);
+  const barMs =
+    nextMs !== undefined ? nextMs - startMs : prevMs !== undefined ? startMs - prevMs : 2000;
+  const perBar = grid.meter.beats_per_bar;
+  clock.seekTo(startMs);
+  const c = countIn(ctx, out, barMs / perBar / 1000 / (api.playbackSpeed || 1), perBar);
+  resuming = c;
+  tell(COUNTING_IN);
+  void c.done.then((go) => {
+    if (resuming !== c) return;
+    resuming = undefined;
+    if (note === COUNTING_IN) tell('');
+    // Unless something else took the transport during the bar: Record, or
+    // the loop turned on. Those have count-ins of their own.
+    if (go && !loop.armed && !loop.running && !practice.busy) api.play();
+    paintPlay();
+  });
+}
+
+/** Call off a count-in from a pause: the transport stays where it was put. */
+function cancelResume() {
+  const c = resuming;
+  if (!c) return;
+  resuming = undefined;
+  c.cancel();
+  if (note === COUNTING_IN) tell('');
+  paintPlay();
 }
 
 // Blur after a click so a following Space toggles playback once, not twice
@@ -723,8 +954,10 @@ stopBtn.addEventListener('click', () => {
 
 // Stop means the top of the song, count-in included. alphaTab's own stop
 // seeks to the score's tick 0, which is the first beat of bar 1, a couple of
-// seconds in.
+// seconds in. A loop going round stops too, and stays on: Play starts it again.
 function stop() {
+  loop.stop();
+  cancelResume();
   api.stop();
   mixEl.currentTime = 0;
 }
@@ -740,21 +973,43 @@ videoEl.addEventListener('click', () => {
 mixEl.addEventListener('ended', () => api.pause());
 mixEl.addEventListener('error', () => {
   const err = mixEl.error;
-  setStatus(
-    `The mix failed to load (${mixEl.currentSrc}): ${err?.message || `code ${err?.code}`}`,
-    true
-  );
+  console.warn(`[drums] ${mixEl.currentSrc}: ${err?.message || `code ${err?.code}`}`);
+  // Through the composed line, so the song becoming ready a moment later does
+  // not write over the one thing that says why nothing plays.
+  tell("The song's audio would not load, so nothing can play (is audio/mix.wav there?).", true);
 });
 
+/**
+ * The tempo, in percent of the record's. The one setter: the slider, its
+ * readout, alphaTab and the song's memory all move here and nowhere else, so
+ * the keys, the step buttons and a loop's ramp can never disagree about it.
+ */
 function applySpeed(percent: number) {
-  const p = Math.max(Number(speedEl.min), Math.min(Number(speedEl.max), percent));
+  // On the slider's rungs: a number between them would be shown as the rung
+  // the slider snaps to while the record played at the other.
+  const p = snapTempo(percent);
   speedEl.value = String(p);
   // Through alphaTab, never straight onto the element: alphaTab derives the
   // cursor animation speed from playbackSpeed and forwards it to the video.
   api.playbackSpeed = p / 100;
   speedOut.textContent = `${p}%`;
+  if (current) memorise(current.slug, { tempo: p });
+  loop.refresh();
 }
 speedEl.addEventListener('input', () => applySpeed(Number(speedEl.value)));
+/** A step up or down from where the tempo is. */
+const stepTempo = (delta: number) => applySpeed(Number(speedEl.value) + delta);
+// The small buttons beside the slider: -10 -5 100% +5 +10. The steps are the
+// way the tempo is actually moved in practice -- slower to learn a part, then
+// back up a notch at a time -- and 100% is the way home.
+for (const btn of document.querySelectorAll<HTMLButtonElement>('#tempo-steps button')) {
+  btn.addEventListener('click', () => {
+    const step = Number(btn.dataset.step);
+    if (step === 0) applySpeed(100);
+    else stepTempo(step);
+    btn.blur();
+  });
+}
 
 // A slider keeps the focus after a drag, and then the arrow keys move it
 // instead of the cursor. Hand the keyboard back to the player once the drag
@@ -776,7 +1031,13 @@ let current: Loaded | undefined;
 async function load(slug: string) {
   playBtn.disabled = true;
   stopBtn.disabled = true;
+  // Whatever was going round belongs to the song being left -- stopped before
+  // `current` moves on, so it is remembered under that song and not this one.
+  loop.stop();
+  cancelResume();
   api.stop();
+  delete document.documentElement.dataset.ready;
+  pending = undefined;
   const song = playable.find((s) => s.slug === slug);
   const midiUrl = midiBySlug.get(slug);
   if (!song || !midiUrl) {
@@ -834,32 +1095,53 @@ async function load(slug: string) {
   if (lock) {
     const hash = await chartHash(bytes);
     if (hash !== lock.chart) {
-      stickingStale = 'Sticking is from an older chart (drums sticking --restick).';
+      stickingStale =
+        'The R and L letters were worked out for an older version of the notation (drums sticking --restick).';
     }
   }
 
+  // The loop and the tempo this song was left at. The loop first, so that
+  // practice mode, loading next, offers to record what is actually on.
+  const memory = recall(slug);
+  loop.load({ sections: song.sections, grid, bars }, memory.loop);
+
   // Practice mode reads the same bytes: the notes you are marked against are
   // the notes on the page, from one parse.
-  practiceNote = '';
-  practiceError = false;
+  note = '';
+  noteError = false;
   practice.load(await readPracticeSong(song, bytes, grid, lock, reference));
+  applySpeed(typeof memory.tempo === 'number' ? memory.tempo : 100);
   void showKitNote();
 
-  const problems = [
-    tab.unmapped.length ? `unmapped MIDI keys: ${tab.unmapped.join(', ')}` : '',
-    tab.unknown.length ? `no articulation for: ${tab.unknown.join(', ')}` : '',
-    !song.media.mix ? 'no audio/mix.wav: nothing to play (drums fetch)' : '',
-    !grid ? 'no grid.lock.json, cursor runs at the written tempo' : '',
-    hasVideo && grid && grid.video_offset_ms == null
-      ? 'video offset not measured (drums align)'
+  // What is wrong with the song's files, for the drummer: each one changes
+  // what the page can do, and each names the command that fixes it.
+  problems = [
+    !song.media.mix ? 'This song has no audio yet, so there is nothing to play (drums fetch).' : '',
+    !grid
+      ? 'This song has no beat map, so the notation keeps a steady tempo instead of following the drummer (drums prep).'
       : '',
+    hasVideo && grid && grid.video_offset_ms == null
+      ? 'The video has not been lined up with the audio yet, so it may run early or late (drums align).'
+      : '',
+    tab.unmapped.length
+      ? `Notes on MIDI keys ${tab.unmapped.join(', ')} are not drawn: song.toml's [midi_map] does not name those keys.`
+      : '',
+    tab.unknown.length ? `The notation has no way to draw ${tab.unknown.join(', ')}, so those notes are missing.` : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  // And for whoever is building it, in the console.
+  const diagnostics = [
+    `${song.title}: ${grid ? `${Math.round(grid.score.bpm)} BPM` : 'no beat map'}`,
+    `${tab.notes} notes`,
+    `${syncPoints.length} sync points`,
     // applyFlatSyncPoints drops points past the last bar without a word, and
     // bars past the last point run at an extrapolated tempo. Either way the
-    // cursor quietly parts from the drummer, so say so.
-    grid && bars !== grid.bar_count ? `notation has ${bars} bars, beat map has ${grid.bar_count}` : '',
-  ].filter(Boolean);
-  const tempo = grid ? `${Math.round(grid.score.bpm)} BPM, ` : '';
-  summary = `${tempo}${tab.notes} notes, ${syncPoints.length} sync points.` + (problems.length ? ` ${problems.join('; ')}.` : '');
+    // cursor quietly parts from the drummer there, so it is said somewhere.
+    grid && bars !== grid.bar_count
+      ? `notation has ${bars} bars, beat map has ${grid.bar_count}`
+      : `${bars} bars`,
+  ].join(', ');
 
   // The clock, and with it everything that follows it. The click plays every
   // beat the drummer played, count-in included, with the first beat of each
@@ -880,6 +1162,7 @@ async function load(slug: string) {
   // stage to itself unless a number of lines was chosen by hand.
   stageEl.classList.toggle('no-video', !hasVideo);
   applyLines(savedLines() ?? (hasVideo ? 2 : 'fit'));
+  pending = { slug, score, rendered: false, diagnostics };
   api.renderScore(score);
 }
 
@@ -923,6 +1206,9 @@ new MutationObserver((mutations) => {
 function seekToBar(barIndex: number) {
   const bars = api.score?.masterBars ?? [];
   if (bars.length === 0 || playBtn.disabled) return;
+  // A count-in leads into the bar it was started from; moving away from that
+  // bar under it would bring the music in somewhere the clicks did not lead.
+  cancelResume();
   const target = bars[Math.max(0, Math.min(bars.length - 1, barIndex))]!;
   api.tickPosition = target.start;
 }
@@ -1006,17 +1292,24 @@ zenBtn.addEventListener('click', () => {
 // --- keyboard -------------------------------------------------------------------
 // From anywhere except a control that uses the key itself (a select, a
 // slider being dragged). Space is play/pause; Home is Stop; arrows seek by a
-// bar or a line; brackets step the tempo; +/- size the notation and 0 puts the
-// whole Layout group back to its defaults; 1/2/3/4 mute a fader; Z is zen.
-const keys: Record<string, () => void> = {
+// bar or a line; brackets step the tempo by 5, with Shift by 10, and
+// backslash puts it back to 100%; L turns the loop on and off; +/- size the
+// notation and 0 puts the whole Layout group back to its defaults; 1/2/3/4
+// mute a fader; Z is zen.
+const keys: Record<string, (e: KeyboardEvent) => void> = {
   Space: togglePlay,
   Home: stop,
   ArrowLeft: () => seekBars(-1),
   ArrowRight: () => seekBars(1),
   ArrowUp: () => seekLines(-1),
   ArrowDown: () => seekLines(1),
-  BracketLeft: () => applySpeed(Number(speedEl.value) - Number(speedEl.step)),
-  BracketRight: () => applySpeed(Number(speedEl.value) + Number(speedEl.step)),
+  // Shift is let through by the handler below, so Shift+[ arrives here too:
+  // the same key, a bigger step. 10% is the step a session climbs back up in.
+  BracketLeft: (e) => stepTempo(e.shiftKey ? -10 : -5),
+  BracketRight: (e) => stepTempo(e.shiftKey ? 10 : 5),
+  // Beside the brackets on most keyboards: the way home from any tempo.
+  Backslash: () => applySpeed(100),
+  KeyL: () => loop.toggle(),
   // `+` is Shift and the `=` key on most layouts, and the handler below lets
   // Shift through, so both spellings of the same key arrive as Equal.
   Equal: () => setSize(sizeStep() + 1),
@@ -1036,11 +1329,12 @@ const keys: Record<string, () => void> = {
 document.addEventListener('keydown', (e) => {
   const action = keys[e.code];
   if (!action || e.ctrlKey || e.metaKey || e.altKey) return;
-  if (e.repeat && e.code === 'Space') return;
+  // A held key repeats; a switch should not flicker while it is held.
+  if (e.repeat && (e.code === 'Space' || e.code === 'KeyL')) return;
   const target = e.target as HTMLElement | null;
   if (target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return;
   e.preventDefault();
-  action();
+  action(e);
 });
 
 // --- the router -------------------------------------------------------------------
@@ -1053,7 +1347,11 @@ const slugOfHash = (hash: string) => decodeURIComponent(hash.replace(/^#/, ''));
 async function go(wanted: string) {
   const slug = playable.some((s) => s.slug === wanted) ? wanted : playable[0]?.slug ?? '';
   if (!slug) return;
-  if (slug !== songEl.value || !current) {
+  // Against the song actually loaded, not the picker: picking a song has
+  // already changed the picker by the time its hash arrives here, so comparing
+  // with the picker meant the header's song list changed the address and
+  // nothing else until the next reload.
+  if (slug !== current?.slug) {
     songEl.value = slug;
     await load(slug);
   }
@@ -1080,6 +1378,7 @@ if (import.meta.env.DEV) {
     scoreWindow,
     sticking,
     practice,
+    loop,
     go,
     seekToBar,
     // The bar->ms primitive, so a check can work out where a range starts and

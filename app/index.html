@@ -82,6 +82,9 @@
          colour (heatmap.ts) written as hex, so an extra x and a missed
          notehead are the same red. With no tab theme chosen the pane follows
          the chrome, which is what the two blocks after these are for. */
+      /* --tab-loop is the loop's tint over its bars and --tab-loop-edge the
+         line at its two ends (loop.ts): blue, so it never reads as the
+         cursor's yellow or a verdict's green and red. */
       :root[data-tab-theme="light"] {
         --tab-bg: #ffffff;
         --tab-muted: #6b6b73;
@@ -89,6 +92,8 @@
         --tab-accent: #c82d28;
         --tab-cursor-bar: rgba(255, 200, 0, 0.22);
         --tab-cursor-beat: rgba(230, 60, 60, 0.85);
+        --tab-loop: rgba(40, 120, 220, 0.09);
+        --tab-loop-edge: rgba(40, 120, 220, 0.75);
       }
       :root:not([data-tab-theme]) {
         --tab-bg: var(--panel);
@@ -97,6 +102,8 @@
         --tab-accent: var(--fail);
         --tab-cursor-bar: rgba(255, 200, 0, 0.22);
         --tab-cursor-beat: rgba(230, 60, 60, 0.85);
+        --tab-loop: rgba(60, 135, 235, 0.11);
+        --tab-loop-edge: rgba(60, 135, 235, 0.8);
       }
       :root[data-tab-theme="dark"] {
         --tab-bg: #1f1f24;
@@ -105,6 +112,8 @@
         --tab-accent: #f56e64;
         --tab-cursor-bar: rgba(255, 200, 0, 0.16);
         --tab-cursor-beat: rgba(245, 110, 100, 0.9);
+        --tab-loop: rgba(100, 165, 255, 0.13);
+        --tab-loop-edge: rgba(110, 170, 255, 0.85);
       }
       html, body { height: 100%; }
       body {
@@ -182,6 +191,21 @@
       .fader { display: grid; grid-template-columns: 1fr auto; gap: 1px 8px; color: var(--muted); }
       .fader input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 0; }
       .fader output { text-align: right; font-size: 12px; }
+      /* A line of words with numbers typed into it: "Bars 15 to 22". */
+      .nums { display: flex; align-items: center; gap: 5px; color: var(--muted); }
+      input[type="number"] {
+        width: 50px; padding: 3px 4px; font: inherit; font-variant-numeric: tabular-nums;
+        border-radius: 6px; border: 1px solid var(--border); background: var(--panel); color: var(--fg);
+      }
+      /* The tempo steps: five small buttons sharing the rail's width. */
+      #tempo-steps { gap: 4px; }
+      #tempo-steps button { flex: 1; min-width: 0; padding: 3px 0; font-size: 12px; }
+      /* The loop's switch shows which way it is set, filled when on. */
+      #loop[aria-pressed="true"] {
+        background: var(--fg); color: var(--panel); border-color: var(--fg); font-weight: 600;
+      }
+      #loop-pass { font-weight: 600; }
+      #ramp-state { font-size: 12px; line-height: 1.35; }
 
       /* --- the rails, one icon wide --------------------------------------- */
       /* The same controls, not a second set of them: a button keeps its word
@@ -195,9 +219,10 @@
          score once a frame for the length of it. */
       :root[data-rail="icons"] { --rail: 46px; }
       :root[data-desk="icons"] { --desk: 46px; }
-      :root[data-rail="icons"] #rail :is(h1, h2, .fader, .keys, output, label > span, .row > .name),
+      :root[data-rail="icons"] #rail
+        :is(h1, h2, .fader, .keys, output, label > span, .row > .name, .nums, #tempo-steps),
       :root[data-desk="icons"] #desk
-        :is(h1, h2, .fader, .keys, output, label > span, .row > .name, #monitor, #report) {
+        :is(h1, h2, .fader, .keys, output, label > span, .row > .name, #monitor, #report, #passes) {
         display: none;
       }
       :root[data-rail="icons"] #rail .group,
@@ -330,8 +355,12 @@
          row instead of pushing the picture off the top. */
       #score-box { flex: 0 1 auto; min-height: 0; height: 260px; overflow: hidden; }
       #score-box.fit { flex: 1 1 auto; height: auto; }
+      /* min-height: the line is often empty now that it only speaks when there
+         is something to say, and a line that came and went would move the
+         stage under the notation each time. */
       #status {
         margin: 8px 2px 0; color: var(--muted); font-size: 12px; line-height: 1.4;
+        min-height: 1.4em;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
       #status.err { color: var(--fail); }
@@ -364,6 +393,16 @@
         font: 700 calc(12px * var(--tab-zoom, 1))/1 ui-monospace, "Cascadia Mono", Consolas, monospace;
         color: var(--tab-accent); pointer-events: none; white-space: nowrap;
       }
+      /* The loop over the notation (loop.ts): a tint across its bars while it
+         is on, one block per line, with a line at each true end. Ink on the
+         page, so it takes the notation's theme; it lets clicks through, so a
+         click on a note under it still seeks. */
+      .loop-band span {
+        position: absolute; box-sizing: border-box; pointer-events: none;
+        background: var(--tab-loop);
+      }
+      .loop-band span.start { border-left: 2px solid var(--tab-loop-edge); }
+      .loop-band span.end { border-right: 2px solid var(--tab-loop-edge); }
       /* alphaTab creates the cursor elements but leaves them unstyled. */
       .at-cursor-bar { background: var(--tab-cursor-bar); }
       .at-cursor-beat { background: var(--tab-cursor-beat); width: 3px; }
@@ -431,6 +470,22 @@
       #monitor span b { color: var(--fg); font-weight: 600; }
       #monitor span.unmapped { border-color: var(--fail); color: var(--fail); }
       #monitor span.unmapped b { color: var(--fail); }
+      /* The passes of a loop Record is marking, as they happen: one chip per
+         pass, newest last, coloured against the same line the dials use. The
+         one question a sitting asks is whether it got better, and a row of
+         numbers answers it where a single reading cannot. */
+      #passes { display: flex; flex-wrap: wrap; gap: 4px; }
+      #passes[hidden] { display: none; }
+      #passes .pass {
+        padding: 1px 6px; border-radius: 4px; cursor: pointer;
+        font: 11px/1.6 ui-monospace, "Cascadia Mono", Consolas, monospace;
+        border: 1px solid var(--border); background: var(--panel); color: var(--muted);
+      }
+      #passes .pass.good { border-color: var(--pass); color: var(--pass); }
+      #passes .pass.bad { border-color: var(--fail); color: var(--fail); }
+      /* Stopped part way: kept, because it happened, and drawn as unfinished. */
+      #passes .pass.part { border-style: dashed; }
+      #passes .pass.at { outline: 2px solid var(--fg); outline-offset: 1px; color: var(--fg); }
       /* The reading names itself, so the heading cannot outlive the panel it
          names: both go with the same `hidden` flag. The monitor needs no
          heading -- it sits inside the group whose switch made it. */
@@ -561,6 +616,75 @@
             <output id="speed-out">100%</output>
             <input id="speed" type="range" min="25" max="125" value="100" step="5" />
           </div>
+          <!-- Steps rather than a drag: slower to learn a part, then back up a
+               notch at a time, and 100% the way home. The same as [ ] (5),
+               Shift+[ ] (10) and \. -->
+          <div class="row" id="tempo-steps">
+            <button data-step="-10" title="10% slower (Shift+[)" aria-label="10% slower">&minus;10</button>
+            <button data-step="-5" title="5% slower ([)" aria-label="5% slower">&minus;5</button>
+            <button data-step="0" title="The record's own tempo (\)" aria-label="Back to 100%">100%</button>
+            <button data-step="5" title="5% faster (])" aria-label="5% faster">+5</button>
+            <button data-step="10" title="10% faster (Shift+])" aria-label="10% faster">+10</button>
+          </div>
+          <label title="Play from a pause gives a bar of click first, from the start of the bar the cursor is in">
+            <input id="count-in" type="checkbox" checked />
+            <span>Count in from a pause</span>
+          </label>
+        </div>
+        <!-- The loop (loop.ts): a section, or any run of bars, round and round
+             on the record's own clock. With it on, Play plays the loop and
+             Record marks every pass. -->
+        <div class="group" id="loop-group">
+          <h2>Loop</h2>
+          <!-- Every [[section]] of the song, with its bars: names repeat. -->
+          <select id="loop-section" title="A section to loop" aria-label="Section to loop"></select>
+          <!-- Any run of bars: a fill and the bar before it, two sections in a row. -->
+          <div class="nums" id="loop-bars">
+            <span>Bars</span>
+            <input id="loop-from" type="number" min="1" step="1" aria-label="First bar of the loop" />
+            <span>to</span>
+            <input id="loop-to" type="number" min="1" step="1" aria-label="Last bar of the loop" />
+          </div>
+          <div class="row">
+            <button
+              id="loop"
+              data-icon="↻"
+              aria-pressed="false"
+              title="Loop on or off (L)"
+              aria-label="Loop on or off"
+            >
+              Loop off
+            </button>
+            <output id="loop-pass" class="grow"></output>
+          </div>
+          <label title="Between passes, a bar of click to come back in on; off, it jumps straight back">
+            <input id="loop-rest" type="checkbox" checked />
+            <span>A bar of click between passes</span>
+          </label>
+          <label title="Raise the tempo between passes, the way you would by hand">
+            <input id="ramp" type="checkbox" />
+            <span>Ramp the tempo</span>
+          </label>
+          <div class="nums" id="ramp-range">
+            <span>from</span>
+            <input id="ramp-from" type="number" min="25" max="125" step="5" value="70" aria-label="Ramp from, percent" />
+            <span>% to</span>
+            <input id="ramp-to" type="number" min="25" max="125" step="5" value="100" aria-label="Ramp up to, percent" />
+            <span>%</span>
+          </div>
+          <div class="nums" id="ramp-steps">
+            <span>+</span>
+            <input id="ramp-step" type="number" min="5" max="50" step="5" value="5" aria-label="Ramp step, percent" />
+            <span>% every</span>
+            <input id="ramp-every" type="number" min="1" max="20" step="1" value="2" aria-label="Passes per step" />
+          </div>
+          <!-- Needs Record: only a marked pass has a mark. A loop nobody is
+               marking steps on every pass. -->
+          <label title="Only passes Record marks at 90% or better count towards the next step">
+            <input id="ramp-gate" type="checkbox" />
+            <span>Only on a pass of 90%+</span>
+          </label>
+          <output id="ramp-state"></output>
         </div>
         <!-- The mixer: what you hear is the two stems, the click and the kit,
              not the video's own soundtrack (that is the full mix). -->
@@ -711,7 +835,8 @@
           <p>
             <kbd>Space</kbd> play/pause &middot; <kbd>&larr;</kbd><kbd>&rarr;</kbd> a bar &middot;
             <kbd>&uarr;</kbd><kbd>&darr;</kbd> a line &middot; <kbd>Home</kbd> stop &middot;
-            <kbd>[</kbd><kbd>]</kbd> tempo &middot; <kbd>+</kbd><kbd>&minus;</kbd> size
+            <kbd>[</kbd><kbd>]</kbd> tempo &plusmn;5 (with <kbd>Shift</kbd> &plusmn;10) &middot;
+            <kbd>\</kbd> tempo 100% &middot; <kbd>L</kbd> loop on/off &middot; <kbd>+</kbd><kbd>&minus;</kbd> size
             (<kbd>0</kbd> resets Layout) &middot;
             <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> mute a fader &middot; <kbd>Z</kbd> zen (<kbd>Esc</kbd> leaves) &middot; click the score to seek
             &middot; wheel over the notation to browse.
@@ -763,6 +888,9 @@
             </button>
             <output id="take-target" class="grow"></output>
           </div>
+          <!-- One chip per pass of a loop Record is marking (practice.ts
+               drawPasses): the sitting at a glance. -->
+          <div id="passes" hidden></div>
           <label title="The last few hits, as they arrive">
             <input id="monitor-on" type="checkbox" />
             <span>Monitor</span>

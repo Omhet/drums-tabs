@@ -43,6 +43,14 @@
 // `drums reference`. Only their effect on a stroke's timestamp is the same.
 import type { ExpectedNote, Limb } from './chart';
 
+/**
+ * At or above this share of the written notes, a take -- or a bar of one, or a
+ * pass of a loop -- reads as good. Below it the dial, the bar and the pass go
+ * red, and the only thing it gates is a tempo ramp that was asked to wait for
+ * one (loop.ts). Here rather than in the reading so the two cannot disagree.
+ */
+export const PASS = 0.9;
+
 /** One stroke as it was recorded. `tMs` is raw mix time: uncorrected. */
 export interface TakeEvent {
   tMs: number;

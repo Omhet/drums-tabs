@@ -74,3 +74,20 @@ export function barStartMs(grid: Grid, barIndex: number): number | undefined {
   const s = grid.beats[grid.bar_one_beat + barIndex * grid.meter.beats_per_bar];
   return s === undefined ? undefined : s * 1000;
 }
+
+/**
+ * The 0-based notation bar the mix is in at `ms`: the last bar whose start is
+ * not after it. -1 before bar 1, and never past the last bar of the beat map.
+ *
+ * A millisecond of slack, because a transport seeked to a bar's start reads
+ * back a hair either side of it, and that is still the bar it was put on.
+ */
+export function barAtMs(grid: Grid, ms: number): number {
+  let bar = -1;
+  for (let i = 0; i < grid.bar_count; i++) {
+    const start = barStartMs(grid, i);
+    if (start === undefined || start > ms + 1) break;
+    bar = i;
+  }
+  return bar;
+}

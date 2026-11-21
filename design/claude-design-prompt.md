@@ -83,9 +83,9 @@ So the screen exists for three things, in this order:
   The usual moves are muting the record's drummer to play their part yourself,
   and adding a click when slowed down.
 - **Keyboard:** Space play/pause · ← → a bar · ↑ ↓ a line · Home back to the
-  top · [ ] tempo down/up · + − notation size · 0 reset the layout ·
-  1 2 3 4 mute a channel · Z zen (fullscreen: picture and notation only) ·
-  Esc leaves zen.
+  top · [ ] tempo −5/+5% · Shift+[ ] tempo −10/+10% · \ back to 100% ·
+  L loop on/off · + − notation size · 0 reset the layout · 1 2 3 4 mute a
+  channel · Z zen (fullscreen: picture and notation only) · Esc leaves zen.
 - **Notation layout**, set once per monitor: size, bars per line (1–8), note
   spacing, gap between lines.
 - **Two themes**, set separately: one for the interface, one for the notation's
@@ -235,7 +235,12 @@ verdict colours) and a short list of the components.
   with the spacing tightened. A line with its stems and sticking is about 270 px
   tall. Plan for 2 lines visible with the video and 3 without, and treat bars
   per line as a trade the design has to make visible.
-- **Keep the keyboard model** in §3, and propose keys for the loop and the ramp.
+- **Keep the keyboard model** in §3. Propose a key for the ramp if it needs one.
+- **The behaviour in §5 is already built**, with plain temporary controls in
+  today's left rail: the loop, tempo steps, the ramp (and its "only on a pass
+  of 90%+" option), count-in from a pause, per-song memory of loop and tempo,
+  and scoring per pass. The design is for how it looks and is reached, not
+  for what it does.
 - **Videos are 16:9.**
 
 ## 10. Real content for the mockups

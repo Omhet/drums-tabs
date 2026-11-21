@@ -450,12 +450,12 @@ if (slugs.length > 1) {
   const from = h.picked;
   const other = slugs.find((s) => s !== from);
   await page.selectOption('#song', other);
-  await waitForPlayer(page);
+  await waitForPlayer(page, other);
   await page.waitForTimeout(1500);
   h = await header();
   check(h.hash === other, `the picker went to ${h.hash}, not ${other}`);
   await page.selectOption('#song', from);
-  await waitForPlayer(page);
+  await waitForPlayer(page, from);
   await page.waitForTimeout(1500);
   check((await header()).hash === from, 'the picker did not come back to the first song');
 } else {

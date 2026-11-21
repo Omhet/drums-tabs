@@ -1316,33 +1316,326 @@ Four things learned:
   strip-only mode". `loop.ts` imports `click.ts`, so `Click` spells its
   constructor out.
 
+**The Lamp shell: tokens, type and the header (2026-11-21).** Stages C1 and C2
+of `handoff.md` §0. The page is set in Atkinson Hyperlegible Next, self-hosted
+from `app/public/fonts/` (the variable woff2, latin and latin-ext, with its
+OFL), and its colours are the Lamp spec's tokens verbatim: the interface dark
+unless `data-theme="light"`, the paper cream unless `data-tab-theme="dark"`,
+the three verdicts on the paper. alphaTab engraves from the paper's tokens
+(`palette()` reads `--tab-ink`, `--tab-staff`, `--tab-barno` through
+`src/tokens.ts`) and the heatmap colours noteheads from `--verdict-*`. The
+paper no longer follows the interface's theme: a dark room with cream paper is
+the default, not a pairing you set up.
+
+The rails are gone. The header is Lamp-01: the video at 588x331, the title
+(which is the song picker, a select dressed as words), the section name at
+120 -- stepping to 88 and 64 when it does not fit -- and "bar N of M", the
+pass block ("loop off / playing the whole song", "pass 3 / looping chorus ·
+bars 9–16", or the ramp's "next step after this pass"), the tempo at 176 with
+its BPM and "record 130" (or "ramp to 100%"), and the 76 px row: Play, Loop,
+Ramp (with the loop on), Mix, Video, and −10 −5 100% +5 +10. `V` hides the
+video and the header folds to the compact band of Lamp-02/03, which is also
+what a song with no video gets; the paper is 2114 wide either way, at
+alphaTab's scale 2.25 (20.25 px between staff lines, sticking at 25 px), with
+two lines under the video and three without -- and since its width never
+moves, hiding the video never re-engraves. The Lines select and Fill are gone.
+`Home` goes back to where play stopped (browse away with the arrows, Home
+brings you back), and pressed again, to the top. New keys: `{ }` ±10, `R` the
+ramp, `M` the drawer, `V` the video. The song map's slot holds a plain
+progress strip with the loop outlined until C3 builds the map.
+
+Everything with no home in the frames yet -- the mix faders, the count-in, the
+loop's select and numbers, the ramp's numbers, the four layout knobs (Size now
+in px between staff lines, from 9 to 27, default 20.25), sticking, the two
+themes, MIDI, Calibrate, Record and its reading, the keys -- is in a plain
+**temporary drawer** over the right of the stage (`M`, the Mix pill, the
+Settings icon; `Esc` closes it) until C4 and C7. The status line is a small
+box over the foot of the paper, there only when it has something to say; the
+loop no longer narrates every pass on it, since the header does.
+
+Four things learned:
+
+- **alphaTab drops `Font` objects given to its constructor.** The settings
+  object goes in as JSON, and `markerFont` and `barNumberFont` came out in
+  Georgia. Assigned onto `api.settings.display.resources` after construction
+  -- where the palette already went -- they stick.
+- **A window sized from the tallest row shows a sliver of the next one.** The
+  score window was N times the tallest row, so two ordinary rows left the top
+  of a third peeking out under them. With the paper a fixed size the box
+  inside it can be any height without moving anything, so it now ends exactly
+  where the row after its last one begins.
+- **`{` is not always Shift and `[`.** Playwright's `press('{')` sends the key
+  `{` on the code `BracketLeft` with no Shift, which the code-keyed table read
+  as −5. The character now wins over the code, so `{` is −10 however it
+  arrives.
+- **Three lines with section names do not fit the compact paper.** A line is
+  about 263 px plus 30 for sticking plus 44 when a section starts in it, so
+  three labelled lines are ~1010 px against 856; the third is cut at its
+  foot. The spec's "≈ 860" assumed unlabelled lines. C3 moves the names to a
+  lane of their own and should settle it.
+
+**The song map and the paper's layers (2026-11-21).** Stage C3. The map's slot
+holds the song map (`src/songmap.ts`, LampMap's layout): a block per section
+as long as it lasts, verses, choruses and fills in three shades, a name in its
+block when it fits and on a tier above when it does not (nudged apart until no
+two overlap), the playhead, and the loop outlined in brass. A click on a block
+goes to its first bar. The **Loop pill opens it as the picker**: 164 px, laid
+over the top of the paper (which neither moves nor changes width), a mark at
+every bar and a number every four, a handle at each end of the loop, and a line
+under it -- "Loop: chorus · bars 9–16 · 8 bars", Loop off, Done. There a click
+loops a section, shift-click stretches the loop over both, a click inside the
+loop turns it off, a drag across the bar marks picks a run of bars, and a
+handle drags an end by a bar (or, focused, the arrow keys move it). `L` with no
+loop loops the section the cursor is in and opens the picker; with one, turns
+it off. `Esc` closes the picker. The drawer's section select and bar fields are
+gone. A pick made while the song plays is not cut off mid-bar: if it holds the
+bar being played it becomes the loop around it, and otherwise the music runs on
+to the next bar line and pass 1 of the new loop starts there (no count-in --
+the music was already going). A loop that is off is "nothing picked"; a song
+remembers its last range with the loop (`song:<slug>` now stores `range`).
+
+On the paper (`src/layers.ts`, placed from alphaTab's bounds like the sticking):
+the section names in a **label lane** above the line each one starts in, at
+its bar, in `--tab-label` at ~32 px, never over a note; the loop as a **brass
+bracket** at the top of each line's ink, broken where a name sits, with a tick
+down at its real first and last bar lines; and the **current bar as a wash**
+around its staff in place of alphaTab's bar cursor (which covered the whole
+line, lane and all). The lane is alphaTab's own room: a line a section starts
+in is engraved with a blank rehearsal mark whose font size is the lane's
+height, so only those lines grow.
+
+The status line left the map's tier for the header's top row: beside the title
+with the video, where the pass sits in the compact band, one 22 px line with
+the rest in its tooltip.
+
+Four things learned:
+
+- **Three section lines do fit the compact paper, with nothing to spare.** At
+  scale 2.25 a line's ink is 227-236 px, the lane 32, the sticking letters 27.
+  The compact header was tightened to Lamp-03's own numbers (map at 130, paper
+  at 220, 870 tall) and the default line gap went from 20 to 12 -- 27 px, the
+  letters' lane and no more. Kill Me's tallest three section lines are then
+  866 px and Song 2's 853. One For The Road's tallest three are 884, so there
+  the window shows two whole lines rather than cut the third: the score window
+  now drops a line whenever the next N would not fit, and never shows part of
+  one. With the old gap of 20 (about 18 px of air under the letters) the same
+  three lines need 920-938 px; that air is what was given up.
+- **The window kept a row number across a re-engrave.** After a change of bars
+  a line, row 2 holds other bars than it did, and the window showed it anyway;
+  with two lines on show the cursor usually still fell inside, with one it did
+  not. After a render the window now puts the cursor's line on top.
+- **alphaTab's cursor has a z-index of its own** and showed through the picker
+  laid over the paper. The paper is `isolation: isolate` now.
+- **A pause event reads the position after the seek.** The loop pauses and
+  seeks in one go, so a `pause` listener reading `currentTime` already sees
+  the new start. `check-loop` times the cut on the wall clock instead.
+
+**The Mix panel and Settings (2026-11-21).** Stage C4; the temporary drawer
+is gone. **Mix** (Lamp-08) is a panel laid over the header's right side, 960
+wide at the right margin and 20 from the top, over the top of the paper but
+never moving it: `M`, the Mix pill, Done and `Esc`. Four rows -- Band, Drums,
+Click, Kit -- each a name and a line, a 76 px pill saying On or Muted with its
+key, the level and its percent, and a message under a row when it has one
+("Kit is silent: the drum samples haven't been made yet. Run `drums kit-bake`
+in a terminal."). A mute is now its own thing, not a level of 0: the level
+stays where it was, dimmed, `1`-`4` and the pills switch it, and dragging a
+muted row's slider unmutes it. Click (60%) and Kit (80%) start muted. A song
+with neither stem gets Lamp-08b: one **Record** row, band and drums together,
+with the reason under it -- it is the nodrums channel, and the mixer puts the
+whole record's own gain on it. **Settings** (Lamp-10) is a page over the whole
+window, from the gear, closed by Done or `Esc`; whatever is playing goes on
+under it, and only Space reaches the player meanwhile. Three columns:
+Notation (size in px between staff lines, bars a line with − and +, note
+spacing, the gap between lines in the pixels it comes out at, sticking), Look
+and Loop (interface and paper as pairs of buttons and the three pairings as
+pictures; between passes Straight back or A bar of click; the count-in before
+the first pass of a loop -- now a setting, on by default -- and from a pause;
+the ramp's four numbers and the 90% gate), Kit and Keys (the connection as a
+dot and a sentence, Connect until MIDI has been asked for, the input, the
+calibration in words with its date and milliseconds, Calibrate again; the keys
+as they really are). The Ramp's on/off is the Ramp pill and `R` alone now.
+Record, the passes, the hits monitor and the reading sit under a "Record"
+heading at the foot of the Notation column until C7. The corner icons are
+there in the compact band too, at the right of its top row.
+
+Three things learned:
+
+- **A mute and a level are two settings.** With mute as "level to 0 and
+  back", a muted channel's slider showed 0 and a channel never raised had
+  nowhere to come back to (the click "came back" at 100%). The frame draws the
+  level kept and dimmed under a Muted pill, and that is what the state is now:
+  `mixer` in localStorage holds `{level, muted}`.
+- **The no-stems form had no fader behind it.** A song without stems played
+  the record through the clock element at a fixed gain of 1, so the 08b row
+  had nothing to set. The mixer now routes that gain from the nodrums level
+  when no stem loaded. No song on disk lacks stems; the checks get there by
+  refusing `stems/*.wav` with a 404 -- and a `goto` to the same URL and hash
+  is not a reload, so they go via `about:blank` first.
+- **A Settings page with the keys live under it is a trap.** `M`, `V`, `L`
+  would change the player you cannot see. Only Space gets through.
+
+**States and the library (2026-11-21).** Stages C5 and C6. A **count-in**
+(Lamp-05) -- a loop's first pass, the rest bar between passes, Play from a
+pause, Record -- replaces where you are with "count-in · then chorus, bar 9,
+pass 1" and 1 2 3 4 at 160 px, counted beats faint, the one sounding in
+brass, the rest dim, the picture at 45%; in the compact band the words go on
+the pass's line and the numbers in place of the section. With the **ramp** on,
+its ladder (Lamp-04) stands in for the tempo pills: climbed, now (filled,
+wider), next (dashed), to come; at most seven rungs, around where it is. The
+words under the pass are the frame's: "next step after this pass", "after 2
+passes", "ramp done: full speed". **Browsing while paused** (Lamp-06): the
+wheel turns the paper away from the cursor's line, and the pass block says
+"bars 25–32 / looking ahead; play goes on from bar 11", a "Back to bar 11
+[Home]" pill joins the row, the paper gets a dashed edge, the map a dashed box
+over those bars, the title " · paused", the picture 60%. Home or the pill
+brings the paper back; the cursor never moved. **Zen** (Lamp-11): a darker
+ground, the picture centred at 718x404 (unless V hid it) and the paper under
+it as wide as ever; with no picture the paper has the screen, four lines if
+they fit. The **library** (Lamp-09) is the home page, `#` or `#/songs`, and
+the Songs icon goes there: a 200 px row a song with a frame grabbed from its
+video (or the "no video" staff), "Blur — **Song 2**", "2:03 · 130 BPM · 65 bars
+· video", where you left off ("chorus looped at 80%", "whole song at 85%", "not
+played yet") and Resume or Play; the song played last outlined in brass. ↑ ↓,
+Enter, Esc back to the song. Songs keep their `#<slug>` routes. The title is
+no longer a select: song.toml has a `[song]` table with `artist` and a short
+`title`, required (the dev server refuses a song.toml without them), and
+`drums fetch` writes it for a new song from the channel and the video's title
+for you to shorten. Windhorse has no song.toml and is not in the library.
+
+Five things learned:
+
+- **A watched file that is deleted and put back is not seen coming back.**
+  `check-nokit` hides `kit/kit.lock.json` and restores it; the practice plugin
+  saw it go and never saw it return, so every page on that server afterwards
+  said "Kit is silent" with a bank on disk -- the stale `design/built/mix.png`
+  was taken that way. The message was right; the server was stale. The plugin
+  now also compares kit.toml's and the manifest's modification times on every
+  page load and rebuilds `virtual:kit` when they moved.
+- **The count-in is lit by its clicks, not by a timer.** `countIn` tells the
+  page the clicks' own times on the audio clock, and the numbers are read
+  against `getOutputTimestamp()` -- what the speakers are playing now -- each
+  frame. A `setInterval` started beside the clicks would drift from them by
+  its own jitter, which at 160 px is visible.
+- **Frames leave things out for a reason.** Lamp-04 and Lamp-06 draw the
+  controls row without Video (and 06 without Mix): with the ladder or the Back
+  pill there is no room for them at 2194. They step aside in those states (V
+  and M still work); the compact band keeps them as icons.
+- **The notation can be a bar longer than the beat map.** Song 2's tab.mid has
+  a note on the first beat of bar 65, so the player says "of 65" and so does
+  the library (the frame's 64 was the beat map's). The catalogue counts bars
+  the way `midi-tab.ts` does, off tab.mid, and is rebuilt when Live rewrites
+  it.
+- **"Not played yet" needs a fact the memory did not have.** Opening a song
+  remembers its tempo, so "has a memory" meant "was opened". Each song now
+  remembers when it last started playing (`played`), which is also how the
+  library knows the one played last.
+
+**The kit layer, and the redesign is built (2026-11-22).** Stage C7, the last
+of part C. With no kit connected nothing of it is on the page. With one (a
+port open, or for the checks strokes injected), Lamp-12's **chip** sits in the
+corner beside Songs and Settings -- a green dot and "Kit connected ·
+calibrated" or "· not calibrated" -- and a **Record** pill joins the controls
+row: the whole song, or every pass of the loop, with its count-in; pressed
+again it stops; while it records it is filled like Play, its dot beating, and
+says "Recording" (the compact band has room only for its icon, and says
+"recording the whole song" on the pass's line). Pressed while a loop is already
+going round, it starts the loop again from its count-in with every pass
+marked. The page connects by itself when the browser has already said yes to
+MIDI (`navigator.permissions`), so Settings' Connect is a once-per-site thing.
+After a pass or a song the **reading card** takes the pass block's place
+(Lamp-12): "Pass 2, just played", Notes (99%, rounded down so a missed note is
+never 100%), Steady (solid / tight / loose / all over, ±ms), Feel (on it /
+ahead / behind / rushing / dragging, and a needle), one block a bar in the
+noteheads' played and missed, a click jumps to the bar, and one sentence: "Go
+again at bars 12 and 14." The tempo goes to its 160 form and the row keeps
+Play, Loop, Record and Mix as round icons; the pass number moves beside the
+bar ("bar 9 pass 3"). It is replaced by each pass's reading while the loop
+goes round (with "recording" where its close will be), and stays when Record
+stops -- showing the last pass that reached its end -- until Esc, its close,
+the next Record or another song puts it away, the noteheads' colours with it.
+A whole song closes its strip up into thin blocks without numbers. The
+compact header has no 300 px to give it, so there it is one 80 px row in the
+song map's slot (the map comes back when it goes, or for the loop picker).
+The temporary Record section is gone from Settings, and the passes chips with
+it; the hits monitor moved to Settings › Kit, and the per-limb numbers from a
+folded table to the card's tooltip. And `drums fetch` on a song already here
+no longer loses everything it does not own: `paths.update_toml` sets its four
+tables' keys in place, and [author], [midi_map], the [[section]]s and every
+comment come back byte for byte.
+
+Four things learned:
+
+- **A headless take leaks if the run dies.** The shots script threw in its
+  `finally` before it could remove a take, and a whole-song take at 125% was
+  left in `takes/`. Cleanup in a `finally` has to be the first thing there,
+  not after anything that can throw.
+- **A card in a grid needs its own named area, or everything else moves.**
+  The pass block and the browse block have `grid-area: pass`; with the card in
+  the header's template there is no `pass` area, and an element naming an area
+  that does not exist is auto-placed into a new track. They are hidden while
+  the card is up.
+- **Rounding a share up lies.** 597 of 599 rounds to 100%, next to "Go again
+  at bars 1, 2 and 3". Notes is rounded down.
+- **The chip is the kit, not the permission.** "Connected" is
+  `MidiIn.hasSource` -- an open port or injected strokes -- which is also what
+  Record is gated on, so the chip and the pill can never disagree, and the
+  checks see the same layer a drummer does.
+
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections
 "Transport", "Sync points", "Notation window").
 
 Headless checks in `app/scripts/`, all needing `npm run dev`: `smoke.mjs`
 (render + playback), `shot.mjs <png>` (screenshot + sample alphaTex),
-`check-ui.mjs <png>` (drives Space, every shortcut, the Lines control and the
-Sticking switch, asserts the window follows the cursor a line at a time playing
-and paused, asserts the notation never overlaps the picture, that Fill leaves
-the picture the third of the screen `--fill-picture` sets and that the video
-fills that region on one axis rather than sitting letterboxed in it, then
-collapses both rails -- asserting they reach one icon wide, that the stage
-takes the room, that the controls survive as icons, and
-that it is remembered across a reload -- enters zen, asserting the
-rails and the status line go, the grid drops to one column and an error on the
-status line is still shown, and finally works the Layout group: that `+`
-enlarges the notation and leaves Bars a line alone, that the window grows to
-keep the lines it was asked for, that the sticking letters grow with the notes,
-that `-` and the remembered rung agree, that each of the other three faders
-reaches alphaTab and is remembered (eight bars a line really puts eight on the
-row and still fits the pane; a wider line gap makes the window taller), and
-that `0` puts all four back; last, that the header's song picker changes the
-song and the hash with it. Screenshots line 2 eight times:
-`<png>`, `<png minus
-.png>-dark.png`, `-dark-light-tabs.png` (the dark interface with light notation
-the two themes are for), `-icons.png`, `-zen.png`, `-zoom.png`, `-dense.png`
-and `-loose.png`), and
+`check-ui.mjs <png>` (at 2194x1100: that the face is loaded; that with no kit
+nothing of the kit layer is on the page in either header; Space, every
+shortcut and the Sticking switch; that the window follows the cursor a line at
+a time playing and paused; the Lamp-01 geometry -- the video 588x331 at 40,24,
+Play 76 square at 279, the map's slot 80 tall at 372, the paper 2114 wide at
+466 and on screen, section/bar/tempo type at 120/64/176, nothing in the header
+past the margin; that the header says "bar 5 of N" at bar 5; that Home comes
+back to where play stopped and then goes to the top; that `V` folds the header
+to the compact band with three lines, the paper exactly as wide and not
+re-engraved, and is remembered; that `M`, the Mix pill and the Settings icon
+open the Mix panel at 1194,20, 960 wide, clear of the Mix pill in both
+headers, with four rows of 76 px mute pills keyed 1-4, a mute keeping the
+level, closed by Esc, M and Done, without moving the paper; that the gear's
+Settings covers the window and the song plays on under it, M does nothing
+there, and Done and Esc close it; that
+each theme switch moves only its own, and the paper's re-engraves the ink in
+`--tab-ink`; zen at Lamp-11's numbers (the ground, the picture 718x404 centred
+at 24, the paper at 452); browsing while paused (two wheel notches: the bars on
+show, "play goes on from bar 5", the Back pill, " · paused", the dashed edge
+and map box, the picture at 0.6; Home and the pill bring it back and the
+cursor never moved); the count-in from a pause lighting 1 2 3 4 in turn at
+160 px; the layout knobs -- 2.25 and "20.25 px" by default with ~25 px
+sticking, `+` to 2.5, `-` back, remembered, the other three reaching alphaTab,
+`0` resetting all four; the library -- the Songs icon to `#/songs`, a 200 px
+row a song (no Windhorse), Song 2's names, facts and video frame, Kill Me's
+"no video", the song just played outlined with Resume, ↓ and Enter opening
+another on its route (a song with no video getting the compact header), Esc
+back, and no hash being the library with no song loaded; the song map -- a block per
+section, a click going to its first bar, the Loop pill opening the 164 px
+picker without moving the paper, a click, shift-click, a click inside, a drag
+across the bar marks and both handles (mouse and arrow keys) picking what
+they should, Esc closing it and L turning the loop off; the paper's layers --
+every name in the lane and none engraved by alphaTab, the bracket with its two
+end ticks, our wash in place of alphaTab's bar cursor; and Kill Me's three
+section lines whole in the compact paper at 220, 870 tall. Screenshots
+`<png>`, `-dark-paper.png`, `-light.png`, `-zen.png`, `-zoom.png`,
+`-dense.png`, `-loose.png`, `-picker.png`, `-browsing.png`, `-library.png`
+and `-three.png`),
+`shots-lamp.mjs [dir]` (the Lamp frames' states at 2194x1100 -- Song 2 with
+its video, the same hidden, Kill Me and its three section lines, the picker
+with nothing picked and with the chorus picked, the chorus looping with the
+ramp and its ladder, and that in the compact band, the count-in from a
+pause, browsing ahead while paused, zen with and without a picture, the Mix
+panel in both headers and with the stems refused, Settings and the library,
+then the kit layer with injected strokes and a stand-in calibration (both put
+back, its takes removed): a whole song recording in both headers, its
+reading, Lamp-12's scored pass in both headers, and the card once Record
+stops -- into `design/built/` (`ONLY=player` or `ONLY=kit` runs one group), to put beside
+`design/lamp/`), and
 `check-sync.mjs` (seeks every bar both ways and asserts clock and cursor agree
 within 15 ms, then plays through the count-in), `check-mix.mjs` (plays at
 100% and 50% and asserts the stems stay within 20 ms of the clock and the
@@ -1355,25 +1648,39 @@ it cuts a ringing open one short), and `check-practice.mjs` (records the whole
 song at 100% with injected strokes -- one of each mistake -- and asserts the
 grade, the three dials, the bar strip and the take on disk, including that the
 lateness which comes back is the lateness that went in *minus the song's
-reference floor*; screenshots the reading in its rail to
-`app/shots/practice.png`, because whether it fits is not a thing a count can
+reference floor*; that the chip and the Record pill appear only with a kit,
+that the pill says Recording, and that the reading card says "Whole song,
+just played", the three readings, Notes rounded down, the sentence, one block
+a bar inside the compact header's card in the map's slot, and that Esc puts
+it away; screenshots the card to `app/shots/practice.png`, because whether it fits is not a thing a count can
 answer; then runs the calibration ritual with strokes placed a known lateness
 after each click is *heard* and asserts that number comes back. It deletes the
 take it wrote and restores the machine's own calibration -- **and it sits there
 for the length of the record**, about three minutes), and `check-loop.mjs
 [png]` (the loop, the tempo steps and the count-ins in a minute and a half,
-on a one-bar section: that `[` `]`, Shift and `\` and the step buttons agree
-with the slider and alphaTab; that Play from mid-bar parks on the bar line,
+on a one-bar section: that `[` `]`, Shift, `{` `}` typed as characters, `\`
+and the tempo pills agree with the readout and alphaTab; that the header's
+pass block, the Ramp pill and `R` say and do what the loop is doing, the
+count-in shown in the header into "bar 10" and into "pass 1", and the ladder
+in place of the tempo pills from "80* 90> 100" to "80- 90- 100*"; that Play from mid-bar parks on the bar line,
 counts in a bar that can be heard with the Click fader down, and comes in on
 the downbeat, that Space calls a count-in off and that the setting turns it
-off; that the loop goes round five times starting on the same millisecond of
+off; that L while playing loops the section being played without stopping
+the music, and a click on another section waits for the next bar line and
+then plays pass 1 from its first bar; that the Loop pill opens the picker and
+a click on a block loops it, outlined on the map and bracketed on the paper;
+that the loop goes round five times starting on the same millisecond of
 the record every pass, plays to the end of its bars and no further, counts
 in before the first pass and before every pass while the rest bar is set and
 not after it is unset; that the ramp steps 80-90-100-100 and says so; that a
 reload keeps the tempo, the loop, the ramp and the rest bar with nothing
 playing, and that another song keeps its own; then Record on the loop with
-injected strokes, a gated ramp and a half-played first pass -- one chip and
-one take per pass with the right cell and name, the gated ramp holding on
+injected strokes, a gated ramp and a half-played first pass -- the Record
+pill appearing with the kit, the card following each pass ("Pass 3, just
+played", with "recording" and no close while it records), the half-played
+pass reading under 90%, "Pass 3, the last one played through" once stopped
+part way through the fourth, a strip block jumping to its bar and the close
+putting it away; one take per pass with the right cell and name, the gated ramp holding on
 the bad pass and stepping on the good one, the pass stopped part way written
 as unfinished, every pass starting on the same millisecond, and a stroke 60
 ms past the end kept in its own pass as late as it was played. It deletes the
@@ -1385,7 +1692,7 @@ cannot decode the H.264 video. Each waits for the page to say a song is ready
 -- `data-ready="<slug>"` on `<html>`, set once the score is engraved and the
 player can play it, and taken off when another song starts loading
 (`waitForPlayer(page, slug)` waits for a particular one) -- and checks the
-first song in the list unless `SONG=<slug>` names another (`check-practice`
+first song in the library (`FIRST_SONG`, One For The Road) unless `SONG=<slug>` names another (`check-practice`
 and `check-loop` default to Kill Me).
 
 `check-mix` needs a bank, so run `drums kit-pick` and `drums kit-bake` once
@@ -1395,11 +1702,16 @@ before it.
 and asserts the page says why the Kit fader is silent and which command fixes
 it -- then puts the manifest back in a `finally`. It is the only way to see
 that message, because baking a kit is what makes it unreachable, and it is the
-state every fresh checkout starts in.
+state every fresh checkout starts in. Then it does the same for a song whose
+stems were never separated: it refuses `stems/*.wav`, and asserts the Mix
+panel folds Band and Drums into one Record row, says why, and that the row's
+level is heard on the whole record.
 
 Tests that need no browser: `.venv/Scripts/python -m pytest -q tests` for the
-pipeline, and `npm test` in `app/` for the scorer, the chart reader and the
+pipeline, and `npm test` in `app/` for the scorer, the chart reader, the
 loop's arithmetic (which bars can be looped, what a range is called, how a
-ramp steps, which bar a paused transport is in) -- Node
+ramp steps and its ladder, which bar a paused transport is in), the song
+map's words and shades, and the library's words (a song's facts, where you
+left off, the one played last) -- Node
 runs the TypeScript source directly, with
 `scripts/ts-resolve.mjs` supplying the file extensions a bundler would.

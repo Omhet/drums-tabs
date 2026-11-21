@@ -12,8 +12,9 @@
 //   count-in ->          gain          -+   (see countInOut)
 //
 // The mix's own gain is 0 while the stems play -- it is the same music twice
-// -- and 1 when neither stem loads, so a song that has not been separated
-// still plays. The graph is built on the first user gesture (an AudioContext
+// -- and the nodrums fader's level when neither stem loads, so a song that has
+// not been separated still plays, and the Mix panel's one "Record" row (band
+// and drums together) is that fader. The graph is built on the first user gesture (an AudioContext
 // made before one stays suspended), and until then the mix plays through its
 // own output as before.
 //
@@ -233,6 +234,12 @@ export class Mixer {
     const gain =
       fader === 'click' ? this.clickGain : fader === 'kit' ? this.kitGain : this.stemGain.get(fader);
     if (gain && this.ctx) gain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.01);
+    if (fader === 'nodrums') this.routeMix();
+  }
+
+  /** Neither stem loaded: the record plays whole, on the nodrums fader. */
+  get noStems(): boolean {
+    return this.stems.every((s) => s.failed);
   }
 
   /** Mix time in seconds, never negative: the followers start at 0. */
@@ -348,11 +355,11 @@ export class Mixer {
 
   /**
    * The clock element plays the full mix; with the stems playing it would
-   * double everything, so it is muted. Without any stem it is all there is.
+   * double everything, so it is muted. Without any stem it is all there is,
+   * at the level of the one row the Mix panel then shows ("Record").
    */
   private routeMix() {
     if (!this.mixGain || !this.ctx) return;
-    const noStems = this.stems.every((s) => s.failed);
-    this.mixGain.gain.setTargetAtTime(noStems ? 1 : 0, this.ctx.currentTime, 0.01);
+    this.mixGain.gain.setTargetAtTime(this.noStems ? this.levels.nodrums : 0, this.ctx.currentTime, 0.01);
   }
 }

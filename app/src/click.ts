@@ -114,6 +114,27 @@ export interface CountIn {
 }
 
 /**
+ * A count-in as the page shows it (main.ts, the 1 2 3 4 in the header): the
+ * clicks' own times on the audio clock, so the numbers are lit by the clicks
+ * as booked rather than by a timer of their own that could drift from them.
+ */
+export interface CountInShown {
+  ctx: AudioContext;
+  /** When the first click sounds, in `ctx` time. */
+  first: number;
+  beatS: number;
+  beats: number;
+  done: Promise<boolean>;
+}
+
+let shown: ((c: CountInShown) => void) | undefined;
+
+/** Be told of every count-in as it starts: a loop's, one from a pause, Record's. */
+export function watchCountIns(fn: (c: CountInShown) => void) {
+  shown = fn;
+}
+
+/**
  * Click for `beats` beats with nothing else moving, then say when to go.
  *
  * Both the clicks and the song go through the same audio graph, so they reach
@@ -144,5 +165,6 @@ export function countIn(ctx: AudioContext, out: GainNode, beatS: number, beats: 
     pump = window.setInterval(() => click.book(ctx.currentTime - first, 1), 25);
     timer = window.setTimeout(() => settle(true), Math.max(0, (music - ctx.currentTime) * 1000));
   });
+  shown?.({ ctx, first, beatS, beats, done });
   return { done, cancel: () => settle(false) };
 }

@@ -10,7 +10,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { XMLParser } from 'fast-xml-parser';
-import { writeMidi, type MidiData, type MidiEvent } from 'midi-file';
+import { parseMidi, writeMidi, type MidiData, type MidiEvent } from 'midi-file';
 import { parse as parseToml } from 'smol-toml';
 import type { Plugin, ViteDevServer } from 'vite';
 
@@ -24,7 +24,15 @@ export interface Section {
 
 export interface SongMeta {
   slug: string;
+  /** `[song]`: the band, and the song's own short title ("Blur", "Song 2"). */
+  artist: string;
   title: string;
+  /** Bars in the notation: the beat map's, or further if tab.mid has notes past it. */
+  bars: number;
+  /** The record's tempo from the beat map, in BPM; 0 without one. */
+  bpm: number;
+  /** How long the record is, in seconds (`[source] duration`). */
+  seconds: number;
   /** MIDI key -> instrument name (kick, snare, hihat_closed, ...). */
   map: Record<number, string>;
   /** The `[[section]]` blocks, in the order they are written. */
@@ -70,6 +78,14 @@ export function readSongs(songsDir: string): SongMeta[] {
     const tomlPath = join(songsDir, slug, 'song.toml');
     if (!existsSync(tomlPath)) continue;
     const toml = parseToml(readFileSync(tomlPath, 'utf-8')) as Record<string, unknown>;
+    const named = (toml.song ?? {}) as Record<string, unknown>;
+    const artist = typeof named.artist === 'string' ? named.artist.trim() : '';
+    const title = typeof named.title === 'string' ? named.title.trim() : '';
+    // Required: the header and the library say "Song 2 — Blur", and a slug in
+    // their place would be a song nobody named.
+    if (!artist || !title) {
+      throw new Error(`${tomlPath}: [song] needs an artist and a title ("Blur", "Song 2")`);
+    }
     const source = (toml.source ?? {}) as Record<string, unknown>;
     const author = toml.author as
       | { als?: string; track?: string; bar_offset?: number }
@@ -83,9 +99,14 @@ export function readSongs(songsDir: string): SongMeta[] {
       start_bar: Number(s.start_bar ?? 0),
       end_bar: Number(s.end_bar ?? 0),
     }));
+    const grid = readGrid(join(songsDir, slug));
     songs.push({
       slug,
-      title: String(source.title ?? slug),
+      artist,
+      title,
+      bars: notationBars(join(songsDir, slug, 'tab.mid'), grid),
+      bpm: grid?.bpm ?? 0,
+      seconds: Number(source.duration ?? 0),
       map,
       sections,
       sectionsHash: sectionsHash(sections),
@@ -99,6 +120,39 @@ export function readSongs(songsDir: string): SongMeta[] {
     });
   }
   return songs;
+}
+
+/** What the library needs from grid.lock.json: the bars it maps, the tempo, the meter. */
+function readGrid(songDir: string): { bars: number; bpm: number; beatsPerBar: number } | undefined {
+  const path = join(songDir, 'grid.lock.json');
+  if (!existsSync(path)) return undefined;
+  const g = JSON.parse(readFileSync(path, 'utf-8')) as {
+    bar_count?: number;
+    score?: { bpm?: number };
+    meter?: { beats_per_bar?: number };
+  };
+  return { bars: g.bar_count ?? 0, bpm: g.score?.bpm ?? 0, beatsPerBar: g.meter?.beats_per_bar ?? 4 };
+}
+
+/**
+ * How many bars the player will engrave: the beat map's, or as far as tab.mid
+ * has notes if that is further (midi-tab.ts `barCount`) -- One For The Road's
+ * chart runs a bar past its beat map, and the library says 73 as the player does.
+ */
+export function notationBars(tabPath: string, grid: { bars: number; beatsPerBar: number } | undefined): number {
+  const mapped = grid?.bars ?? 0;
+  if (!existsSync(tabPath)) return mapped;
+  const midi = parseMidi(readFileSync(tabPath));
+  const perBar = midi.header.ticksPerBeat! * (grid?.beatsPerBar ?? 4);
+  let last = -1;
+  for (const track of midi.tracks) {
+    let tick = 0;
+    for (const event of track) {
+      tick += event.deltaTime;
+      if (event.type === 'noteOn' && event.velocity > 0) last = Math.max(last, Math.floor(tick / perBar));
+    }
+  }
+  return Math.max(mapped, last + 1);
 }
 
 /** See `SongMeta.sectionsHash` for the recipe and why it is not the chart hash. */
@@ -302,6 +356,8 @@ export function abletonTabs(songsDir: string): Plugin {
     buildStart() {
       songs = readSongs(songsDir);
       syncAll();
+      // Again: the bars are counted off tab.mid, which the sync just rewrote.
+      songs = readSongs(songsDir);
     },
     configureServer(server: ViteDevServer) {
       // Vite only watches its root (app/); the songs and the Live sets live
@@ -319,7 +375,22 @@ export function abletonTabs(songsDir: string): Plugin {
         clearTimeout(pending.get(key));
         pending.set(key, setTimeout(fn, 300));
       };
-      const reload = () => server.ws.send({ type: 'full-reload' });
+      /**
+       * The catalogue again, then the page: a save in Live changes tab.mid
+       * and so perhaps the bars, a save of song.toml anything. A song.toml
+       * the catalogue cannot read (no [song] names) keeps the last good one
+       * and says why, rather than taking the dev server down.
+       */
+      const reload = () => {
+        try {
+          songs = readSongs(songsDir);
+        } catch (err) {
+          log((err as Error).message);
+        }
+        const mod = server.moduleGraph.getModuleById(RESOLVED_ID);
+        if (mod) server.moduleGraph.invalidateModule(mod);
+        server.ws.send({ type: 'full-reload' });
+      };
 
       const onSetChanged = (path: string) => {
         const changed = songs.filter((s) => s.author && samePath(s.author.als, path));
@@ -348,11 +419,14 @@ export function abletonTabs(songsDir: string): Plugin {
       const onSongsChanged = (path: string) => {
         if (!path.endsWith('song.toml')) return;
         later('toml', () => {
-          songs = readSongs(songsDir);
+          try {
+            songs = readSongs(songsDir);
+          } catch (err) {
+            log((err as Error).message);
+            return;
+          }
           watchSets();
           syncAll();
-          const mod = server.moduleGraph.getModuleById(RESOLVED_ID);
-          if (mod) server.moduleGraph.invalidateModule(mod);
           reload();
         });
       };

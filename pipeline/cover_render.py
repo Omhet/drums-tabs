@@ -347,8 +347,8 @@ def short_name(session: cover.Session) -> str:
     """``song2`` for ``blur-song-2-official-music-video``: the artist and the
     "official video" tail come off, and the hyphens."""
     slug = session.song.slug
-    uploader = str(session.song.meta().get("source", {}).get("uploader", ""))
-    artist = re.sub(r"[^a-z0-9]+", "-", uploader.lower()).strip("-")
+    named = str(session.song.meta().get("song", {}).get("artist", ""))
+    artist = re.sub(r"[^a-z0-9]+", "-", named.lower()).strip("-")
     if artist and slug.startswith(artist + "-"):
         slug = slug[len(artist) + 1 :]
     slug = re.split(r"-(official|lyric|music-video|visualizer)", slug)[0]

@@ -22,9 +22,8 @@ import type { Section } from 'virtual:songs';
 import { countIn, type CountIn } from './click';
 import type { PlayClock } from './clock';
 import { PASS } from './grade';
-import { say } from './icons';
 import type { Mixer } from './mixer';
-import { barStartMs, type Grid } from './syncpoints';
+import { barAtMs, barStartMs, type Grid } from './syncpoints';
 
 /** Bars of click before the first pass. */
 const COUNT_IN_BARS = 1;
@@ -66,7 +65,9 @@ export interface Ramp {
 export const DEFAULT_RAMP: Ramp = { on: false, from: 70, step: 5, every: 2, to: 100, gate: false };
 
 /** What a song remembers of its loop (main.ts keeps one per song). */
-export interface LoopMemory extends LoopRange {
+export interface LoopMemory {
+  /** The bars last looped, if any ever were. */
+  range?: LoopRange;
   /** Whether the loop was on. It comes back on, but never going round. */
   on: boolean;
   ramp: Ramp;
@@ -179,7 +180,17 @@ export function rampSays(
       (ramp.gate ? ` of ${percent(PASS)} or better` : '')
     );
   }
-  if (at.tempo >= ramp.to) return `${at.tempo}%, the top of the ramp`;
+  if (at.tempo >= ramp.to) return `${at.tempo}%, ${rampNext(ramp, at)}`;
+  return `${at.tempo}% → ${ramp.to}%, ${rampNext(ramp, at)}`;
+}
+
+/**
+ * Only the part of `rampSays` that changes pass to pass -- "next step after
+ * this pass" -- for the line under the pass counter, where the tempo is
+ * already the biggest number on the screen.
+ */
+export function rampNext(ramp: Ramp, at: { tempo: number; counted: number; marked: boolean }): string {
+  if (at.tempo >= ramp.to) return ramp.to >= 100 ? 'ramp done: full speed' : `ramp done: ${ramp.to}%`;
   const left = ramp.every - at.counted;
   const gated = ramp.gate && at.marked;
   const when =
@@ -187,26 +198,57 @@ export function rampSays(
       ? gated
         ? `after this pass, if it is ${percent(PASS)} or better`
         : 'after this pass'
-      : `after ${left} more passes${gated ? ` of ${percent(PASS)} or better` : ''}`;
-  return `${at.tempo}% → ${ramp.to}%, next step ${when}`;
+      : `after ${left} passes${gated ? ` of ${percent(PASS)} or better` : ''}`;
+  return `next step ${when}`;
+}
+
+/** One rung of the ramp's ladder (Lamp-04): a tempo, and where the ramp is against it. */
+export interface Rung {
+  tempo: number;
+  /** Played (`done`), playing (`now`), the step after this (`next`), or to come. */
+  state: 'done' | 'now' | 'next' | 'later';
+}
+
+/** The most rungs the controls row has room for beside the switches. */
+export const LADDER_MAX = 7;
+
+/**
+ * The ramp as a ladder, `from` to `to` in its steps, marked against the tempo
+ * playing -- which a hand on the tempo keys can put between two rungs, and
+ * then none is `now` and the next one up is still `next`. A long ramp shows
+ * the `LADDER_MAX` rungs around where it is, two already climbed where it can.
+ */
+export function rampLadder(ramp: Ramp, tempo: number): Rung[] {
+  const values: number[] = [];
+  for (let v = ramp.from; v < ramp.to; v += ramp.step) values.push(v);
+  values.push(ramp.to);
+  let nextSeen = false;
+  const rungs = values.map((v): Rung => {
+    if (v < tempo) return { tempo: v, state: 'done' };
+    if (v === tempo) return { tempo: v, state: 'now' };
+    if (!nextSeen) {
+      nextSeen = true;
+      return { tempo: v, state: 'next' };
+    }
+    return { tempo: v, state: 'later' };
+  });
+  if (rungs.length <= LADDER_MAX) return rungs;
+  const at = rungs.findIndex((r) => r.state !== 'done');
+  const first = Math.max(0, Math.min(rungs.length - LADDER_MAX, (at < 0 ? rungs.length : at) - 2));
+  return rungs.slice(first, first + LADDER_MAX);
 }
 
 // --- the loop on the page -----------------------------------------------------------
 
 export interface LoopElements {
-  section: HTMLSelectElement;
-  from: HTMLInputElement;
-  to: HTMLInputElement;
-  toggle: HTMLButtonElement;
-  pass: HTMLOutputElement;
-  rest: HTMLInputElement;
-  ramp: HTMLInputElement;
+  /** The Loop pill. Only painted here: what a press does is main.ts's (it opens the picker). */
+  pill: HTMLButtonElement;
+  /** The ramp's numbers, on the Settings page. Whether it is on is the Ramp pill's (R). */
   rampFrom: HTMLInputElement;
   rampStep: HTMLInputElement;
   rampEvery: HTMLInputElement;
   rampTo: HTMLInputElement;
   rampGate: HTMLInputElement;
-  rampState: HTMLOutputElement;
 }
 
 /** What the loop asks of the page around it (main.ts). */
@@ -219,10 +261,22 @@ export interface LoopHost {
   setTempo(percent: number): void;
   /** A line for the status. */
   say(text: string, isError?: boolean): void;
+  /** Between passes, a bar of click to come back in on (Settings); else straight back. */
+  restBar(): boolean;
+  /** A bar of count-in before the first pass (Settings). */
+  countInFirst(): boolean;
   /** Something about the loop changed: repaint Play, remember it for this song. */
   changed(): void;
+  /**
+   * The loop's own controls were just repainted: anything that shows its state
+   * somewhere else (the header's pass block) catches up. Cheaper and more
+   * frequent than `changed` -- every pass, every count-in.
+   */
+  painted(): void;
   /** Whether something else has the transport: a whole-song take, or the calibration. */
   busy(): boolean;
+  /** The loop's bars changed, or it went on or off: the song map and the paper redraw it. */
+  drawn(): void;
 }
 
 /** Whoever marks the passes, when somebody does (practice.ts). */
@@ -286,65 +340,25 @@ export class Loop {
   private readonly mixer: Mixer;
   private readonly el: LoopElements;
   private readonly host: LoopHost;
-  /** The range drawn over the notation, so the loop is visible where you read. */
-  private readonly band = document.createElement('div');
   private song: LoopSong | undefined;
   private _range: LoopRange | undefined;
   private _armed = false;
   private _ramp: Ramp = { ...DEFAULT_RAMP };
   private run: Run | undefined;
+  /** A pick made while the song plays, waiting for the next bar line (`retarget`). */
+  private waiting = 0;
 
-  constructor(
-    api: alphaTab.AlphaTabApi,
-    clock: PlayClock,
-    mixer: Mixer,
-    el: LoopElements,
-    scoreEl: HTMLElement,
-    host: LoopHost
-  ) {
+  constructor(api: alphaTab.AlphaTabApi, clock: PlayClock, mixer: Mixer, el: LoopElements, host: LoopHost) {
     this.api = api;
     this.clock = clock;
     this.mixer = mixer;
     this.el = el;
     this.host = host;
-    this.band.className = 'loop-band';
-    this.band.hidden = true;
-    scoreEl.appendChild(this.band);
-    // Placed from alphaTab's bounds like the sticking letters, so it is redrawn
-    // after every render: a resize, a theme switch, a re-coloured take.
-    api.postRenderFinished.on(() => this.drawBand());
 
     // Every control gives the keyboard back once it has been used: the keys
     // table ignores anything typed into a form control, so a focused checkbox
     // would take the next Space for itself.
-    el.section.addEventListener('change', () => {
-      this.pickSection();
-      el.section.blur();
-    });
-    for (const input of [el.from, el.to]) {
-      input.addEventListener('change', () => {
-        let startBar = Number(el.from.value);
-        let endBar = Number(el.to.value);
-        // One end typed past the other drags the other along rather than
-        // being refused: moving a loop later in the song means typing its new
-        // first bar while the old last bar is still in the other field.
-        if (startBar > endBar) {
-          if (input === el.from) endBar = startBar;
-          else startBar = endBar;
-        }
-        this.setRange({ startBar, endBar });
-        input.blur();
-      });
-    }
-    el.toggle.addEventListener('click', () => {
-      this.toggle();
-      el.toggle.blur();
-    });
-    el.rest.addEventListener('change', () => {
-      el.rest.blur();
-      this.host.changed();
-    });
-    for (const input of [el.ramp, el.rampFrom, el.rampStep, el.rampEvery, el.rampTo, el.rampGate]) {
+    for (const input of [el.rampFrom, el.rampStep, el.rampEvery, el.rampTo, el.rampGate]) {
       input.addEventListener('change', () => {
         this.readRamp();
         input.blur();
@@ -407,9 +421,9 @@ export class Loop {
   }
 
   /** What this song should remember: the range, whether it was on, the ramp. */
-  snapshot(): LoopMemory | undefined {
+  snapshot(): LoopMemory {
     const r = this._range;
-    return r ? { startBar: r.startBar, endBar: r.endBar, on: this._armed, ramp: { ...this._ramp } } : undefined;
+    return { range: r ? { ...r } : undefined, on: this._armed && !!r, ramp: { ...this._ramp } };
   }
 
   /** Repaint the rail: the tempo moved, and the ramp's readout says where from. */
@@ -421,48 +435,23 @@ export class Loop {
   load(song: LoopSong, memory: LoopMemory | undefined) {
     this.stop();
     this.song = song;
-    const sel = this.el.section;
-    sel.replaceChildren(new Option('Bars below', ''));
-    song.sections.forEach((s, i) => {
-      const bars = s.start_bar === s.end_bar ? `${s.start_bar}` : `${s.start_bar}–${s.end_bar}`;
-      sel.add(new Option(`${s.name} · ${bars}`, String(i)));
-    });
     this._ramp = normaliseRamp(memory?.ramp);
-    const kept = memory ? checkRange(song.grid, song.bars, memory) : undefined;
-    // Nothing remembered (or a range the notation no longer has): the first
-    // section, which is at least a real stretch of the song.
-    this._range = typeof kept === 'object' ? kept : this.firstPlayable();
+    const kept = memory?.range ? checkRange(song.grid, song.bars, memory.range) : undefined;
+    this._range = typeof kept === 'object' ? kept : undefined;
     this._armed = typeof kept === 'object' && memory?.on === true;
     this.paint();
-    // Not drawn yet: the bounds are still the last song's. The render of this
-    // one draws it (postRenderFinished).
-    this.band.replaceChildren();
-    this.band.hidden = true;
+    this.host.drawn();
   }
 
-  private firstPlayable(): LoopRange | undefined {
-    const song = this.song;
-    if (!song) return undefined;
-    for (const s of song.sections) {
-      const r = checkRange(song.grid, song.bars, { startBar: s.start_bar, endBar: s.end_bar });
-      if (typeof r === 'object') return r;
-    }
-    const r = checkRange(song.grid, song.bars, { startBar: 1, endBar: Math.min(4, song.bars) });
-    return typeof r === 'object' ? r : undefined;
-  }
-
-  private pickSection() {
-    const s = this.song?.sections[Number(this.el.section.value)];
-    // "Bars below" picks nothing: it is where the select points when the
-    // range is not a whole section, and the two fields are for typing one.
-    if (this.el.section.value === '' || !s) {
-      this.paint();
-      return;
-    }
-    this.setRange({ startBar: s.start_bar, endBar: s.end_bar });
-  }
-
-  /** Loop these bars instead. A loop going round stops: it was looping something else. */
+  /**
+   * Loop these bars: the song map's picks. It turns the loop on.
+   *
+   * Parked, the cursor goes to the first bar and Play starts it. Playing, the
+   * music is not cut off mid-bar (`retarget`): a pick that holds the bar being
+   * played becomes the loop around it, and one somewhere else starts at the
+   * next bar line. A loop Record is marking is stopped: that take was of the
+   * other bars.
+   */
   setRange(r: LoopRange) {
     const song = this.song;
     if (!song) return;
@@ -472,47 +461,139 @@ export class Loop {
       this.paint();
       return;
     }
-    this.stop();
+    if (this.host.busy()) {
+      this.host.say('Stop the take first: the loop and Record cannot both have the transport.', true);
+      return;
+    }
+    const playing = this.clock.running || (this.run !== undefined && !this.run.grader);
+    if (!playing || this.run?.grader) this.stop();
     this._range = fit;
-    // With the transport parked, put the cursor on it: the window scrolls to
-    // it and you see what you picked. A song playing is left alone.
-    if (!this.clock.running) this.cursorTo(fit.startBar);
+    this._armed = true;
+    if (playing && !this.run?.grader) this.retarget();
+    else if (!this.clock.running) this.cursorTo(fit.startBar);
     this.paint();
-    this.drawBand();
+    this.host.drawn();
     this.host.changed();
   }
 
-  /** On or off: the L key and the Loop button. */
-  toggle() {
-    if (this._armed) {
-      this._armed = false;
-      this.stop();
-    } else {
-      const r = this._range;
-      if (!r) {
-        this.host.say('Pick a section or some bars to loop first.', true);
-        return;
-      }
-      if (this.host.busy()) {
-        this.host.say('Stop the take first: the loop and Record cannot both have the transport.', true);
-        return;
-      }
-      this._armed = true;
-      // Turned on mid-song: go round now rather than at the next Play, which
-      // is what pressing L while playing along means. Turned on while parked,
-      // the cursor goes to it and Play starts it.
-      if (this.clock.running) this.start();
-      else this.cursorTo(r.startBar);
-    }
+  /** Off: the L key with a loop on, the picker's Loop off, a click inside the loop. */
+  off() {
+    if (!this._armed) return;
+    this._armed = false;
+    this.stop();
     this.paint();
-    this.drawBand();
+    this.host.drawn();
     this.host.changed();
+  }
+
+  /**
+   * A new range while the music is going.
+   *
+   *   - parked in a loop's count-in or rest: start over on the new bars, with
+   *     the count-in, since nothing is sounding to keep time with;
+   *   - the bar being played is in it: carry on, and turn round at its end;
+   *   - anywhere else: at the next bar line, straight into pass 1.
+   */
+  private retarget() {
+    const r = this._range;
+    const at = this.window;
+    const grid = this.song?.grid;
+    if (!r || !at || !grid) return;
+    this.cancelWait();
+    const run = this.run;
+    if (run && run.phase !== 'playing') {
+      this.stop(true);
+      this.start();
+      return;
+    }
+    const now = this.clock.mixTimeMs;
+    if (now >= at.startMs && now < at.endMs) {
+      if (run) {
+        run.range = r;
+        run.startMs = at.startMs;
+        run.endMs = at.endMs;
+      } else {
+        this.begin(at, 'playing');
+      }
+      return;
+    }
+    const nextLine = barStartMs(grid, barAtMs(grid, now) + 1) ?? at.startMs;
+    this.waiting = window.setInterval(() => {
+      // Paused before it came: nothing to wait for. Play starts the loop.
+      if (!this.clock.running && !this.run) {
+        this.cancelWait();
+        return;
+      }
+      if (this.clock.mixTimeAt(performance.now()) < nextLine) return;
+      this.cancelWait();
+      this.stop(true);
+      const go = this.window;
+      if (!go || !this._armed) return;
+      // A paused seek, the only kind: the song may be playing with no loop yet.
+      this.api.pause();
+      if (this._ramp.on) this.host.setTempo(this._ramp.from);
+      this.openPass(this.begin(go, 'count-in'));
+    }, 10);
+  }
+
+  private cancelWait() {
+    clearInterval(this.waiting);
+    this.waiting = 0;
+  }
+
+  /**
+   * A run with no count-in: `playing`, joined part way through a pass that is
+   * already sounding, or `count-in` for one `openPass` is about to start.
+   */
+  private begin(at: { startMs: number; endMs: number }, phase: 'playing' | 'count-in'): Run {
+    const run: Run = {
+      range: this._range!,
+      startMs: at.startMs,
+      endMs: at.endMs,
+      grader: undefined,
+      pass: phase === 'playing' ? 1 : 0,
+      phase,
+      parkedAt: 0,
+      rate: this.host.tempo() / 100,
+      counted: 0,
+      countIn: undefined,
+      timer: 0,
+      grace: 0,
+    };
+    this.run = run;
+    run.timer = window.setInterval(() => this.tick(run), 25);
+    if (phase === 'playing') this.host.say('');
+    this.paint();
+    this.host.changed();
+    return run;
+  }
+
+  /** The ramp on or off: the R key and the Ramp button. The numbers stay as set. */
+  toggleRamp() {
+    this._ramp = { ...this._ramp, on: !this._ramp.on };
+    this.paint();
+    this.host.changed();
+  }
+
+  /** What the ramp will do, or where it has got to: "80% → 100%, +10% every pass". Empty when off. */
+  rampSaid(): string {
+    return this._ramp.on ? rampSays(this._ramp, this.rampAt()) : '';
+  }
+
+  /**
+   * Where the ramp has got to, while a loop with one goes round: what
+   * `rampSays` and `rampNext` read. Undefined when there is no ramp running.
+   */
+  rampAt(): { tempo: number; counted: number; marked: boolean } | undefined {
+    const run = this.run;
+    if (!run || !this._ramp.on) return undefined;
+    return { tempo: this.host.tempo(), counted: run.counted, marked: !!run.grader };
   }
 
   private readRamp() {
     const el = this.el;
     this._ramp = normaliseRamp({
-      on: el.ramp.checked,
+      on: this._ramp.on,
       from: Number(el.rampFrom.value),
       step: Number(el.rampStep.value),
       every: Number(el.rampEvery.value),
@@ -531,7 +612,7 @@ export class Loop {
   // --- going round ----------------------------------------------------------------
 
   /**
-   * Start going round: a bar of count-in, then pass 1.
+   * Start going round: a bar of count-in (unless Settings turns it off), then pass 1.
    *
    * With a ramp on, at the ramp's first tempo -- "start at 70%" -- whatever
    * the slider said before. With a `grader`, every pass is marked (Record).
@@ -541,6 +622,7 @@ export class Loop {
     const r = this._range;
     const at = this.window;
     if (!this._armed || !song?.grid || !r || !at || this.run) return false;
+    this.cancelWait();
     this.mixer.ensureGraph();
     this.api.pause();
     if (this._ramp.on) this.host.setTempo(this._ramp.from);
@@ -561,7 +643,16 @@ export class Loop {
     };
     this.run = run;
     run.timer = window.setInterval(() => this.tick(run), 25);
-    this.host.say(`Counting in: ${this.describe()} at ${this.host.tempo()}%.`);
+    if (!this.host.countInFirst()) {
+      // Straight in: pass 1 from its first bar, now.
+      this.paint();
+      this.host.changed();
+      this.openPass(run);
+      return true;
+    }
+    // Nothing on the status line: the header shows the count-in itself, as
+    // 1 2 3 4 and what it leads into (main.ts `showCount`).
+    this.host.say('');
     this.paint();
     this.host.changed();
     void this.countInto(run, COUNT_IN_BARS).then((go) => {
@@ -574,7 +665,8 @@ export class Loop {
    * Stop going round, and leave the transport parked where it is. The loop
    * stays on: Play starts it again from pass 1.
    */
-  stop() {
+  stop(quiet = false) {
+    this.cancelWait();
     const run = this.run;
     if (!run) return;
     this.run = undefined;
@@ -588,8 +680,8 @@ export class Loop {
     if (run.phase === 'playing') run.grader?.close(run.pass, false);
     else if (run.phase === 'grace') run.grader?.close(run.pass, true);
     run.grader?.done();
-    if (!run.grader) {
-      this.host.say(run.pass ? `Loop stopped after ${passes(run.pass)}.` : 'Loop stopped.');
+    if (!run.grader && !quiet) {
+      this.host.say(run.pass ? `Loop stopped after ${run.pass === 1 ? 'one pass' : passes(run.pass)}.` : 'Loop stopped.');
     }
     this.paint();
     this.host.changed();
@@ -668,7 +760,7 @@ export class Loop {
     this.paint();
     // No rest bar still turns round through a pause and a seek: as quick as
     // the transport goes, which is a short gap rather than none.
-    const go = this.el.rest.checked ? await this.countInto(run, 1) : true;
+    const go = this.host.restBar() ? await this.countInto(run, 1) : true;
     if (go) this.openPass(run);
   }
 
@@ -684,8 +776,10 @@ export class Loop {
     if (Math.abs(this.clock.mixTimeMs - run.startMs) > 1) this.clock.seekTo(run.startMs);
     run.grader?.open(run.pass);
     this.api.play();
-    // Marked passes have their own news (the reading); this is for the rest.
-    if (!run.grader) this.host.say(`Looping ${this.describe()}: pass ${run.pass}.`);
+    // Nothing on the status line: the header's pass block says "pass N" in
+    // 64 px, and the line would only repeat it over the paper. The count-in
+    // message before it is cleared for the same reason.
+    if (!run.grader) this.host.say('');
     this.paint();
   }
 
@@ -713,69 +807,18 @@ export class Loop {
 
   // --- drawing ----------------------------------------------------------------------
 
-  /** The rail's controls, from the state: one place, so they cannot disagree. */
+  /** The loop's controls, from the state: one place, so they cannot disagree. */
   private paint() {
     const el = this.el;
-    const song = this.song;
-    const r = this._range;
-    const run = this.run;
-    const usable = !!song?.grid;
-    for (const input of [el.section, el.from, el.to, el.toggle]) input.disabled = !usable;
-    el.from.max = el.to.max = String(song?.bars ?? 1);
-    el.from.value = r ? String(r.startBar) : '';
-    el.to.value = r ? String(r.endBar) : '';
-    const exact = r
-      ? (song?.sections.findIndex((s) => s.start_bar === r.startBar && s.end_bar === r.endBar) ?? -1)
-      : -1;
-    el.section.value = exact >= 0 ? String(exact) : '';
-    say(el.toggle, this._armed ? 'Loop on' : 'Loop off', '↻');
-    el.toggle.setAttribute('aria-pressed', String(this._armed));
-    el.pass.textContent = !run ? '' : run.pass === 0 ? 'counting in' : `pass ${run.pass}`;
+    el.pill.disabled = !this.song?.grid;
+    el.pill.setAttribute('aria-pressed', String(this._armed));
 
     const ramp = this._ramp;
-    el.ramp.checked = ramp.on;
     el.rampFrom.value = String(ramp.from);
     el.rampStep.value = String(ramp.step);
     el.rampEvery.value = String(ramp.every);
     el.rampTo.value = String(ramp.to);
     el.rampGate.checked = ramp.gate;
-    el.rampState.textContent = !ramp.on
-      ? ''
-      : rampSays(
-          ramp,
-          run ? { tempo: this.host.tempo(), counted: run.counted, marked: !!run.grader } : undefined
-        );
-  }
-
-  /**
-   * A tint over the bars of the loop while it is on, one block per line of
-   * notation it covers. Ours rather than alphaTab's selection, which a click on
-   * the score -- a seek -- would clear.
-   */
-  private drawBand() {
-    this.band.replaceChildren();
-    const r = this._range;
-    this.band.hidden = !this._armed || !r;
-    if (this.band.hidden || !r) return;
-    for (const system of this.api.boundsLookup?.staffSystems ?? []) {
-      const inside = system.bars.filter((b) => b.index + 1 >= r.startBar && b.index + 1 <= r.endBar);
-      const first = inside[0];
-      const last = inside[inside.length - 1];
-      if (!first || !last) continue;
-      const left = first.realBounds.x;
-      const right = last.realBounds.x + last.realBounds.w;
-      const top = Math.min(...inside.map((b) => b.lineAlignedBounds.y));
-      const bottom = Math.max(...inside.map((b) => b.lineAlignedBounds.y + b.lineAlignedBounds.h));
-      const block = document.createElement('span');
-      // The edges are drawn only where the loop really starts and ends, so a
-      // range that runs over two lines reads as one stretch.
-      if (first.index + 1 === r.startBar) block.classList.add('start');
-      if (last.index + 1 === r.endBar) block.classList.add('end');
-      block.style.left = `${left}px`;
-      block.style.top = `${top}px`;
-      block.style.width = `${right - left}px`;
-      block.style.height = `${bottom - top}px`;
-      this.band.appendChild(block);
-    }
+    this.host.painted();
   }
 }

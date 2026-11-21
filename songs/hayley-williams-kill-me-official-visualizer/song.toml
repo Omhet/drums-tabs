@@ -1,3 +1,9 @@
+# What the player and the library call the song: the band and a short
+# title. [source] keeps the video's own.
+[song]
+artist = "Hayley Williams"
+title = "Kill Me"
+
 [source]
 url = "https://www.youtube.com/watch?v=ci07WfA7WDE"
 video_id = "ci07WfA7WDE"

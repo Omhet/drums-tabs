@@ -1,3 +1,9 @@
+# What the player and the library call the song: the band and a short
+# title. [source] keeps the video's own.
+[song]
+artist = "Arctic Monkeys"
+title = "One For The Road"
+
 [source]
 url = "https://www.youtube.com/watch?v=qN7gSMPQFss"
 video_id = "qN7gSMPQFss"

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lamp: the library</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@200..800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#efe4d0; text-decoration: none}a:hover{color:#ffffff}
+</style>
+</helmet>
+<div style="position: relative; width: 2194px; height: 1100px; overflow: hidden; background: #14110d; color: #efe4d0; font-family: 'Atkinson Hyperlegible Next', 'Segoe UI', sans-serif">
+
+  <div style="position: absolute; left: 60px; top: 44px; right: 60px; display: flex; align-items: center; justify-content: space-between">
+    <div style="font-size: 56px; font-weight: 700; line-height: 1">Songs</div>
+    <button aria-label="Settings" style="width: 56px; height: 56px; border: 0; border-radius: 10px; background: transparent; color: #8f826d; display: flex; align-items: center; justify-content: center; padding: 0"><svg aria-hidden="true" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.2"></circle><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"></path></svg></button>
+  </div>
+
+  <div style="position: absolute; left: 60px; right: 60px; top: 140px; display: flex; flex-direction: column; gap: 18px">
+
+    <a href="Lamp-04-loop-ramp.dc.html" style="display: grid; grid-template-columns: 320px minmax(0, 1fr) 560px; gap: 36px; align-items: center; height: 200px; box-sizing: border-box; padding: 10px 28px 10px 10px; border-radius: 14px; background: #1f1a15; box-shadow: inset 0 0 0 2px #e3a94e">
+      <img src="/_blob/556b33d8ce52eebc3d8d8e25aff53897" alt="" style="width: 320px; height: 180px; object-fit: cover; border-radius: 8px; background: #000">
+      <div>
+        <div style="font-size: 46px; line-height: 1"><span style="color: #a6977f">Blur —</span> <span style="font-weight: 700">Song 2</span></div>
+        <div style="margin-top: 16px; font-size: 30px; line-height: 1; color: #a6977f; font-variant-numeric: tabular-nums">2:03 · 130 BPM · 64 bars · video</div>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 24px">
+        <div style="text-align: right"><div style="font-size: 26px; line-height: 1; color: #a6977f">where you left off</div><div style="margin-top: 10px; font-size: 34px; font-weight: 700; line-height: 1; color: #e3a94e">chorus looped at 80%</div></div>
+        <span style="height: 76px; padding: 0 30px; border-radius: 38px; background: #e3a94e; color: #1b140a; font-size: 32px; font-weight: 700; display: flex; align-items: center">Resume</span>
+      </div>
+    </a>
+
+    <a href="Lamp-03-kill-me.dc.html" style="display: grid; grid-template-columns: 320px minmax(0, 1fr) 560px; gap: 36px; align-items: center; height: 200px; box-sizing: border-box; padding: 10px 28px 10px 10px; border-radius: 14px; background: #1f1a15">
+      <div style="width: 320px; height: 180px; border-radius: 8px; background: #2a231c; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: #8f826d">
+        <svg aria-hidden="true" width="120" height="60" viewBox="0 0 120 60" fill="none" stroke="currentColor" stroke-width="2"><path d="M0 10h120M0 20h120M0 30h120M0 40h120M0 50h120"></path><ellipse cx="34" cy="35" rx="7" ry="5" fill="currentColor" stroke="none"></ellipse><path d="M41 35V4"></path><ellipse cx="78" cy="25" rx="7" ry="5" fill="currentColor" stroke="none"></ellipse><path d="M85 25V2"></path></svg>
+        <span style="font-size: 24px">no video</span>
+      </div>
+      <div>
+        <div style="font-size: 46px; line-height: 1"><span style="color: #a6977f">Hayley Williams —</span> <span style="font-weight: 700">Kill Me</span></div>
+        <div style="margin-top: 16px; font-size: 30px; line-height: 1; color: #a6977f; font-variant-numeric: tabular-nums">2:47 · 91 BPM · 62 bars</div>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 24px">
+        <div style="text-align: right"><div style="font-size: 26px; line-height: 1; color: #a6977f">where you left off</div><div style="margin-top: 10px; font-size: 34px; font-weight: 700; line-height: 1">whole song at 85%</div></div>
+        <span style="height: 76px; padding: 0 30px; border-radius: 38px; border: 1px solid #4a3f32; background: #2a231c; color: #efe4d0; font-size: 32px; font-weight: 700; display: flex; align-items: center">Resume</span>
+      </div>
+    </a>
+
+    <div style="display: grid; grid-template-columns: 320px minmax(0, 1fr) 560px; gap: 36px; align-items: center; height: 200px; box-sizing: border-box; padding: 10px 28px 10px 10px; border-radius: 14px; background: #1f1a15">
+      <img src="/_blob/c9eb49c32a7c7083e2be701ed8d016e6" alt="" style="width: 320px; height: 180px; object-fit: cover; border-radius: 8px; background: #000">
+      <div>
+        <div style="font-size: 46px; line-height: 1"><span style="color: #a6977f">Arctic Monkeys —</span> <span style="font-weight: 700">One For The Road</span></div>
+        <div style="margin-top: 16px; font-size: 30px; line-height: 1; color: #a6977f; font-variant-numeric: tabular-nums">3:26 · 91 BPM · 73 bars · video</div>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 24px">
+        <div style="text-align: right; font-size: 30px; color: #a6977f">not played yet</div>
+        <button style="height: 76px; padding: 0 30px; border-radius: 38px; border: 1px solid #4a3f32; background: #2a231c; color: #efe4d0; font: 700 32px/1 'Atkinson Hyperlegible Next', sans-serif">Play</button>
+      </div>
+    </div>
+
+    <div aria-disabled="true" style="display: grid; grid-template-columns: 320px minmax(0, 1fr) 560px; gap: 36px; align-items: center; height: 200px; box-sizing: border-box; padding: 10px 28px 10px 10px; border-radius: 14px; background: transparent; box-shadow: inset 0 0 0 1px #2a231c">
+      <img src="/_blob/453defbcafcd2ea77313ab66a289abbf" alt="" style="width: 320px; height: 180px; object-fit: cover; border-radius: 8px; background: #000; opacity: 0.35">
+      <div>
+        <div style="font-size: 46px; line-height: 1; color: #8f826d"><span>Of The Trees —</span> <span style="font-weight: 700">Windhorse</span></div>
+        <div style="margin-top: 16px; font-size: 30px; line-height: 1; color: #8f826d">3:54 · video</div>
+      </div>
+      <div style="text-align: right; font-size: 30px; line-height: 1.3; color: #a6977f">not notated yet<br><span style="font-size: 24px; color: #8f826d">playable once its part is written in Ableton</span></div>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 60px; bottom: 30px; font-size: 24px; color: #8f826d">↑ ↓ choose · Enter opens · the outlined song is the one you played last</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2194,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

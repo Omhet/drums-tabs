@@ -155,34 +155,48 @@ def fetch(
         note("[fetch] video")
         _download_video(url, song.video)
 
-    existing_meta = song.meta()
-    paths.write_toml(
-        song.toml,
-        {
-            "source": {
-                "url": url,
-                "video_id": info.video_id,
-                "title": info.title,
-                "uploader": info.uploader,
-                "duration": round(info.duration, 3),
-            },
-            # Per-song model overrides. Empty values mean "use the config default",
-            # so one song can be re-separated with a different model without
-            # touching the others.
-            "models": {
-                "separation": existing_meta.get("models", {}).get("separation", ""),
-            },
-            # Grid overrides, honoured by `drums grid`. Written once so the knobs
-            # are discoverable in the file rather than only in --help.
-            "grid": {
-                "meter": existing_meta.get("grid", {}).get("meter", ""),
-                "tempo_multiplier": existing_meta.get("grid", {}).get(
-                    "tempo_multiplier", ""
-                ),
-                "downbeat_rotation": existing_meta.get("grid", {}).get(
-                    "downbeat_rotation", -1
-                ),
-            },
-        },
-    )
+    # In place: [author], [midi_map], the [[section]]s and every comment are
+    # the user's, and a re-fetch must not take them (paths.update_toml).
+    paths.update_toml(song.toml, song_toml(url, info, song.meta()))
     return song
+
+
+def song_toml(url: str, info: VideoInfo, existing_meta: dict) -> dict[str, dict]:
+    """What ``fetch`` writes to ``song.toml``, keeping the hand-set knobs.
+
+    ``[song]`` is what the player and its library call the song. A new song
+    starts from the channel and the video's whole title -- "Official Arctic
+    Monkeys", "Blur - Song 2 (Official Music Video)" -- which are the user's to
+    shorten; one already fetched keeps what they were shortened to.
+    """
+    kept = existing_meta.get("song", {})
+    return {
+        "song": {
+            "artist": kept.get("artist") or info.uploader,
+            "title": kept.get("title") or info.title,
+        },
+        "source": {
+            "url": url,
+            "video_id": info.video_id,
+            "title": info.title,
+            "uploader": info.uploader,
+            "duration": round(info.duration, 3),
+        },
+        # Per-song model overrides. Empty values mean "use the config default",
+        # so one song can be re-separated with a different model without
+        # touching the others.
+        "models": {
+            "separation": existing_meta.get("models", {}).get("separation", ""),
+        },
+        # Grid overrides, honoured by `drums grid`. Written once so the knobs
+        # are discoverable in the file rather than only in --help.
+        "grid": {
+            "meter": existing_meta.get("grid", {}).get("meter", ""),
+            "tempo_multiplier": existing_meta.get("grid", {}).get(
+                "tempo_multiplier", ""
+            ),
+            "downbeat_rotation": existing_meta.get("grid", {}).get(
+                "downbeat_rotation", -1
+            ),
+        },
+    }

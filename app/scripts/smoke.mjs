@@ -76,7 +76,7 @@ const playback = await page.evaluate(() => {
     picture: picture?.following ? Math.round(picture.errorMs(mix.currentTime)) : null,
   };
 });
-await page.locator('#stop').click();
+await page.evaluate(() => window.drums.stop());
 
 const shot = process.env.SMOKE_SHOT;
 if (shot) {

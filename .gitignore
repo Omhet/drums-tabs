@@ -30,8 +30,11 @@ kit/emoji/
 kit/models/
 
 # Fonts and soundfonts copied out of node_modules by the alphaTab vite plugin;
-# recreated by `npm run build` / `npm run dev`.
-app/public/
+# recreated by `npm run build` / `npm run dev`. Not the rest of public/:
+# public/fonts/ is the page's own face (Atkinson Hyperlegible Next, OFL) and
+# is kept.
+app/public/font/
+app/public/soundfont/
 
 # Screenshots the headless checks write. Regenerable, and a binary that
 # changes on every run is not worth a diff.

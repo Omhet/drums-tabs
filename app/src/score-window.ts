@@ -26,15 +26,11 @@ export function barAtTick(score: alphaTab.model.Score, tick: number): number {
 }
 
 /**
- * How tall the window is: a number of rows, or 'fit' to fill the box it was
- * given. A song with a video keeps the notation to a few lines over the
- * picture; with no video there is nothing to make room for, so it fills the
- * stage and 'fit' is the default.
+ * Whitespace kept above the top row, in px. None: a row starts with its own
+ * label lane or the tips of its stems, and anything above that is the end of
+ * the row before -- its sticking letters, at the default line gap.
  */
-export type Lines = number | 'fit';
-
-/** Whitespace kept above the top row's staff, in px. */
-const GAP_PX = 6;
+const GAP_PX = 0;
 /** A wheel has to travel this far (in deltaY units) to move one row. */
 const WHEEL_STEP = 40;
 
@@ -45,7 +41,10 @@ export class ScoreWindow {
   private pitch = 0;
   private topRow = 0;
   private wheelAcc = 0;
-  private _lines: Lines = 2;
+  private _lines = 2;
+  private shown = 2;
+  /** Told whenever the top row changes: browsing is the window away from the cursor's row. */
+  onMove: (() => void) | undefined;
 
   constructor(
     private readonly api: alphaTab.AlphaTabApi,
@@ -83,13 +82,15 @@ export class ScoreWindow {
     new ResizeObserver(() => this.show(this.topRow)).observe(box);
   }
 
-  /** How many rows the window shows, or 'fit' for as many as there is room for. */
-  get lines(): Lines {
+  /**
+   * How many rows the window shows: 2 under the video, 3 without it (main.ts).
+   * The paper's width is fixed for the song, so this changes the height only.
+   */
+  get lines(): number {
     return this._lines;
   }
-  set lines(n: Lines) {
-    this._lines = n === 'fit' ? n : Math.max(1, Math.min(8, Math.round(n)));
-    this.resize();
+  set lines(n: number) {
+    this._lines = Math.max(1, Math.min(8, Math.round(n)));
     this.show(this.topRow);
   }
 
@@ -118,9 +119,47 @@ export class ScoreWindow {
   /** Scroll so that `row` is the top line. */
   show(row: number) {
     const last = Math.max(0, this.rows.length - 1);
+    const was = this.topRow;
     this.topRow = Math.max(0, Math.min(last, row));
+    if (this.topRow !== was) queueMicrotask(() => this.onMove?.());
     const r = this.rows[this.topRow];
-    if (r) this.box.scrollTop = Math.max(0, r.top - GAP_PX);
+    if (!r) return;
+    // Exactly the rows shown, and not a sliver of the one after: the box ends
+    // where the next row after them begins. The paper around the box is a
+    // fixed size, so a box that is a little taller on one line than on the
+    // next moves nothing on the screen. Height first: scrollTop is clamped
+    // against it.
+    //
+    // And only whole rows: when the next `lines` rows are taller than the
+    // paper has room for (three that each start a section, at a big size),
+    // the window shows one fewer rather than the top of the last one.
+    const room = this.box.parentElement?.clientHeight ?? Infinity;
+    let n = this._lines;
+    let h = this.heightOf(n);
+    while (n > 1 && h > room + 1) h = this.heightOf(--n);
+    this.shown = n;
+    if (h > 0) this.box.style.height = `${Math.round(Math.min(h, room))}px`;
+    this.box.scrollTop = Math.max(0, r.top - GAP_PX);
+  }
+
+  /** The first and last bar on show, 0-based, or undefined before the first render. */
+  get bars(): [number, number] | undefined {
+    const top = this.rows[this.topRow];
+    const bottom = this.rows[Math.min(this.rows.length - 1, this.topRow + this.shown - 1)];
+    if (!top || !bottom) return undefined;
+    return [top.bars[0]!, bottom.bars[bottom.bars.length - 1]!];
+  }
+
+  /** How many rows are on show: `lines`, or fewer where they would not fit. */
+  get visible(): number {
+    return this.shown;
+  }
+
+  /** The height of `n` rows from the top row. */
+  private heightOf(n: number): number {
+    const r = this.rows[this.topRow]!;
+    const after = this.rows[this.topRow + n];
+    return after ? after.top - r.top : this.pitch * n;
   }
 
   private measure() {
@@ -135,26 +174,18 @@ export class ScoreWindow {
     });
     // Rows are *not* equally spaced: a section name over the staff, or a note
     // reaching far above or below it, makes a row taller than its neighbours.
-    // The window takes the tallest, so whichever N rows it lands on they fit
-    // whole -- a height computed from the rows currently shown would be right
-    // more often but would move the picture above it on every line.
+    // The tallest is what the last rows of the score, with nothing after
+    // them to end the box at, are given each.
     let pitch = systems[systems.length - 1]?.realBounds.h ?? 0;
     for (let i = 1; i < this.rows.length; i++) {
       pitch = Math.max(pitch, this.rows[i]!.top - this.rows[i - 1]!.top);
     }
     this.pitch = pitch;
-    this.resize();
-    this.show(this.topRow);
-  }
-
-  private resize() {
-    // 'fit' is the stylesheet's job -- the box is stretched over the whole
-    // stage and there is no row count to compute a height from.
-    const lines = this._lines;
-    this.box.classList.toggle('fit', lines === 'fit');
-    if (lines === 'fit') this.box.style.height = '';
-    else if (this.pitch > 0) {
-      this.box.style.height = `${Math.round(this.pitch * lines + GAP_PX)}px`;
-    }
+    // The line the cursor is in goes on top, as it does while playing. Not
+    // the same row number as before: a re-engrave at another number of bars
+    // a line puts different bars in it.
+    const score = this.api.score;
+    const row = score ? this.rowOfBar[barAtTick(score, this.api.tickPosition)] : undefined;
+    this.show(row ?? this.topRow);
   }
 }

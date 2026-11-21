@@ -10,7 +10,15 @@ declare module 'virtual:songs' {
   }
   export interface SongMeta {
     slug: string;
+    /** song.toml's `[song]`: the band and the short title ("Blur", "Song 2"). Required. */
+    artist: string;
     title: string;
+    /** Bars the player engraves: the beat map's, or further if tab.mid goes on. */
+    bars: number;
+    /** The record's tempo, BPM (0 without a beat map). */
+    bpm: number;
+    /** The record's length in seconds, from `[source] duration`. */
+    seconds: number;
     /** MIDI key -> instrument name (kick, snare, hihat_closed, ...). */
     map: Record<number, string>;
     /** The `[[section]]` blocks, in the order they are written. */

@@ -96,7 +96,7 @@ def phone_file(path: Path, colour: str) -> None:
 def session(tmp_path):
     song = paths.Song("blur-song-2-official-music-video", tmp_path / "blur-song-2-official-music-video")
     song.root.mkdir()
-    paths.write_toml(song.toml, {"source": {"uploader": "Blur"}})
+    paths.write_toml(song.toml, {"song": {"artist": "Blur", "title": "Song 2"}})
     # The clock: 130 BPM, bar 1 at the arrangement's start, so the attempt
     # (starting later, at 2 s) is what the video starts from.
     song.stems_dir.mkdir()

@@ -13,7 +13,7 @@ import { launch, pageUrl, waitForPlayer } from './browser.mjs';
 
 const toleranceMs = Number(process.argv[2] ?? 15);
 const browser = await launch();
-const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
+const page = await browser.newPage({ viewport: { width: 2194, height: 1100 } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 await page.goto(pageUrl());

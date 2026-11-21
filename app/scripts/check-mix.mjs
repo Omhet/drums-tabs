@@ -1,6 +1,7 @@
 // The mixer's contract: everything that follows the mix clock stays on it at
-// any tempo, the faders are the only thing that makes sound, and the click
-// sounds when it is up. Plays 5 s at 100% and 5 s at 50%, sampling each
+// any tempo, the Mix panel's channels are the only thing that makes sound,
+// the click sounds when it is up, and a mute silences a channel without
+// moving its level. Plays 5 s at 100% and 5 s at 50%, sampling each
 // follower's distance from `clock.mixTimeMs` every 100 ms; then checks the
 // analyser on the graph is quiet with every fader at 0 and loud with only the
 // click up.
@@ -27,7 +28,7 @@ import { launch, pageUrl, waitForPlayer } from './browser.mjs';
 const toleranceMs = Number(process.argv[2] ?? 20);
 const pictureToleranceMs = Number(process.argv[3] ?? 60);
 const browser = await launch();
-const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
+const page = await browser.newPage({ viewport: { width: 2194, height: 1100 } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 await page.goto(pageUrl());
@@ -44,6 +45,7 @@ const result = await page.evaluate(
   async ({ toleranceMs, pictureToleranceMs }) => {
     const { api, mix, clock, mixer } = window.drums;
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    // A level, set the way a drag sets it -- which also unmutes the channel.
     const setSlider = (id, value) => {
       const el = document.getElementById(id);
       el.value = String(value);
@@ -95,7 +97,7 @@ const result = await page.evaluate(
       setSlider('fader-nodrums', 100);
       setSlider('fader-drums', 100);
       setSlider('fader-click', 0);
-      setSlider('speed', percent);
+      window.drums.setTempo(percent);
       await seek(startS);
       api.play();
       // Let the followers start and the first correction settle.
@@ -151,7 +153,7 @@ const result = await page.evaluate(
     }
 
     // Everything at 0: silence, even while playing.
-    setSlider('speed', 100);
+    window.drums.setTempo(100);
     for (const f of ['nodrums', 'drums', 'click']) setSlider(`fader-${f}`, 0);
     await seek(startS);
     api.play();
@@ -164,6 +166,16 @@ const result = await page.evaluate(
     await sleep(200);
     out.click = { peakRms: await peak(1500) };
     out.click.ok = out.click.peakRms > 0.05;
+
+    // The click muted from its row: silent again, its level where it was.
+    document.getElementById('mute-click').click();
+    await sleep(200);
+    out.muted = {
+      peakRms: await peak(1500),
+      level: document.getElementById('fader-click').value,
+      says: document.querySelector('#mute-click span').textContent,
+    };
+    out.muted.ok = out.muted.peakRms < 0.001 && out.muted.level === '100' && out.muted.says === 'Muted';
 
     // The written part, over the record with its drums taken out.
     setSlider('fader-click', 0);
@@ -221,10 +233,8 @@ const result = await page.evaluate(
     // The clock's pause event reaches the followers a task later.
     await sleep(300);
 
-    // Back to the defaults so the check leaves no trace in localStorage.
-    setSlider('fader-nodrums', 100);
-    setSlider('fader-drums', 100);
-    setSlider('fader-click', 0);
+    // Leave no trace in localStorage: the mix goes back to its defaults.
+    localStorage.removeItem('mixer');
     out.clockPausedAtEnd = mix.paused;
     out.pausedAtEnd = Object.fromEntries(following.map((f) => [f.name, f.el.paused]));
     return out;
@@ -242,6 +252,7 @@ const ok =
   result.runs.every((r) => r.ok) &&
   result.quiet.ok &&
   result.click.ok &&
+  result.muted.ok &&
   result.sampler.ok &&
   result.bank.ok &&
   Object.values(result.pausedAtEnd).every(Boolean) &&

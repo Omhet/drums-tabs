@@ -14,13 +14,16 @@ export async function launch(options = {}) {
   return chromium.launch(options);
 }
 
+/** The song a check opens unless told otherwise: the first in the library. */
+export const FIRST_SONG = 'arctic-monkeys-one-for-the-road-official-video';
+
 /**
- * The page, on a particular song: the hash is the song selector, so
+ * The page, on a particular song: the hash is the song, so
  * `SONG=<slug> node scripts/check-sync.mjs` checks that one instead of the
- * first in the list.
+ * first in the library. (No hash at all is the library, which has no player.)
  */
 export function pageUrl(base = 'http://localhost:5173/') {
-  return process.env.SONG ? `${base}#${encodeURIComponent(process.env.SONG)}` : base;
+  return `${base}#${encodeURIComponent(process.env.SONG || FIRST_SONG)}`;
 }
 
 /**

@@ -20,10 +20,15 @@
 // ones M1 measured. Then it runs the calibration ritual against a known
 // lateness and checks that number comes back.
 //
+// It drives Record the way a drummer does: the pill in the controls row,
+// which -- like the kit chip in the corner -- is only there once something is
+// sending strokes. The reading is the card in the header (Lamp-12); Kill Me
+// has no video, so this is the compact header's card, in the song map's slot.
+//
 // It cleans up the take it writes: takes/ is tracked in git and a check should
 // not leave anything behind. It also writes shots/practice.png once the
-// reading is up: the reading lives in a rail of a fixed width, and whether it
-// fits is not something a count can answer.
+// reading is up: whether a whole song's strip fits is not something a count
+// can answer.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -50,9 +55,8 @@ const check = (ok, label, detail = '') => {
 };
 
 const browser = await launch();
-// The same desktop the UI check shoots, so the two screenshots are comparable
-// and the rails are the width they are meant to be.
-const context = await browser.newContext({ viewport: { width: 1600, height: 900 } });
+// The screen it is used on: 2194x1100, a 31.5" 4K monitor at 175%.
+const context = await browser.newContext({ viewport: { width: 2194, height: 1100 } });
 const page = await context.newPage();
 const pageErrors = [];
 page.on('pageerror', (e) => pageErrors.push(String(e)));
@@ -64,7 +68,18 @@ await page.waitForTimeout(2500);
 // The audio graph is built on a user gesture, and the recording needs it.
 await page.locator('#play').click();
 await page.waitForTimeout(300);
-await page.locator('#stop').click();
+await page.evaluate(() => window.drums.stop());
+
+// No kit yet: nothing of the kit layer is on the page.
+const kitLayer = () =>
+  page.evaluate(() => ({
+    chip: !document.getElementById('kit-chip').hidden,
+    chipSays: document.getElementById('kit-chip-says').textContent,
+    record: !document.getElementById('record').hidden,
+    kit: document.getElementById('app').hasAttribute('data-kit'),
+  }));
+let layer = await kitLayer();
+check(!layer.chip && !layer.record && !layer.kit, 'with no kit, no chip and no Record pill', JSON.stringify(layer));
 
 // Chrome will not hand Web MIDI to an automated browser however the permission
 // is set, so this primes the injector instead. The stroke lands before
@@ -76,6 +91,9 @@ const ready = await page.evaluate(() => {
   return p.midi.hasSource;
 });
 check(ready, 'practice mode has a stroke source');
+await page.waitForTimeout(200);
+layer = await kitLayer();
+check(layer.chip && layer.record, 'a kit brings the chip and the Record pill', layer.chipSays);
 
 // Whatever calibration this machine has is a real measurement of someone's
 // audio path; it is put back at the end. The take leg needs a *known* one, so
@@ -91,6 +109,8 @@ const setCalibration = async (value) => {
   await page.evaluate(() => window.drums.practice.reloadCalibration());
 };
 await setCalibration(null);
+layer = await kitLayer();
+check(layer.chipSays === 'Kit connected · not calibrated', 'the chip says the kit is not calibrated', layer.chipSays);
 
 const cell = await page.evaluate(() => {
   const p = window.drums.practice;
@@ -99,13 +119,13 @@ const cell = await page.evaluate(() => {
     count: notes.length,
     first: notes[0]?.tMs ?? 0,
     last: notes[notes.length - 1]?.tMs ?? 0,
-    label: document.getElementById('take-target').textContent,
+    label: p.plan,
     instruments: [...new Set(notes.map((n) => n.instrument))],
     limbs: [...new Set(notes.map((n) => n.limb))],
     referenceMs: p.referenceMs,
     // What Record says it will play: `whole song · bars 1-62`.
-    startBar: Number(/bars (\d+)-(\d+)/.exec(document.getElementById('take-target').textContent)?.[1] ?? 0),
-    endBar: Number(/bars (\d+)-(\d+)/.exec(document.getElementById('take-target').textContent)?.[2] ?? 0),
+    startBar: Number(/bars (\d+)-(\d+)/.exec(p.plan)?.[1] ?? 0),
+    endBar: Number(/bars (\d+)-(\d+)/.exec(p.plan)?.[2] ?? 0),
     lastBar: window.drums.current?.grid?.bar_count ?? 0,
   };
 });
@@ -126,14 +146,19 @@ check(
 check(cell.limbs.every((l) => l !== 'hands'), 'every note has a real limb from the sticking lock', cell.limbs.join(', '));
 
 // At the record's own tempo, so the numbers are the ones M1 measured.
-await page.evaluate(() => {
-  const speed = document.getElementById('speed');
-  speed.value = '100';
-  speed.dispatchEvent(new Event('input'));
-});
+await page.keyboard.press('Backslash');
+check((await page.evaluate(() => window.drums.tempo)) === 100, 'the tempo is at 100%');
 
 // Start recording, then feed the song back in, with one of each mistake.
 await page.locator('#record').click();
+check(
+  await page.evaluate(
+    () =>
+      document.getElementById('record').getAttribute('aria-pressed') === 'true' &&
+      /Recording/.test(document.getElementById('record').textContent)
+  ),
+  'the pill says Recording while it records'
+);
 await page.evaluate(
   ({ LATE_MS, SKIP, EXTRA_AFTER, WRONG, FLAM }) => {
     const p = window.drums.practice;
@@ -186,7 +211,7 @@ await page.evaluate(
 // Let the song play out. The recorder stops itself at the end of the last bar.
 const playMs = Math.round(cell.last - cell.first);
 console.log(`     playing ${cell.label} -- about ${Math.ceil(playMs / 1000)}s of record`);
-await page.waitForFunction(() => !document.getElementById('record').dataset.armed, null, {
+await page.waitForFunction(() => document.getElementById('record').getAttribute('aria-pressed') === 'false', null, {
   timeout: playMs + 60000,
 });
 await page.evaluate(() => clearInterval(window.__injector));
@@ -197,18 +222,32 @@ const out = await page.evaluate(() => {
   const heads = [...document.querySelectorAll('#score svg text')].map((t) => t.getAttribute('fill'));
   const fills = {};
   for (const f of heads) if (f) fills[f] = (fills[f] ?? 0) + 1;
+  const css = getComputedStyle(document.documentElement);
+  // The paper's own colours: anything else on a notehead is a verdict.
+  const neutral = ['--tab-ink', '--tab-staff', '--tab-barno'].map((v) => css.getPropertyValue(v).trim().toUpperCase());
   return {
     grade: g,
     planned: window.__planned,
     fills,
-    reportShown: !document.getElementById('report').hidden,
-    reportText: document.getElementById('report').textContent.replace(/\s+/g, ' ').trim(),
-    dials: [...document.querySelectorAll('#report .dial .label')].map((e) => e.textContent),
-    stripBars: document.querySelectorAll('#report .strip .bar').length,
-    // Anything not green: a bar with one wrong note out of fourteen is amber,
-    // not red, so "marked" is the thing to count rather than "bad".
-    stripMarked: document.querySelectorAll('#report .strip .bar.ok, #report .strip .bar.bad').length,
-    stripGood: document.querySelectorAll('#report .strip .bar.good').length,
+    neutral,
+    reportShown: !document.getElementById('reading').hidden,
+    reportText: document.getElementById('reading').textContent.replace(/\s+/g, ' ').trim(),
+    reportTitle: document.querySelector('#reading .rd-title').textContent,
+    notes: document.querySelector('#reading .rd-big').textContent,
+    again: document.querySelector('#reading .rd-again').textContent,
+    numbers: document.getElementById('reading').title,
+    dials: [...document.querySelectorAll('#reading .rd-label')].map((e) => e.textContent),
+    stripBars: document.querySelectorAll('#reading .rd-bar').length,
+    // A bar with anything missed, wrong or unwritten in it is missed.
+    stripMarked: document.querySelectorAll('#reading .rd-bar[data-verdict="missed"]').length,
+    stripGood: document.querySelectorAll('#reading .rd-bar[data-verdict="played"]').length,
+    cardBox: (() => {
+      const r = document.getElementById('reading').getBoundingClientRect();
+      const strip = document.querySelector('#reading .rd-strip').getBoundingClientRect();
+      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, stripRight: strip.right };
+    })(),
+    mapHidden: getComputedStyle(document.getElementById('map')).visibility === 'hidden',
+    canClose: window.drums.practice.dismissible,
     extrasDrawn: document.querySelectorAll('.extras span').length,
     countInMs: (window.__startedAt ?? 0) - (window.__armedAt ?? 0),
     status: document.getElementById('status').textContent.trim(),
@@ -252,16 +291,28 @@ check((g.timing?.overall?.sdMs ?? 99) <= 4, 'a steady take reads as steady, not 
 check(Object.keys(g.timing?.perLimb ?? {}).length >= 2, 'timing is split per limb', Object.keys(g.timing?.perLimb ?? {}).join(', '));
 
 // The heatmap: the noteheads are no longer all one colour.
-const coloured = Object.entries(out.fills).filter(([f]) => /^#/.test(f) && f !== '#B4B4B4');
+const coloured = Object.entries(out.fills).filter(([f]) => /^#/.test(f) && !out.neutral.includes(f.toUpperCase()));
 const colouredCount = coloured.reduce((a, [, n]) => a + n, 0);
 check(colouredCount >= cell.count, 'noteheads are coloured by verdict', `${colouredCount} coloured: ${coloured.map(([f, n]) => `${f}x${n}`).join(' ')}`);
 check(coloured.length >= 3, 'hit, missed and wrong-voice are all distinguishable', `${coloured.length} colours`);
 check(out.extrasDrawn === 2, 'the extra and the flam both got a marker in the lane', `${out.extrasDrawn}`);
-check(out.reportShown, 'the reading is on screen');
+check(out.reportShown, 'the reading card is on screen');
+check(out.reportTitle === 'Whole song, just played', 'it says what it is a reading of', out.reportTitle);
 check(
   out.dials.join(' ') === 'Notes Steady Feel',
-  'three dials, each answering one question',
+  'three readings, each answering one question',
   out.dials.join(' ')
+);
+check(
+  out.notes === `${Math.floor(g.accuracy * 100)}%` && out.notes !== '100%',
+  'Notes is the share of what was written, never rounded up to all of it',
+  `${out.notes} for ${g.accuracy}`
+);
+check(/^Go again at bars? [\d, and]+\.$/.test(out.again), 'one sentence says where to go again', out.again);
+check(
+  out.cardBox.right <= 2194 - 40 + 1 && out.cardBox.stripRight <= out.cardBox.right && out.mapHidden,
+  "in the compact header it is one row in the song map's slot, the whole strip inside it",
+  JSON.stringify(out.cardBox)
 );
 check(
   out.stripBars === cell.endBar - cell.startBar + 1,
@@ -273,7 +324,16 @@ check(
   'it tells the bars that went wrong from the ones that did not',
   `${out.stripMarked} marked, ${out.stripGood} clean`
 );
-check(/Mean/.test(out.reportText), 'the numbers are still there, folded away');
+check(/Mean/.test(out.numbers) && !/Mean/.test(out.reportText), 'the numbers are still there, folded away into the tooltip');
+check(out.canClose, 'once the take is over the card can be put away');
+await page.keyboard.press('Escape');
+await page.waitForTimeout(1500);
+const gone = await page.evaluate(() => ({
+  card: !document.getElementById('reading').hidden,
+  map: getComputedStyle(document.getElementById('map')).visibility,
+  result: !!window.drums.practice.result,
+}));
+check(!gone.card && gone.map === 'visible' && !gone.result, 'Esc puts the reading away and gives the map back', JSON.stringify(gone));
 
 // And the take reached the disk, with both hashes on it.
 const after = existsSync(takesDir) ? readdirSync(takesDir).filter((f) => !before.has(f)) : [];
@@ -318,6 +378,9 @@ if (after.length === 1) {
 // (which is not when it was scheduled -- the output buffer sits between), and
 // that is what has to come back out.
 const CAL_LATE_MS = 23;
+// Calibrating is Settings' Kit.
+await page.locator('#settings-btn').click();
+await page.waitForTimeout(200);
 await page.locator('#calibrate').click();
 const cal = await page.evaluate(
   ({ CAL_LATE_MS }) =>
@@ -344,6 +407,9 @@ check(
 check((cal.spreadMs ?? 99) <= 3, 'a steady ritual reports a tight spread', `±${cal.spreadMs} ms`);
 check(cal.note === 38, 'the pad it was measured on is recorded', `note ${cal.note}`);
 check(cal.n >= 28, 'it measured the eight bars and not the count-in', `${cal.n} hits`);
+await page.waitForTimeout(500);
+layer = await kitLayer();
+check(layer.chipSays === 'Kit connected · calibrated', 'and the chip says calibrated', layer.chipSays);
 
 await setCalibration(savedCalibration);
 check(true, 'the machine calibration was put back', JSON.stringify(savedCalibration));

@@ -24,7 +24,7 @@
 //                            calibration.local.json at the repo root. Untracked
 //                            and per machine: it measures this audio path, not
 //                            this song and not this drummer (Q9).
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
 import { parse as parseToml } from 'smol-toml';
@@ -215,6 +215,20 @@ export function practice(songsDir: string, repoRoot: string): Plugin {
     return json(res, 404, JSON.stringify({ error: 'no such practice route' }));
   };
 
+  // What `virtual:kit` was last built from: kit.toml and the manifest, as
+  // their modification times ('none' for one that is not there).
+  //
+  // The watcher below is not enough on its own. It sees a manifest go away,
+  // but on Windows it does not see the same path come back (a file watch
+  // ends when its file is unlinked): `check-nokit` hides the manifest and
+  // puts it back, and every page after it on that server said "Kit is
+  // silent" with a bank on disk, until the server was restarted. So each
+  // page load also compares, which is two stats.
+  const manifestFile = join(repoRoot, 'kit', 'kit.lock.json');
+  const sources = () =>
+    [kitPath, manifestFile].map((f) => (existsSync(f) ? String(statSync(f).mtimeMs) : 'none')).join('|');
+  let builtFrom = '';
+
   return {
     name: 'drums-practice',
     resolveId(id) {
@@ -222,6 +236,7 @@ export function practice(songsDir: string, repoRoot: string): Plugin {
     },
     load(id) {
       if (id !== RESOLVED_ID) return undefined;
+      builtFrom = sources();
       return [
         `export default ${JSON.stringify(readKitInput(kitPath))};`,
         `export const sampler = ${JSON.stringify(readKitSampler(kitPath))};`,
@@ -230,6 +245,18 @@ export function practice(songsDir: string, repoRoot: string): Plugin {
     },
     configureServer(server: ViteDevServer) {
       server.middlewares.use(handle);
+      // A page load: if kit.toml or the manifest is not what the module was
+      // built from, build it again before the page asks for it.
+      server.middlewares.use((req, _res, next) => {
+        const path = (req.url ?? '').split('?')[0];
+        if ((path === '/' || path === '/index.html') && builtFrom && sources() !== builtFrom) {
+          const mod = server.moduleGraph.getModuleById(RESOLVED_ID);
+          if (mod) server.moduleGraph.invalidateModule(mod);
+          builtFrom = '';
+          console.log('[practice] the kit changed on disk, rebuilt');
+        }
+        next();
+      });
       // An edit to the input map should take effect by hitting the pad again,
       // not by restarting the dev server.
       const manifestPath = join(repoRoot, 'kit', 'kit.lock.json');

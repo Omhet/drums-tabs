@@ -190,3 +190,89 @@ def write_toml(path: Path, sections: dict[str, dict]) -> None:
             lines.append(f"{key} = {_toml_value(value)}")
         lines.append("")
     path.write_text("\n".join(lines), encoding="utf-8")
+
+
+_HEADER = re.compile(r"^\s*(\[\[?)\s*([^\]]+?)\s*\]\]?\s*(#.*)?$")
+_KEY = re.compile(r"^\s*([A-Za-z0-9_\-]+|\"[^\"]*\")\s*=")
+
+
+def update_toml(path: Path, sections: dict[str, dict]) -> None:
+    """Set the keys of ``sections`` in ``path``, and leave everything else alone.
+
+    For a file that other hands and other commands write to as well:
+    ``song.toml`` is fetch's [song] [source] [models] [grid], but also the
+    [author] and [midi_map] the user typed, the [[section]]s ``drums sections``
+    proposed and the user renamed, and the comments that explain them. Writing
+    the whole file from fetch's four tables threw all of that away on a
+    re-fetch. This edits in place instead: a key that is there gets its new
+    value on its own line, a key that is not is added after the table's last
+    key, a table that is not there is added before the first table, and every
+    other line -- comments, blank lines, other tables, keys this does not set
+    -- comes back byte for byte. A file that does not exist is written whole.
+
+    Only the flat ``key = value`` tables :func:`write_toml` writes are touched;
+    an array of tables (``[[section]]``) is never one of them.
+    """
+    if not path.exists():
+        write_toml(path, sections)
+        return
+    lines = path.read_text(encoding="utf-8").splitlines()
+
+    # Where each plain table starts and ends: [start, end) over line indices.
+    spans: dict[str, tuple[int, int]] = {}
+    headers = [i for i, line in enumerate(lines) if _HEADER.match(line)]
+    for n, i in enumerate(headers):
+        m = _HEADER.match(lines[i])
+        assert m is not None
+        if m.group(1) == "[":
+            spans.setdefault(m.group(2), (i, headers[n + 1] if n + 1 < len(headers) else len(lines)))
+
+    # Edits are made bottom-up so the indices above them stay true.
+    edits: list[tuple[int, int, list[str]]] = []  # (at, delete, insert)
+    missing: list[str] = []
+    for name, body in sections.items():
+        span = spans.get(name)
+        if span is None:
+            missing.append(name)
+            continue
+        start, end = span
+        seen: set[str] = set()
+        last_key = start
+        for i in range(start + 1, end):
+            m = _KEY.match(lines[i])
+            if not m:
+                continue
+            key = m.group(1).strip('"')
+            last_key = i
+            if key in body:
+                seen.add(key)
+                value = body[key]
+                if value is None:
+                    edits.append((i, 1, []))
+                else:
+                    edits.append((i, 1, [f"{key} = {_toml_value(value)}"]))
+        added = [
+            f"{key} = {_toml_value(value)}"
+            for key, value in body.items()
+            if key not in seen and value is not None
+        ]
+        if added:
+            edits.append((last_key + 1, 0, added))
+
+    for at, delete, insert in sorted(edits, key=lambda e: e[0], reverse=True):
+        lines[at : at + delete] = insert
+
+    if missing:
+        block: list[str] = []
+        for name in missing:
+            block.append(f"[{name}]")
+            block += [f"{k} = {_toml_value(v)}" for k, v in sections[name].items() if v is not None]
+            block.append("")
+        # Before the first table, after any comment that opens the file and
+        # belongs to it: the line after the last header-free blank line.
+        first = next((i for i, line in enumerate(lines) if _HEADER.match(line)), len(lines))
+        while first > 0 and lines[first - 1].lstrip().startswith("#"):
+            first -= 1
+        lines[first:first] = block
+
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")

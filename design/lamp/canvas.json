@@ -1,0 +1,78 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-11-21T20:15:00Z" },
+  "title": "Drum Player Directions",
+  "launch": { "view": "canvas", "page": "lamp" },
+  "pages": [
+    { "id": "lamp", "name": "Lamp frames" },
+    { "id": "proto", "name": "Prototype" },
+    { "id": "spec", "name": "Spec" },
+    { "id": "directions", "name": "Directions" }
+  ],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 2194, "h": 1100, "title": "1 · Lamp", "page": "directions" },
+    "Console.dc.html": { "x": 2274, "y": 0, "w": 2194, "h": 1100, "title": "2 · Console", "page": "directions" },
+    "Chart.dc.html": { "x": 4548, "y": 0, "w": 2194, "h": 1100, "title": "3 · Chart", "page": "directions" },
+
+    "Lamp-01-whole-song.dc.html": { "x": 0, "y": 0, "w": 2194, "h": 1100, "title": "1 · Whole song, with its video", "page": "lamp" },
+    "Lamp-02-video-hidden.dc.html": { "x": 2274, "y": 0, "w": 2194, "h": 1100, "title": "2 · Same song, video hidden", "page": "lamp" },
+    "Lamp-03-kill-me.dc.html": { "x": 4548, "y": 0, "w": 2194, "h": 1100, "title": "3 · A song with no video (Kill Me)", "page": "lamp" },
+    "Lamp-04-loop-ramp.dc.html": { "x": 0, "y": 1220, "w": 2194, "h": 1100, "title": "4 · Chorus looped at 80%, ramp on, pass 3", "page": "lamp" },
+    "Lamp-05-count-in.dc.html": { "x": 2274, "y": 1220, "w": 2194, "h": 1100, "title": "5 · Count-in, starting from a pause", "page": "lamp" },
+    "Lamp-06-browsing.dc.html": { "x": 4548, "y": 1220, "w": 2194, "h": 1100, "title": "6 · Paused, browsing away from the cursor", "page": "lamp" },
+    "Lamp-07-picking.dc.html": { "x": 0, "y": 2440, "w": 2194, "h": 1100, "title": "7 · Picking a loop on the song map", "page": "lamp" },
+    "Lamp-08-mix.dc.html": { "x": 2274, "y": 2440, "w": 2194, "h": 1100, "title": "8 · Mix, open", "page": "lamp" },
+    "Lamp-08b-mix-no-stems.dc.html": { "x": 4548, "y": 2440, "w": 900, "h": 560, "title": "8b · Mix for a song without stems", "page": "lamp" },
+    "Lamp-09-library.dc.html": { "x": 0, "y": 3660, "w": 2194, "h": 1100, "title": "9 · Library", "page": "lamp", "is_interactive": true },
+    "Lamp-10-settings.dc.html": { "x": 2274, "y": 3660, "w": 2194, "h": 1100, "title": "10 · Settings", "page": "lamp" },
+    "Lamp-11-zen.dc.html": { "x": 4548, "y": 3660, "w": 2194, "h": 1100, "title": "11 · Zen", "page": "lamp" },
+    "Lamp-12-scored.dc.html": { "x": 0, "y": 4880, "w": 2194, "h": 1100, "title": "12 · Kit connected: the reading after a pass", "page": "lamp" },
+    "Lamp-13a-dark-light.dc.html": { "x": 0, "y": 6100, "w": 2194, "h": 1100, "title": "13a · Dark interface, light notation", "page": "lamp" },
+    "Lamp-13b-dark-dark.dc.html": { "x": 2274, "y": 6100, "w": 2194, "h": 1100, "title": "13b · Dark interface, dark notation", "page": "lamp" },
+    "Lamp-13c-light-light.dc.html": { "x": 4548, "y": 6100, "w": 2194, "h": 1100, "title": "13c · Light interface, light notation", "page": "lamp" },
+    "LampMap.dc.html": { "x": 0, "y": 7320, "w": 2114, "h": 80, "title": "Component · song map", "page": "lamp" },
+
+    "Lamp-Prototype.dc.html": { "x": 0, "y": 0, "w": 2194, "h": 1100, "title": "Prototype: pick a loop, step the tempo, run the ramp", "page": "proto", "is_interactive": true },
+
+    "Lamp-Spec.dc.html": { "x": 0, "y": 0, "w": 2194, "h": 2700, "title": "Spec sheet", "page": "spec" }
+  },
+  "order": [
+    "Main.dc.html", "Console.dc.html", "Chart.dc.html",
+    "Lamp-01-whole-song.dc.html", "Lamp-02-video-hidden.dc.html", "Lamp-03-kill-me.dc.html",
+    "Lamp-04-loop-ramp.dc.html", "Lamp-05-count-in.dc.html", "Lamp-06-browsing.dc.html",
+    "Lamp-07-picking.dc.html", "Lamp-08-mix.dc.html", "Lamp-08b-mix-no-stems.dc.html",
+    "Lamp-09-library.dc.html", "Lamp-10-settings.dc.html", "Lamp-11-zen.dc.html",
+    "Lamp-12-scored.dc.html",
+    "Lamp-13a-dark-light.dc.html", "Lamp-13b-dark-dark.dc.html", "Lamp-13c-light-light.dc.html",
+    "LampMap.dc.html",
+    "Lamp-Prototype.dc.html",
+    "Lamp-Spec.dc.html"
+  ],
+  "notes": {
+    "heading": {
+      "x": 0, "y": -320, "kind": "title1", "maxW": 6742, "page": "directions",
+      "text": "The Player, three directions: Song 2, chorus looped at 80%, pass 3 (2194 × 1100, the throne's screen)"
+    },
+    "lamp": {
+      "x": 0, "y": 1180, "w": 720, "size": "l", "page": "directions",
+      "text": "Lamp: a lit music stand in a dark room. Warm cream paper sits under the light, with the picture and the big numbers above it and everything else as quiet type. 2 lines × 4 bars, the loop as a brass bracket. Now set in a sans: Atkinson Hyperlegible Next."
+    },
+    "console": {
+      "x": 2274, "y": 1180, "w": 720, "size": "l", "page": "directions",
+      "text": "Console: the notation gets a fixed column whose width never changes, three lines even with the video. Everything you touch sits in one rack beside it, like a drum module next to the kit. 3 lines × 3 bars on dark paper."
+    },
+    "chart": {
+      "x": 4548, "y": 1180, "w": 720, "size": "l", "page": "directions",
+      "text": "Chart: read it like a printed drum part. The page is on top, the loop is pencilled in as real repeat signs, and a stage clock of big numbers runs along the bottom with the keys built in."
+    },
+    "lampHeading": {
+      "x": 0, "y": -320, "kind": "title1", "maxW": 6742, "page": "lamp",
+      "text": "Lamp, in Atkinson Hyperlegible Next: every frame of the brief at 2194 × 1100"
+    },
+    "protoHow": {
+      "x": 2274, "y": 0, "w": 640, "size": "l", "page": "proto",
+      "text": "Press Play on the artboard. Click a section on the song map to loop it; shift-click another to stretch the loop over both; click inside the loop to clear it. Step the tempo with the keys. Turn the ramp on and press End this pass (a stand-in for playing one) to watch it climb 5% every 2 passes up to 100%."
+    }
+  },
+  "designSystems": []
+}

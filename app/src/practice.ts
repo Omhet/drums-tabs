@@ -6,8 +6,12 @@
 //   - with the loop off, the whole song at the tempo set -- a bar of count-in,
 //     then the record from bar 1 to the end, marked when it stops;
 //   - with the loop on, the loop (loop.ts), marked one pass at a time. Every
-//     pass is a take of its own, written as it ends, and a row of chips under
-//     Record is the history of the sitting at a glance.
+//     pass is a take of its own, written as it ends, and the reading card in
+//     the header shows the one just played.
+//
+// The kit layer is only on the page while a kit is connected (Lamp-12): the
+// chip in the corner, the Record pill in the controls row, and after a pass or
+// a song, the reading card. With no kit none of it is there at all.
 //
 // Either way every stroke is stamped in mix time and the take format is the
 // same one (take.ts). There used to be two more layers on top of this -- a
@@ -24,9 +28,8 @@ import {
   type CalibrationRun,
 } from './calibrate';
 import { countIn, type CountIn } from './click';
-import { grade, PASS, type Grade, type GradeResult, type TakeEvent, type Timing } from './grade';
+import { grade, type Grade, type GradeResult, type TakeEvent, type Timing } from './grade';
 import { Heatmap } from './heatmap';
-import { say } from './icons';
 import type { PlayClock } from './clock';
 import { EDGE_MS, type Grader, type Loop, type LoopRange } from './loop';
 import { MidiIn, type MidiHit } from './midi-in';
@@ -126,25 +129,39 @@ export interface PracticeSong {
 }
 
 export interface PracticeElements {
+  /** Settings' Kit: asks the browser for MIDI. Hidden once it has it. */
   enable: HTMLButtonElement;
+  /** The connection line: a dot (`data-state` on, off or err) and a sentence. */
+  kitState: HTMLElement;
   port: HTMLSelectElement;
   calibrate: HTMLButtonElement;
   calibration: HTMLOutputElement;
+  /** The Record pill in the controls row: there only while the kit is connected. */
   record: HTMLButtonElement;
-  /** What Record will play, in words. */
-  target: HTMLOutputElement;
+  /** Its word: Record, or Recording. */
+  recordWord: HTMLElement;
+  /** The kit chip in the header's corner (Lamp-12): a dot and a few words. */
+  chip: HTMLElement;
+  chipSays: HTMLElement;
+  /** The reading card in the header (Lamp-12), built here. */
+  card: HTMLElement;
+  /**
+   * Where the page is told: `data-kit` while a kit is connected,
+   * `data-recording` while Record has the transport, `data-reading` while the
+   * card is up. The stylesheet lays the header out from them.
+   */
+  app: HTMLElement;
+  /** Settings' Kit: "Show the last few hits", and the hits. */
   monitorOn: HTMLInputElement;
   monitor: HTMLElement;
-  report: HTMLElement;
-  /** One chip per marked pass of a loop. */
-  passes: HTMLElement;
+  /** The kit, a recording or the card came or went: the header is painted and fitted again. */
+  relaid: () => void;
   /**
-   * The click fader, which the count-in and the ritual need audible. Driven by
-   * dispatching the `input` event the page already listens for, so the slider,
-   * the mixer and the remembered levels all stay in step with one setter
-   * rather than three.
+   * Make the Click channel heard -- unmuted, and up if it was at 0 -- through
+   * the page's one mix setter, so the panel, the mixer and the remembered
+   * levels stay in step. True if it had to do anything. The ritual needs it.
    */
-  clickFader: HTMLInputElement;
+  clickAudible: () => boolean;
 }
 
 export class Practice {
@@ -166,12 +183,9 @@ export class Practice {
   private recent: MidiHit[] = [];
   /** The last graded take, for the headless check and the console. */
   result: GradeResult | undefined;
-  /**
-   * The bars the last graded take covered, for the strip. Kept rather than
-   * recomputed, because a theme switch redraws the report and the song may
-   * have been re-saved in Live since.
-   */
-  private reportRange: { startBar: number; endBar: number } | undefined;
+  /** The reading on the card, while it is up. */
+  private reading: Reading | undefined;
+  private readonly cardEl: CardParts;
 
   constructor(
     private readonly api: alphaTab.AlphaTabApi,
@@ -191,21 +205,43 @@ export class Practice {
     el.enable.addEventListener('click', () => void this.enable());
     el.port.addEventListener('change', () => this.midi.open(el.port.value));
     el.calibrate.addEventListener('click', () => void this.runCalibration());
-    el.record.addEventListener('click', () => this.toggleRecord());
+    el.record.addEventListener('click', (e) => {
+      this.toggleRecord();
+      if (e.detail > 0) el.record.blur();
+    });
     el.monitorOn.addEventListener('change', () => {
       el.monitor.hidden = !el.monitorOn.checked;
       this.drawMonitor();
     });
+    this.cardEl = buildCard(el.card, () => this.dismiss());
 
     void this.reloadCalibration();
+    void this.reconnect();
   }
 
-  setTheme(dark: boolean) {
-    // Only the notation needs telling: alphaTab paints noteheads itself, while
-    // the report is drawn from CSS variables and re-themes with the interface.
-    this.heatmap.setTheme(dark);
-    // The heatmap bakes its colours into a render, so a take already on the
-    // staff would keep the old palette's noteheads until the next take.
+  /**
+   * Connect without a click when the browser has already been told yes.
+   * Chrome asks once per site and remembers, so after the first Connect the
+   * kit is there whenever the page is. A refusal here is said nowhere: it is
+   * only the page trying, and Settings' Connect is the way to ask out loud.
+   */
+  private async reconnect() {
+    try {
+      const status = await navigator.permissions?.query({ name: 'midi' as PermissionName });
+      if (status?.state !== 'granted') return;
+      await this.midi.start();
+    } catch {
+      /* no Permissions API, or no Web MIDI: Settings' Connect says why */
+    }
+    this.showPorts();
+  }
+
+  /**
+   * The paper changed theme. The report is drawn from CSS variables and
+   * re-themes by itself, but the heatmap bakes the --verdict-* colours into a
+   * render, so a take already on the staff is drawn again in the new ones.
+   */
+  retheme() {
     const grid = this.loaded?.grid;
     if (this.result && grid) this.heatmap.show(this.result, grid);
   }
@@ -218,8 +254,7 @@ export class Practice {
     // after the new one had started, and read as the new song being drawn.
     this.heatmap.forget();
     this.result = undefined;
-    this.el.report.hidden = true;
-    this.drawPasses(undefined);
+    this.hideCard();
     this.loaded = loaded;
     this.showTarget();
     // The kit gets the whole part up front: this is what the Kit fader plays.
@@ -245,12 +280,47 @@ export class Practice {
     for (const port of ports) this.el.port.add(new Option(port.name, port.id, false, port.open));
     if (ports.length === 0) this.el.port.add(new Option('No MIDI inputs', ''));
     this.el.port.disabled = ports.length === 0;
-    this.el.enable.disabled = state.kind === 'ready';
-    // The word, and the glyph that stands in for it when the rail is collapsed
-    // to one icon wide (icons.ts).
-    if (state.kind === 'ready') say(this.el.enable, 'MIDI on', '✓');
-    else say(this.el.enable, 'Enable MIDI', '♪');
+    this.el.enable.hidden = state.kind === 'ready';
+    const open = ports.find((p) => p.open);
+    const [dot, says] =
+      state.kind === 'unsupported'
+        ? ['err', 'This browser cannot read a kit: it has no Web MIDI (Chrome or Edge can).']
+        : state.kind === 'denied'
+          ? ['err', `The browser refused MIDI: ${state.message}`]
+          : state.kind === 'idle'
+            ? ['off', 'No kit connected']
+            : open
+              ? ['on', `${open.name} connected`]
+              : ['off', 'No kit connected: is it on, and plugged in?'];
+    this.el.kitState.dataset.state = dot;
+    this.el.kitState.lastChild!.textContent = says;
     this.showTarget();
+  }
+
+  /** Whether a kit is connected: a port open, or (for the checks) strokes injected. */
+  get connected(): boolean {
+    return this.midi.hasSource;
+  }
+
+  /**
+   * The kit layer on the page, or not: the chip, the Record pill, the card.
+   * With no kit nothing of it is there at all -- not a disabled pill, not an
+   * empty chip -- because most sessions are free playing and it would only be
+   * one more thing to read past.
+   */
+  private paintKit() {
+    const on = this.connected;
+    const recording = !!this.run || !!this.loopTake;
+    const was = this.el.app.hasAttribute('data-kit');
+    const wasRecording = this.el.app.hasAttribute('data-recording');
+    this.el.app.toggleAttribute('data-kit', on);
+    this.el.app.toggleAttribute('data-recording', recording);
+    this.el.chip.hidden = !on;
+    this.el.chipSays.textContent = `Kit connected · ${this.calibration ? 'calibrated' : 'not calibrated'}`;
+    // A take under way keeps its way out, whatever the cable does.
+    this.el.record.hidden = !on && !recording;
+    if (!on && !recording && this.reading) this.hideCard();
+    if (was !== on || wasRecording !== recording) this.el.relaid();
   }
 
   private onHit(hit: MidiHit) {
@@ -259,7 +329,7 @@ export class Practice {
     this.drawMonitor();
     // A stroke arriving is itself news: it means there is something to record
     // from, which `showPorts` cannot know before the first one lands.
-    if (this.el.record.disabled) this.showTarget();
+    if (!this.el.app.hasAttribute('data-kit') || this.el.record.disabled) this.showTarget();
     const take = this.capture;
     if (!take) return;
     // Raw, uncorrected, and the module's own note number: the take stores the
@@ -307,8 +377,9 @@ export class Practice {
 
   private showCalibration(note?: string) {
     const c = this.calibration;
-    this.el.calibration.textContent =
-      note ?? (c ? `${signed(c.offsetMs)} ms ±${c.spreadMs}` : 'uncalibrated');
+    this.el.calibration.textContent = note ?? calibrationSaid(c);
+    if (note === undefined) this.el.calibrate.textContent = c ? 'Calibrate again' : 'Calibrate';
+    this.paintKit();
     this.el.calibration.title = c
       ? `You play ${signed(c.offsetMs)} ms against the click (median of ${c.n} on note ${c.note}), ` +
         `measured ${c.measuredAt}. Subtracted from every take.`
@@ -330,8 +401,8 @@ export class Practice {
     this.api.pause();
     // A ritual you cannot hear is not a ritual. The click fader starts at 0,
     // which is right for playing along and useless here.
-    const raised = this.ensureClickAudible() ? 'Raised the Click fader. ' : '';
-    say(this.el.calibrate, 'Stop', '⏹');
+    const raised = this.el.clickAudible() ? 'Turned the click on. ' : '';
+    this.el.calibrate.textContent = 'Stop';
     this.el.record.disabled = true;
     const run = calibrate(ctx, out, (fn) => this.midi.onHit(fn), (p) =>
       this.showCalibration(
@@ -358,7 +429,6 @@ export class Practice {
       if (message !== 'cancelled') this.onStatus(`Calibration failed: ${message}`, true);
     } finally {
       this.running = undefined;
-      say(this.el.calibrate, 'Calibrate', '◎');
       this.showCalibration();
       this.showTarget();
     }
@@ -455,40 +525,47 @@ export class Practice {
   private showTarget() {
     const at = this.target();
     const looped = this.loop.armed;
-    this.el.target.textContent = at ? (looped ? `${at.label}, every pass` : at.label) : 'no beat map';
-    // A loop going round that Record did not start: Record is not the way into
-    // it half way, and not the way out either -- Space is.
-    const listening = this.loop.running && !this.loopTake;
-    const ready = !!at && !this.running && !listening && this.midi.hasSource && import.meta.env.DEV;
-    // Record is the way out of a take it started.
     const recording = !!this.run || !!this.loopTake;
+    const ready = !!at && !this.running && this.midi.hasSource && import.meta.env.DEV;
     this.el.record.disabled = !recording && !ready;
+    this.el.record.setAttribute('aria-pressed', String(recording));
+    this.el.recordWord.textContent = recording ? 'Recording' : 'Record';
     // Calibrating needs something sending strokes and nothing else running --
     // not a song, which is the point: the click it measures against is its own.
     if (!this.running) {
       this.el.calibrate.disabled = !this.midi.hasSource || recording || this.loop.running;
     }
-    // A disabled button should say what would enable it.
+    // What it will play, or why it cannot: the tooltip, and the screen reader.
     this.el.record.title = recording
-      ? 'Stop the take'
+      ? 'Recording: press to stop'
       : !import.meta.env.DEV
         ? 'Recording needs the dev server (npm run dev)'
         : !at
           ? 'No grid.lock.json: nothing can be placed in the mix'
-          : listening
-            ? 'Stop the loop first (Space): Record starts it again and marks every pass'
-            : !this.midi.hasSource
-              ? 'Enable MIDI first: there is nothing to record'
-              : looped
-                ? 'Play the loop, and be marked on every pass'
-                : 'Play the whole song at the tempo set, and be marked on it';
+          : looped
+            ? `Record every pass of the loop (${at.label}), and be marked on each`
+            : `Record the whole song (${at.label}) at the tempo set, and be marked on it`;
+    this.paintKit();
   }
 
+  /** What Record will play, in words: `whole song · bars 1-62`, or the loop's. */
+  get plan(): string {
+    const at = this.target();
+    return at ? (this.loop.armed ? `${at.label}, every pass` : at.label) : 'no beat map';
+  }
+
+  /**
+   * Record, and pressed again, stop. A loop already going round is started
+   * again from its count-in with every pass marked: pressing Record means "from
+   * now on, mark me", and the pass under way had no start to mark from.
+   */
   private toggleRecord() {
     if (this.loopTake) this.loop.stop();
     else if (this.run) this.stopRun(false);
-    else if (this.loop.armed) this.startLoop();
-    else this.startRun();
+    else if (this.loop.armed) {
+      if (this.loop.running) this.loop.stop(true);
+      this.startLoop();
+    } else this.startRun();
   }
 
   private startRun() {
@@ -526,14 +603,10 @@ export class Practice {
     this.mixer.ensureGraph();
     this.api.pause();
     this.clock.seekTo(startMs);
-    say(this.el.record, 'Stop', '⏹');
-    this.el.record.dataset.armed = '1';
     this.showTarget();
-    const label = `${at.label} at ${Math.round(tempo * 100)}%`;
-    this.onStatus(
-      `Counting in ${label}` +
-        (!this.calibration ? ' -- uncalibrated, so the mean offset will include the audio path' : '')
-    );
+    // Nothing on the status line: the header shows the count-in ("count-in ·
+    // then verse, bar 1, recording") and the pill says Recording.
+    this.onStatus('');
 
     // One bar of clicks, then the music, starting exactly on bar 1. A count-in
     // rather than a bar of the record itself, because bar 1 has no bar before
@@ -554,7 +627,6 @@ export class Practice {
       this.api.play();
       clearInterval(this.timer);
       this.timer = window.setInterval(() => this.tick(), 25);
-      this.onStatus(`Recording ${label}.`);
     });
   }
 
@@ -562,18 +634,6 @@ export class Practice {
   private tick() {
     const rec = this.run;
     if (rec && this.clock.mixTimeMs >= rec.endMs) this.stopRun(true);
-  }
-
-  /**
-   * The click bus at zero is right for playing along and wrong for the
-   * calibration, which measures the click you practise to. (A count-in has a
-   * bus of its own and needs none of this: mixer.ts `countInOut`.)
-   */
-  private ensureClickAudible(): boolean {
-    if (Number(this.el.clickFader.value) > 0) return false;
-    this.el.clickFader.value = '70';
-    this.el.clickFader.dispatchEvent(new Event('input'));
-    return true;
   }
 
   private stopRun(complete: boolean) {
@@ -585,21 +645,19 @@ export class Practice {
     const events = this.capture;
     this.run = undefined;
     this.capture = undefined;
-    say(this.el.record, 'Record', '⏺');
-    delete this.el.record.dataset.armed;
     if (rec) this.api.pause();
     // Nothing captured means it was stopped during the count-in: nothing was
     // played, so there is nothing to write.
     if (rec && events) void this.finish(rec, events, complete);
     this.showTarget();
+    this.paintCardRec();
   }
 
-  /** Nothing on the staff, no reading, no chips: a new take is about to start. */
+  /** Nothing on the staff, no reading: a new take is about to start. */
   private clearReading() {
     this.heatmap.clear();
     this.result = undefined;
-    this.el.report.hidden = true;
-    this.drawPasses(undefined);
+    this.hideCard();
   }
 
   // --- a loop, marked pass by pass ----------------------------------------------
@@ -647,14 +705,7 @@ export class Practice {
       this.loopTake = undefined;
       return;
     }
-    say(this.el.record, 'Stop', '⏹');
-    this.el.record.dataset.armed = '1';
     this.showTarget();
-    this.onStatus(
-      `Counting in ${this.loop.describe()} at ${Math.round((this.api.playbackSpeed || 1) * 100)}%, ` +
-        'marking every pass' +
-        (!this.calibration ? ' -- uncalibrated, so the timing will include the audio path.' : '.')
-    );
   }
 
   /**
@@ -675,22 +726,16 @@ export class Practice {
     const pass: Pass = { n, complete, startedAt: take.startedAt, tempo: take.tempo, result };
     take.passes.push(pass);
 
-    // The dials and the bar strip follow the passes as they go: they are the
-    // page, not the notation. The noteheads wait until the loop stops, because
-    // colouring them re-engraves the score -- a stall in the cursor, and a late
-    // start to the next pass when the turn-round is only a grace window long.
+    // The card follows the passes as they go: it is the page, not the
+    // notation. The noteheads wait until the loop stops, because colouring
+    // them re-engraves the score -- a stall in the cursor, and a late start to
+    // the next pass when the turn-round is only a grace window long.
     this.result = result;
-    this.reportRange = take.range;
-    this.drawReport(result, { n });
-    this.el.report.hidden = false;
-    this.drawPasses(take);
-
-    const g = result.grade;
-    this.onStatus(
-      complete
-        ? `Pass ${n}: ${pct(g.accuracy)} of the notes, ${steadiness(g.timing.overall.sdMs)} (±${g.timing.overall.sdMs} ms).`
-        : `Pass ${n} stopped part way: ${g.hit} of ${g.expected} notes played.`
-    );
+    this.showCard({
+      result,
+      range: take.range,
+      title: complete ? `Pass ${n}, just played` : `Pass ${n}, stopped part way`,
+    });
 
     const record: Take = {
       version: 1,
@@ -708,84 +753,44 @@ export class Practice {
       sectionsHash: song.song.sectionsHash,
       complete,
       events,
-      grade: g,
+      grade: result.grade,
     };
     writeTake(song.song.slug, record).catch((err: Error) =>
       this.onStatus(`Pass ${n} not written: ${err.message}`, true)
     );
-    return complete ? g.accuracy : undefined;
+    return complete ? result.grade.accuracy : undefined;
   }
 
-  /** The loop stopped: Record is Record again, and the noteheads can be coloured. */
+  /**
+   * The loop stopped: Record is Record again, and the noteheads can be
+   * coloured -- by the last pass that reached its end, which is the one the
+   * card shows from now on. A pass stopped part way is written to takes/ but
+   * not shown: its unplayed half would read as a page of misses.
+   */
   private finishLoop(take: LoopTake) {
     if (this.loopTake !== take) return;
     this.loopTake = undefined;
     this.capture = undefined;
-    say(this.el.record, 'Record', '⏺');
-    delete this.el.record.dataset.armed;
-    // The last pass that reached its end, else the last there is: the one the
-    // reading was showing anyway, now on the staff too.
     const shown = [...take.passes].reverse().find((p) => p.complete) ?? take.passes.at(-1);
-    if (shown) this.showPass(take, shown.n);
-    const done = take.passes.filter((p) => p.complete);
-    const partial = take.passes.length - done.length;
-    this.onStatus(
-      done.length === 0
-        ? partial
-          ? 'No pass reached its end. The one you stopped is written to takes/ as unfinished.'
-          : 'Stopped before the first pass.'
-        : `${done.length} pass${done.length > 1 ? 'es' : ''} marked: ` +
-            `${list(done.map((p) => pct(p.result.grade.accuracy)))}` +
-            (partial ? ', and one stopped part way' : '') +
-            '. Each is a take in takes/.'
-    );
-    this.showTarget();
-  }
-
-  /** Put one pass's reading on the staff and in the panel. */
-  private showPass(take: LoopTake, n: number) {
-    const pass = take.passes.find((p) => p.n === n);
     const grid = take.song.grid;
-    if (!pass || !grid || this.loaded !== take.song) return;
-    this.result = pass.result;
-    this.heatmap.show(pass.result, grid);
-    this.reportRange = take.range;
-    this.drawReport(pass.result, { n, of: take.passes.length });
-    this.el.report.hidden = false;
-    for (const chip of this.el.passes.querySelectorAll<HTMLElement>('.pass')) {
-      chip.classList.toggle('at', chip.dataset.n === String(n));
-    }
-  }
-
-  /**
-   * One chip per pass, in the order they were played, coloured against the
-   * same line the dials use. The question a sitting asks is whether it got
-   * better, and a row of numbers answers it in one look where a single
-   * reading cannot. Clicking one, once the loop has stopped, puts that pass
-   * on the staff.
-   */
-  private drawPasses(take: LoopTake | undefined) {
-    const el = this.el.passes;
-    el.replaceChildren();
-    const list = take?.passes ?? [];
-    el.hidden = list.length === 0;
-    for (const pass of list) {
-      const chip = document.createElement('button');
-      const accuracy = pass.result.grade.accuracy;
-      chip.className = `pass ${!pass.complete ? 'part' : accuracy >= PASS ? 'good' : 'bad'}`;
-      chip.dataset.n = String(pass.n);
-      chip.textContent = pass.complete ? pct(accuracy) : '–';
-      chip.title = pass.complete
-        ? `Pass ${pass.n} at ${pct(pass.tempo)}: ${pass.result.grade.hit} of ` +
-          `${pass.result.grade.expected} notes, ±${pass.result.grade.timing.overall.sdMs} ms`
-        : `Pass ${pass.n}: stopped part way`;
-      chip.addEventListener('click', () => {
-        chip.blur();
-        // While the loop goes round, colouring the staff would stall it.
-        if (take && !this.loopTake) this.showPass(take, pass.n);
+    if (shown && grid && this.loaded === take.song) {
+      const last = shown === take.passes.at(-1);
+      this.result = shown.result;
+      this.heatmap.show(shown.result, grid);
+      this.showCard({
+        result: shown.result,
+        range: take.range,
+        title: !shown.complete
+          ? `Pass ${shown.n}, stopped part way`
+          : last
+            ? `Pass ${shown.n}, just played`
+            : `Pass ${shown.n}, the last one played through`,
       });
-      el.appendChild(chip);
     }
+    const partial = take.passes.length > 0 && !take.passes.some((p) => p.complete);
+    this.onStatus(partial ? 'No pass reached its end: the one you stopped is written to takes/ as unfinished.' : '');
+    this.showTarget();
+    this.paintCardRec();
   }
 
   private async finish(rec: Run, events: TakeEvent[], complete: boolean) {
@@ -808,9 +813,11 @@ export class Practice {
     this.result = result;
 
     this.heatmap.show(result, grid);
-    this.reportRange = { startBar: rec.startBar, endBar: rec.endBar };
-    this.drawReport(result);
-    this.el.report.hidden = false;
+    this.showCard({
+      result,
+      range: { startBar: rec.startBar, endBar: rec.endBar },
+      title: complete ? 'Whole song, just played' : 'Whole song, stopped part way',
+    });
 
     const take: Take = {
       version: 1,
@@ -836,23 +843,26 @@ export class Practice {
       name = await writeTake(song.slug, take);
     } catch (err) {
       this.onStatus(`Take not written: ${(err as Error).message}`, true);
+      return;
     }
 
     const g = result.grade;
+    console.info(
+      `[drums] take ${name}: ${g.hit}/${g.expected} notes, ${g.missed} missed, ${g.extra} extra; ` +
+        `mean ${signed(g.timing.overall.meanMs)} ms, spread ±${g.timing.overall.sdMs} ms`
+    );
+    // The status line only for what the card cannot say: something to do
+    // outside the page.
     const drift = this.calibration ? Math.abs(g.timing.overall.meanMs) : 0;
     this.onStatus(
       [
-        complete ? 'Take complete.' : 'Take stopped early.',
-        `${g.hit}/${g.expected} notes, ${g.missed} missed, ${g.extra} extra.`,
-        `Mean ${signed(g.timing.overall.meanMs)} ms, spread ±${g.timing.overall.sdMs} ms.`,
-        name ? `Written to takes/${name}.` : '',
         // Q9: a mean that has walked away from the stored calibration usually
         // means the audio path changed, not that you started rushing.
         drift > DRIFT_MS
-          ? `The mean has drifted ${Math.round(drift)} ms from the calibration -- worth re-running it.`
+          ? `The timing has drifted ${Math.round(drift)} ms from the calibration: worth calibrating again (Settings › Kit).`
           : '',
         g.unmappedNotes.length
-          ? `Unmapped module notes: ${g.unmappedNotes.join(', ')} (add them to kit.toml [input.note]).`
+          ? `The kit sent notes ${g.unmappedNotes.join(', ')}, which kit.toml [input.note] does not name.`
           : '',
       ]
         .filter(Boolean)
@@ -860,16 +870,38 @@ export class Practice {
     );
   }
 
-  // --- the reading --------------------------------------------------------------------
+  // --- the reading card ----------------------------------------------------------------
+
+  /** Whether the card is up and can be put away (Esc, or its close): not while recording. */
+  get dismissible(): boolean {
+    return !!this.reading && !this.run && !this.loopTake;
+  }
+
+  /** Put the reading away: the card, and the colours on the noteheads with it. */
+  dismiss() {
+    if (!this.dismissible) return;
+    this.heatmap.clear();
+    this.result = undefined;
+    this.hideCard();
+  }
+
+  private hideCard() {
+    const was = !!this.reading;
+    this.reading = undefined;
+    this.el.card.hidden = true;
+    this.el.app.removeAttribute('data-reading');
+    if (was) this.el.relaid();
+  }
 
   /**
-   * What the take says, in the order you want to know it.
+   * What the take says, in the order you want to know it (Lamp-12).
    *
-   * Three dials, then a map of the bars, then the numbers folded away. What
-   * this replaced put twenty-four numbers on the screen and never said whether
-   * the take was good or what to go and play again -- all true, and unreadable.
+   * Three readings, then a map of the bars, then one sentence. What this
+   * replaced put twenty-four numbers on the screen and never said whether the
+   * take was good or what to go and play again -- all true, and unreadable.
+   * The numbers behind it are in the card's tooltip and the console.
    *
-   * The rule: **each dial answers exactly one question, and they are never
+   * The rule: **each reading answers exactly one question, and they are never
    * blended into a single score.**
    *
    *   Notes   did you play the right things?   accuracy
@@ -881,117 +913,111 @@ export class Practice {
    * is the playing, and one number averaging them would send you off to
    * practise a problem you do not have.
    */
-  private drawReport(result: GradeResult, pass?: { n: number; of?: number }) {
+  private showCard(reading: Reading) {
+    const was = !!this.reading;
+    this.reading = reading;
+    const { result, range, title } = reading;
     const g = result.grade;
-    const el = this.el.report;
-    el.replaceChildren();
+    const c = this.cardEl;
+    this.el.card.setAttribute('aria-label', `The reading: ${title}`);
+    c.title.textContent = title;
 
-    const dials = document.createElement('div');
-    dials.className = 'dials';
-    dials.append(
-      dial({
-        label: 'Notes',
-        big: `${Math.round(g.accuracy * 100)}%`,
-        // Which pass, because after a loop the staff shows one of many and a
-        // reading that did not say which would be a reading of nothing.
-        sub: pass
-          ? `pass ${pass.n}${pass.of ? ` of ${pass.of}` : ''} · ${g.hit} of ${g.expected}`
-          : `${g.hit} of ${g.expected}`,
-        tone: g.accuracy >= PASS ? 'good' : 'bad',
-        title:
-          `${g.hit} of ${g.expected} written notes landed on the right drum. ` +
-          `${g.missed} missed, ${g.wrongVoice} on the wrong drum, ${g.extra} nobody wrote` +
-          (g.flam ? `, ${g.flam} bounce${g.flam > 1 ? 's' : ''}` : '') +
-          '. Extras are counted but never taken off this number.',
-      }),
-      dial({
-        label: 'Steady',
-        big: `±${g.timing.overall.sdMs} ms`,
-        sub: steadiness(g.timing.overall.sdMs),
-        tone: toneOf(g.timing.overall.sdMs),
-        title:
-          'How much your timing wandered over the take. This is the dial that is ' +
-          'the playing: it is what practice actually moves, and no calibration can ' +
-          'flatter it.',
-      }),
-      this.feelDial(g.timing.overall.meanMs)
+    // Down, never up: 99.6% with a note missed is not 100%.
+    c.notes.textContent = `${Math.floor(g.accuracy * 100)}%`;
+    c.notesBox.title =
+      `${g.hit} of ${g.expected} written notes landed on the right drum. ` +
+      `${g.missed} missed, ${g.wrongVoice} on the wrong drum, ${g.extra} nobody wrote` +
+      (g.flam ? `, ${g.flam} bounce${g.flam > 1 ? 's' : ''}` : '') +
+      '. Extras are counted but never taken off this number.';
+
+    const sd = g.timing.overall.sdMs;
+    c.steady.textContent = steadiness(sd);
+    c.steadySub.textContent = `±${sd} ms`;
+    c.steadyBox.title =
+      'How much your timing wandered over the take. This is the reading that is the playing: ' +
+      'it is what practice actually moves, and no calibration can flatter it.';
+
+    const mean = g.timing.overall.meanMs;
+    c.feel.textContent = placement(mean);
+    // Clamped, because a wild take should peg the needle rather than quietly
+    // rescale the dial. Ahead on the left, behind on the right.
+    const at = Math.max(-1, Math.min(1, mean / NEEDLE_MS));
+    c.needle.style.left = `${50 + at * 50}%`;
+    const floor = this.loaded?.referenceMs ?? 0;
+    c.feelBox.setAttribute(
+      'aria-label',
+      `Feel: ${placement(mean)}, ${Math.abs(mean)} ms ${mean > 0 ? 'behind' : mean < 0 ? 'ahead of' : 'on'} the record`
     );
-    el.appendChild(dials);
+    c.feelBox.title =
+      `${signed(mean)} ms against ${floor === 0 ? 'the written grid' : "the record's own feel"}. ` +
+      referenceNote(this.loaded?.reference, this.loaded?.chartHash ?? '') +
+      ' A steady offset is the audio path or your feel, not your accuracy -- Steady is the one to practise against.';
 
-    const range = this.reportRange;
-    if (range) el.appendChild(this.drawStrip(g, range));
+    this.drawStrip(g, range);
 
-    // The one actionable sentence, in words rather than as a ranked table.
-    const worst = g.worstBars.filter((b) => b.wrong > 0 || b.rmsMs > LOOSE_MS).slice(0, 3);
-    if (worst.length) {
-      const p = document.createElement('p');
-      p.className = 'again';
-      const bars = worst.map((b) => String(b.bar));
-      p.textContent = `Go again at bar${bars.length > 1 ? 's' : ''} ${list(bars)}.`;
-      el.appendChild(p);
-    }
+    // The one thing to do next, in words rather than as a ranked table.
+    const worst = g.worstBars
+      .filter((b) => b.wrong > 0 || b.rmsMs > LOOSE_MS)
+      .slice(0, 3)
+      .map((b) => b.bar)
+      .sort((a, b) => a - b);
+    c.again.textContent = worst.length
+      ? `Go again at bar${worst.length > 1 ? 's' : ''} ${list(worst.map(String))}.`
+      : 'Every bar as written.';
 
-    el.appendChild(drawDetails(g));
+    this.el.card.title = numbersSaid(g);
+    this.el.card.hidden = false;
+    this.el.app.setAttribute('data-reading', 'on');
+    this.paintCardRec();
+    // The words were fitted to their room at the size they were drawn in.
+    for (const big of [c.steady, c.feel]) fitWord(big);
+    if (!was) this.el.relaid();
   }
 
-  /** Where you sit, as a needle rather than a number you have to interpret. */
-  private feelDial(meanMs: number): HTMLElement {
-    const floor = this.loaded?.referenceMs ?? 0;
-    const against = floor === 0 ? 'the written grid' : "the record's own feel";
-    const node = dial({
-      label: 'Feel',
-      big: placement(meanMs),
-      sub: `${signed(meanMs)} ms`,
-      tone: toneOf(meanMs),
-      title:
-        `Where you sat against ${against}. ` +
-        referenceNote(this.loaded?.reference, this.loaded?.chartHash ?? '') +
-        ' A steady offset is the audio path or your feel, not your accuracy -- ' +
-        'Steady is the dial to practise against.',
-    });
-    // A track with a centre mark and a marker on it. Clamped, because a wild
-    // take should peg the needle rather than quietly rescale the dial.
-    const track = document.createElement('span');
-    track.className = 'needle';
-    const mark = document.createElement('i');
-    const at = Math.max(-1, Math.min(1, meanMs / NEEDLE_MS));
-    mark.style.left = `${50 + at * 50}%`;
-    track.appendChild(mark);
-    node.insertBefore(track, node.querySelector('.sub'));
-    return node;
+  /** "recording" on the card while the loop is still going round; the close once it is not. */
+  private paintCardRec() {
+    const recording = !!this.run || !!this.loopTake;
+    this.cardEl.rec.hidden = !recording;
+    this.cardEl.close.hidden = recording;
   }
 
   /**
    * One block per bar of the take: a map of where it went wrong.
    *
-   * Colour is accuracy, the same question the noteheads answer, because a strip
-   * speaking a second colour vocabulary would be a second thing to learn. How
-   * tight each bar was is in its tooltip, and clicking a block puts the cursor
-   * on that bar so you can play it again straight away.
+   * In the noteheads' own two colours, played and missed, because a strip
+   * speaking a second colour vocabulary would be a second thing to learn. A
+   * bar is played when every note in it landed on the right drum and nothing
+   * else was struck; how tight it was is in its tooltip. Clicking a block puts
+   * the cursor on that bar so you can play it again straight away. A whole
+   * song is too many bars for numbers, so its blocks close up into a strip
+   * without them (`data-dense`) and the sentence names the bars.
    */
-  private drawStrip(g: Grade, range: { startBar: number; endBar: number }): HTMLElement {
-    const wrap = document.createElement('div');
-    wrap.className = 'strip';
+  private drawStrip(g: Grade, range: { startBar: number; endBar: number }) {
+    const wrap = this.cardEl.strip;
+    wrap.replaceChildren();
     const byBar = new Map(g.bars.map((b) => [b.bar, b]));
+    const n = range.endBar - range.startBar + 1;
+    wrap.style.setProperty('--bars', String(n));
+    wrap.toggleAttribute('data-dense', n > 16);
     for (let bar = range.startBar; bar <= range.endBar; bar++) {
       const b = byBar.get(bar);
-      // A bar with nothing written in it is neither good nor bad.
+      // A bar with nothing written in it and nothing struck is neither.
       const empty = !b || (b.expected === 0 && b.wrong === 0);
-      const accuracy = b && b.expected > 0 ? b.hit / b.expected : 1;
       const block = document.createElement('button');
-      block.className = `bar ${
-        empty ? 'none' : accuracy >= PASS && b.wrong === 0 ? 'good' : accuracy >= 0.5 ? 'ok' : 'bad'
-      }`;
+      block.className = 'rd-bar';
+      block.dataset.verdict = empty ? 'none' : b.hit === b.expected && b.wrong === 0 ? 'played' : 'missed';
       block.textContent = String(bar);
       block.title = empty
-        ? `Bar ${bar} -- nothing written here`
-        : `Bar ${bar} -- ${b.hit}/${b.expected} notes` +
+        ? `Bar ${bar}: nothing written here`
+        : `Bar ${bar}: ${b.hit} of ${b.expected} notes` +
           (b.wrong ? `, ${b.wrong} wrong` : '') +
           (b.rmsMs ? ` · ±${b.rmsMs} ms` : '');
-      block.addEventListener('click', () => this.seekToBar(bar));
+      block.addEventListener('click', (e) => {
+        this.seekToBar(bar);
+        if (e.detail > 0) block.blur();
+      });
       wrap.appendChild(block);
     }
-    return wrap;
   }
 
   /** Put the cursor on a bar, the way the player's own arrow keys do. */
@@ -1002,102 +1028,139 @@ export class Practice {
   }
 }
 
-/** The label, the number, and a word saying what the number means. */
-function dial(spec: {
-  label: string;
-  big: string;
-  sub: string;
-  tone: Tone;
+/** A take's reading, as the card shows it. */
+interface Reading {
+  result: GradeResult;
+  range: { startBar: number; endBar: number };
+  /** "Pass 2, just played", "Whole song, just played". */
   title: string;
-}): HTMLElement {
-  const box = document.createElement('div');
-  box.className = `dial ${spec.tone}`;
-  box.title = spec.title;
-  const label = document.createElement('span');
-  label.className = 'label';
-  label.textContent = spec.label;
-  const big = document.createElement('b');
-  big.className = 'big';
-  big.textContent = spec.big;
-  const sub = document.createElement('span');
-  sub.className = 'sub';
-  sub.textContent = spec.sub;
-  box.append(label, big, sub);
-  return box;
 }
 
-/** The numbers the dials summarise, for the days you want them. Shut by default. */
-function drawDetails(g: Grade): HTMLElement {
-  const details = document.createElement('details');
-  const summary = document.createElement('summary');
-  summary.textContent = 'the numbers';
-  details.appendChild(summary);
+/** The card's parts, built once (`buildCard`) and filled on every reading. */
+interface CardParts {
+  title: HTMLElement;
+  rec: HTMLElement;
+  close: HTMLButtonElement;
+  notesBox: HTMLElement;
+  notes: HTMLElement;
+  steadyBox: HTMLElement;
+  steady: HTMLElement;
+  steadySub: HTMLElement;
+  feelBox: HTMLElement;
+  feel: HTMLElement;
+  needle: HTMLElement;
+  strip: HTMLElement;
+  again: HTMLElement;
+}
 
-  const table = document.createElement('table');
-  table.appendChild(row('th', ['Limb', 'Notes', 'Mean', 'Spread', 'Median', 'Worst']));
+/**
+ * The reading card's insides (Lamp-12): "Pass 2, just played", the three
+ * readings, the bar strip, the sentence.
+ */
+function buildCard(card: HTMLElement, onClose: () => void): CardParts {
+  const make = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = '') => {
+    const el = document.createElement(tag);
+    el.className = cls;
+    if (text) el.textContent = text;
+    return el;
+  };
+  const head = make('div', 'rd-head');
+  const title = make('span', 'rd-title');
+  const rec = make('span', 'rd-rec');
+  rec.append(make('i', 'rd-dot'), 'recording');
+  const close = make('button', 'rd-close');
+  close.setAttribute('aria-label', 'Put the reading away (Esc)');
+  close.title = 'Put the reading away (Esc)';
+  close.innerHTML =
+    '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  close.addEventListener('click', onClose);
+  head.append(title, rec, close);
+
+  const reading = (label: string) => {
+    const box = make('div', 'rd-dial');
+    const big = make('b', 'rd-big');
+    box.append(make('span', 'rd-label', label), big);
+    return { box, big };
+  };
+  const notes = reading('Notes');
+  notes.box.append(make('span', 'rd-sub', "of what's written"));
+  const steady = reading('Steady');
+  const steadySub = make('span', 'rd-sub');
+  steady.box.append(steadySub);
+  const feel = reading('Feel');
+  feel.box.setAttribute('role', 'img');
+  const track = make('span', 'rd-needle');
+  const needle = make('i', '');
+  track.appendChild(needle);
+  const ends = make('span', 'rd-ends');
+  ends.append(make('span', '', 'ahead'), make('span', '', 'behind'));
+  feel.box.append(track, ends);
+  const dials = make('div', 'rd-dials');
+  dials.append(notes.box, steady.box, feel.box);
+
+  const strip = make('div', 'rd-strip');
+  const again = make('p', 'rd-again');
+  card.replaceChildren(head, dials, strip, again);
+  return {
+    title,
+    rec,
+    close,
+    notesBox: notes.box,
+    notes: notes.big,
+    steadyBox: steady.box,
+    steady: steady.big,
+    steadySub,
+    feelBox: feel.box,
+    feel: feel.big,
+    needle,
+    strip,
+    again,
+  };
+}
+
+/** A word too long for its column at 60 px comes down a size, rather than being cut. */
+function fitWord(el: HTMLElement) {
+  delete el.dataset.small;
+  if (el.scrollWidth > el.clientWidth + 1) el.dataset.small = '1';
+}
+
+/** The numbers the card sums up, per limb, for its tooltip: there, not on the screen. */
+function numbersSaid(g: Grade): string {
+  const lines = [
+    `${g.hit} of ${g.expected} notes · ${g.missed} missed · ${g.wrongVoice} on the wrong drum · ${g.extra} extra`,
+    `Mean ${signed(g.timing.overall.meanMs)} ms, spread ±${g.timing.overall.sdMs} ms`,
+  ];
   const limbs = Object.entries(g.timing.perLimb) as [Limb, Timing][];
   for (const [limb, t] of limbs.sort((a, b) => b[1].n - a[1].n)) {
-    table.appendChild(
-      row('td', [
-        LIMB_NAMES[limb] ?? limb,
-        String(t.n),
-        `${signed(t.meanMs)} ms`,
-        `± ${t.sdMs} ms`,
-        `${signed(t.medianMs)} ms`,
-        `${t.maxAbsMs} ms`,
-      ])
+    lines.push(
+      `${LIMB_NAMES[limb] ?? limb}: ${t.n} notes, mean ${signed(t.meanMs)} ms, spread ±${t.sdMs} ms, worst ${t.maxAbsMs} ms`
     );
   }
-  details.appendChild(table);
-
-  const notes: string[] = [];
   // Not a mistake, but not nothing either: a groove full of these usually means
   // the module's hi-hat threshold is not where your foot thinks it is.
   if (g.sameDrum > 0) {
-    notes.push(
-      `${g.sameDrum} hit${g.sameDrum > 1 ? 's' : ''} landed on the same drum in its other ` +
-        'state (an open hat where a closed one is written). Counted as hits.'
-    );
+    lines.push(`${g.sameDrum} on the same drum in its other state (an open hat for a closed one), counted as played`);
   }
-  if (g.unmappedNotes.length) {
-    notes.push(
-      `Unmapped module notes: ${g.unmappedNotes.join(', ')} (add them to kit.toml [input.note]).`
-    );
-  }
-  for (const text of notes) {
-    const p = document.createElement('p');
-    p.className = 'note';
-    p.textContent = text;
-    details.appendChild(p);
-  }
-  return details;
+  if (g.unmappedNotes.length) lines.push(`Unmapped module notes: ${g.unmappedNotes.join(', ')}`);
+  return lines.join('\n');
 }
 
-type Tone = 'good' | 'ok' | 'bad';
-
 /**
- * Milliseconds to a verdict.
- *
- * Two thresholds, used for both spread and offset, because the ear does not
- * have separate opinions about them: inside `TIGHT_MS` nobody hears it, beyond
- * `LOOSE_MS` everybody does.
+ * A word for a spread, so the reading needs no knowing what 14 ms means. Short,
+ * because it is read at 60 px from the throne.
  */
-const toneOf = (ms: number): Tone =>
-  Math.abs(ms) <= TIGHT_MS ? 'good' : Math.abs(ms) <= LOOSE_MS ? 'ok' : 'bad';
-
-/** A word for a spread, so the dial reads without knowing what 14 ms means. */
 function steadiness(sdMs: number): string {
-  if (sdMs <= 8) return 'rock solid';
+  if (sdMs <= 8) return 'solid';
   if (sdMs <= TIGHT_MS) return 'tight';
-  if (sdMs <= LOOSE_MS) return 'a bit loose';
+  if (sdMs <= LOOSE_MS) return 'loose';
   return 'all over';
 }
 
 /** A word for an offset. Sign matters, so it is never dropped or abs()ed away. */
 function placement(meanMs: number): string {
-  if (Math.abs(meanMs) <= TIGHT_MS) return 'right on it';
+  if (Math.abs(meanMs) <= TIGHT_MS) return 'on it';
   const late = meanMs > 0;
-  if (Math.abs(meanMs) <= LOOSE_MS) return late ? 'a touch behind' : 'a touch ahead';
+  if (Math.abs(meanMs) <= LOOSE_MS) return late ? 'behind' : 'ahead';
   return late ? 'dragging' : 'rushing';
 }
 
@@ -1107,22 +1170,23 @@ const list = (items: string[]): string =>
     ? (items[0] ?? '')
     : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 
-function row(cell: 'th' | 'td', values: string[]): HTMLTableRowElement {
-  const tr = document.createElement('tr');
-  values.forEach((value, i) => {
-    const td = document.createElement(cell);
-    td.textContent = value;
-    if (i > 0) td.className = 'num';
-    tr.appendChild(td);
-  });
-  return tr;
-}
-
 /** `+12` / `-12` / `0`: the sign is the whole point, so it is never dropped. */
 const signed = (ms: number) => (ms > 0 ? `+${ms}` : String(ms));
 
-/** `0.95` -> `95%`. */
-const pct = (share: number) => `${Math.round(share * 100)}%`;
+/**
+ * The calibration in a sentence (Lamp-10): "Calibrated on 14 September:
+ * through this setup you sound 23 ms late, and the scoring takes that off."
+ */
+export function calibrationSaid(c: Calibration | undefined): string {
+  if (!c) return 'Not calibrated: takes are scored with no allowance for how late this setup sounds.';
+  const when = new Date(c.measuredAt);
+  const on = Number.isNaN(when.getTime())
+    ? ''
+    : ` on ${when.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}`;
+  const ms = Math.round(Math.abs(c.offsetMs));
+  const how = ms === 0 ? 'right on the click' : `${ms} ms ${c.offsetMs > 0 ? 'late' : 'early'}`;
+  return `Calibrated${on}: through this setup you sound ${how}, and the scoring takes that off.`;
+}
 
 /** Everything practice mode needs about a song, read once when it loads. */
 export async function readPracticeSong(

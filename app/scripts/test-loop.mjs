@@ -11,6 +11,8 @@ import {
   checkRange,
   normaliseRamp,
   rampAfterPass,
+  rampLadder,
+  rampNext,
   rampSays,
   rangeLabel,
   rangeName,
@@ -119,8 +121,10 @@ test('the ramp says where it is', () => {
   const ramp = normaliseRamp({ on: true, from: 70, step: 5, every: 2, to: 100 });
   assert.equal(rampSays(ramp), '70% → 100%, +5% every 2 passes');
   assert.equal(rampSays(ramp, { tempo: 80, counted: 1, marked: false }), '80% → 100%, next step after this pass');
-  assert.equal(rampSays(ramp, { tempo: 80, counted: 0, marked: false }), '80% → 100%, next step after 2 more passes');
-  assert.equal(rampSays(ramp, { tempo: 100, counted: 0, marked: false }), '100%, the top of the ramp');
+  assert.equal(rampSays(ramp, { tempo: 80, counted: 0, marked: false }), '80% → 100%, next step after 2 passes');
+  assert.equal(rampSays(ramp, { tempo: 100, counted: 0, marked: false }), '100%, ramp done: full speed');
+  const short = normaliseRamp({ on: true, from: 70, step: 5, every: 2, to: 90 });
+  assert.equal(rampNext(short, { tempo: 90, counted: 0, marked: false }), 'ramp done: 90%');
   const gated = normaliseRamp({ on: true, from: 70, step: 5, every: 1, to: 100, gate: true });
   assert.equal(rampSays(gated), '70% → 100%, +5% every pass of 90% or better');
   assert.equal(
@@ -129,6 +133,26 @@ test('the ramp says where it is', () => {
   );
   // The gate only means something while Record is marking.
   assert.equal(rampSays(gated, { tempo: 75, counted: 0, marked: false }), '75% → 100%, next step after this pass');
+});
+
+test('the ladder: done, now, next, later', () => {
+  const ramp = normaliseRamp({ on: true, from: 70, step: 5, every: 1, to: 100 });
+  const say = (rungs) => rungs.map((r) => `${r.tempo}${{ done: '-', now: '*', next: '>', later: '' }[r.state]}`).join(' ');
+  // Lamp-04: at 80%.
+  assert.equal(say(rampLadder(ramp, 80)), '70- 75- 80* 85> 90 95 100');
+  assert.equal(say(rampLadder(ramp, 70)), '70* 75> 80 85 90 95 100');
+  assert.equal(say(rampLadder(ramp, 100)), '70- 75- 80- 85- 90- 95- 100*');
+  // A step that does not land on the top still ends there.
+  const odd = normaliseRamp({ on: true, from: 70, step: 20, every: 1, to: 100 });
+  assert.equal(say(rampLadder(odd, 70)), '70* 90> 100');
+  // Nudged by hand between two rungs: none is now, the next one up is next.
+  const tens = normaliseRamp({ on: true, from: 60, step: 10, every: 1, to: 100 });
+  assert.equal(say(rampLadder(tens, 75)), '60- 70- 80> 90 100');
+  // A long ramp: seven rungs around where it is, two climbed.
+  const long = normaliseRamp({ on: true, from: 50, step: 5, every: 1, to: 100 });
+  assert.equal(say(rampLadder(long, 50)), '50* 55> 60 65 70 75 80');
+  assert.equal(say(rampLadder(long, 75)), '65- 70- 75* 80> 85 90 95');
+  assert.equal(say(rampLadder(long, 100)), '70- 75- 80- 85- 90- 95- 100*');
 });
 
 test('a paused transport is in the bar whose start it is not before', () => {

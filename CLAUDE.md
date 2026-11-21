@@ -36,7 +36,9 @@ Keep these current as part of the work, not afterwards.
   interviews for milestones, some still unbuilt. Not status. Do not edit their
   Q&A rounds to match today; they are a record of what was decided and why.
 - **`design/claude-design-prompt.md`** is the brief for the interface redesign,
-  with screenshots of the page before it in `design/now/`.
+  with screenshots of the page before it in `design/now/`. The picked design,
+  Lamp, is in `design/lamp/`; its spec sheet is the source for every size and
+  colour.
 
 ## The screen is two metres away
 

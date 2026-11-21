@@ -65,3 +65,42 @@ def test_extract_video_id_handles_every_url_shape(url):
 def test_slugs_are_not_mistaken_for_video_ids(text):
     """Commands accept a slug or a URL, so this is the discriminator."""
     assert extract_video_id(text) is None
+
+
+def _info(uploader="Official Arctic Monkeys", title="Arctic Monkeys - One For The Road (Official Video)"):
+    from pipeline.fetch import VideoInfo
+
+    return VideoInfo(video_id="qN7gSMPQFss", title=title, uploader=uploader, duration=206.0)
+
+
+def test_a_new_song_is_named_from_the_channel_and_the_whole_title():
+    from pipeline.fetch import song_toml
+
+    toml = song_toml("https://youtu.be/qN7gSMPQFss", _info(), {})
+    assert toml["song"] == {
+        "artist": "Official Arctic Monkeys",
+        "title": "Arctic Monkeys - One For The Road (Official Video)",
+    }
+    # [song] first: it is the part of the file the user edits.
+    assert next(iter(toml)) == "song"
+    assert toml["source"]["uploader"] == "Official Arctic Monkeys"
+
+
+def test_a_refetch_keeps_the_names_the_user_shortened():
+    from pipeline.fetch import song_toml
+
+    kept = {"song": {"artist": "Arctic Monkeys", "title": "One For The Road"}}
+    toml = song_toml("https://youtu.be/qN7gSMPQFss", _info(), kept)
+    assert toml["song"] == {"artist": "Arctic Monkeys", "title": "One For The Road"}
+
+
+def test_the_names_round_trip_through_song_toml(tmp_path):
+    import tomllib
+
+    from pipeline import paths
+    from pipeline.fetch import song_toml
+
+    path = tmp_path / "song.toml"
+    paths.write_toml(path, song_toml("u", _info(uploader="Blur", title='Blur - "Song 2"'), {}))
+    with path.open("rb") as handle:
+        assert tomllib.load(handle)["song"] == {"artist": "Blur", "title": 'Blur - "Song 2"'}

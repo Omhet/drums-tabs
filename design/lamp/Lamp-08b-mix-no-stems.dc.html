@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lamp: the mix for a song without stems</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@200..800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="position: relative; width: 900px; height: 560px; overflow: hidden; background: #14110d; color: #efe4d0; font-family: 'Atkinson Hyperlegible Next', 'Segoe UI', sans-serif">
+  <section aria-label="Mix, song without stems" style="position: absolute; left: 0; top: 0; width: 900px; height: 560px; box-sizing: border-box; padding: 24px 30px; border-radius: 14px; background: #1f1a15; box-shadow: inset 0 0 0 1px #4a3f32">
+    <div style="font-size: 44px; font-weight: 700; line-height: 1">Mix</div>
+
+    <div style="margin-top: 22px; display: grid; grid-template-columns: 260px 180px minmax(0, 1fr) 70px; gap: 18px; align-items: center; padding: 14px 0; border-top: 1px solid #3a3128">
+      <div><div style="font-size: 40px; font-weight: 700; line-height: 1">Record</div><div style="margin-top: 8px; font-size: 24px; line-height: 1.2; color: #a6977f">band and drums together</div></div>
+      <button style="height: 76px; border-radius: 38px; border: 1px solid #4a3f32; background: #2a231c; color: #efe4d0; font: 700 32px/1 'Atkinson Hyperlegible Next', sans-serif">On</button>
+      <input type="range" aria-label="Record level" min="0" max="100" value="80" style="width: 100%; accent-color: #e3a94e">
+      <div style="font-size: 30px; text-align: right; color: #a6977f">80%</div>
+    </div>
+    <div style="padding: 14px 18px; border-radius: 10px; background: #2a231c; font-size: 32px; line-height: 1.3">This song's stems haven't been separated, so it plays the full record: its drummer can't be muted yet.</div>
+
+    <div style="margin-top: 14px; display: grid; grid-template-columns: 260px 180px minmax(0, 1fr) 70px; gap: 18px; align-items: center; padding: 14px 0; border-top: 1px solid #3a3128">
+      <div><div style="font-size: 40px; font-weight: 700; line-height: 1">Click</div><div style="margin-top: 8px; font-size: 24px; line-height: 1.2; color: #a6977f">follows the drummer's beats</div></div>
+      <button style="height: 76px; border-radius: 38px; border: 1px solid #4a3f32; background: #2a231c; color: #efe4d0; font: 700 32px/1 'Atkinson Hyperlegible Next', sans-serif">On</button>
+      <input type="range" aria-label="Click level" min="0" max="100" value="60" style="width: 100%; accent-color: #e3a94e">
+      <div style="font-size: 30px; text-align: right; color: #a6977f">60%</div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":900,"height":560}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

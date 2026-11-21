@@ -23,6 +23,7 @@ import { slotToMixMs, SLOTS_PER_BEAT, type ExpectedNote } from './chart';
 import { ARTICULATION } from './midi-tab';
 import type { ExtraVerdict, GradeResult, NoteVerdict } from './grade';
 import type { Grid } from './syncpoints';
+import { tokenRgb, type Rgb } from './tokens';
 
 /** alphaTab counts 960 ticks to a quarter note, so a sixteenth is 240. */
 const TICKS_PER_SLOT = 240;
@@ -34,7 +35,6 @@ const TICKS_PER_SLOT = 240;
  */
 const GAP_PX = 15;
 
-type Rgb = [number, number, number];
 
 /**
  * One colour per verdict, and deliberately only three.
@@ -50,23 +50,18 @@ interface Palette {
   hit: Rgb;
   missed: Rgb;
   wrongVoice: Rgb;
-  extra: Rgb;
 }
 
-const LIGHT: Palette = {
-  hit: [32, 140, 78],
-  missed: [200, 45, 40],
-  wrongVoice: [140, 70, 180],
-  extra: [200, 45, 40],
-};
-const DARK: Palette = {
-  hit: [80, 200, 130],
-  missed: [245, 110, 100],
-  wrongVoice: [195, 140, 235],
-  extra: [245, 110, 100],
-};
-
-export const heatmapPalette = (dark: boolean): Palette => (dark ? DARK : LIGHT);
+/**
+ * The verdict colours, from the stylesheet's --verdict-* tokens -- which the
+ * paper's theme (data-tab-theme) sets, since noteheads are ink on the paper.
+ * Read at the moment of drawing, so a theme switch is a re-read and a redraw.
+ */
+export const heatmapPalette = (): Palette => ({
+  hit: tokenRgb('--verdict-played'),
+  missed: tokenRgb('--verdict-missed'),
+  wrongVoice: tokenRgb('--verdict-wrong'),
+});
 
 /** What a verdict is drawn as, and what the legend calls it. */
 export function verdictColour(verdict: NoteVerdict, palette: Palette): Rgb {
@@ -89,7 +84,6 @@ export class Heatmap {
   /** Mix time -> x, from the last render, for placing the extras lane. */
   private ruler: { tMs: number; x: number; top: number }[] = [];
   private grid: Grid | undefined;
-  private dark = false;
 
   constructor(
     private readonly api: alphaTab.AlphaTabApi,
@@ -107,15 +101,11 @@ export class Heatmap {
     return this.styled.length > 0 || this.extras.length > 0;
   }
 
-  setTheme(dark: boolean) {
-    this.dark = dark;
-  }
-
   /** Colour a graded take onto the score. Re-renders once. */
   show(result: GradeResult, grid: Grid) {
     this.grid = grid;
     this.clearStyles();
-    const palette = heatmapPalette(this.dark);
+    const palette = heatmapPalette();
     const byAddress = this.resolve();
     let first = Infinity;
     for (const verdict of result.notes) {

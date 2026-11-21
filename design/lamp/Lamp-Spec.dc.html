@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lamp spec sheet</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@200..800&amp;family=Atkinson+Hyperlegible+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#e3a94e}a:hover{color:#f0c47a}
+</style>
+</helmet>
+<div style="position: relative; width: 2194px; height: 2700px; overflow: hidden; background: #14110d; color: #efe4d0; font-family: 'Atkinson Hyperlegible Next', 'Segoe UI', sans-serif; font-size: 24px; line-height: 1.35">
+
+  <div style="position: absolute; left: 60px; top: 50px; right: 60px">
+    <div style="font-size: 64px; font-weight: 700; line-height: 1">Lamp: spec sheet</div>
+    <div style="margin-top: 16px; font-size: 28px; color: #a6977f">One face, Atkinson Hyperlegible Next, made for telling letters apart at a distance. Sizes are CSS px at 2194 × 1100 (31.5" 4K at 175%), read from 2 m, where 1 px ≈ 0.32 mm.</div>
+  </div>
+
+  <section aria-label="Type scale" style="position: absolute; left: 60px; top: 220px; width: 1000px">
+    <div style="font-size: 36px; font-weight: 700; line-height: 1; margin-bottom: 20px">Type scale</div>
+    <div style="display: grid; grid-template-columns: 300px 180px minmax(0, 1fr); gap: 14px 20px; align-items: baseline">
+      <span style="color: #a6977f">--type-tempo</span><span style="color: #a6977f">176 / 600</span><span style="font-size: 120px; font-weight: 600; line-height: 1">80%</span>
+      <span style="color: #a6977f">--type-countin</span><span style="color: #a6977f">160 / 700</span><span style="font-size: 96px; font-weight: 700; line-height: 1">1 2 3 4</span>
+      <span style="color: #a6977f">--type-section</span><span style="color: #a6977f">120 / 700</span><span style="font-size: 96px; font-weight: 700; line-height: 1">chorus</span>
+      <span style="color: #a6977f">--type-glance</span><span style="color: #a6977f">64 / 700</span><span style="font-size: 64px; font-weight: 700; line-height: 1">bar 11 · pass 3</span>
+      <span style="color: #a6977f">--type-title</span><span style="color: #a6977f">44 / 700</span><span style="font-size: 44px; font-weight: 700; line-height: 1">Mix</span>
+      <span style="color: #a6977f">--type-read</span><span style="color: #a6977f">32–36 / 400–700</span><span style="font-size: 34px; line-height: 1">section names, buttons, messages</span>
+      <span style="color: #a6977f">--type-label</span><span style="color: #a6977f">26 / 400</span><span style="font-size: 26px; line-height: 1">settings and other between-songs text</span>
+      <span style="color: #a6977f">--type-caption</span><span style="color: #a6977f">22–24 / 400</span><span style="font-size: 22px; line-height: 1">captions read up close: "where you left off"</span>
+      <span style="color: #a6977f">--type-sticking</span><span style="color: #a6977f">25 / 700</span><span style="font-size: 25px; font-weight: 700; line-height: 1">R L RL R</span>
+    </div>
+    <div style="margin-top: 18px; color: #a6977f">Numbers use tabular figures. A section name longer than its space (chorus to break, 880 px at 120) steps down to 88, then 64, never below.</div>
+
+    <div style="margin-top: 50px; font-size: 36px; font-weight: 700; line-height: 1; margin-bottom: 20px">Space and size</div>
+    <div style="display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 10px 20px">
+      <span style="color: #a6977f">--space</span><span>4 · 8 · 12 · 16 · 24 · 40 (frame margin)</span>
+      <span style="color: #a6977f">--target</span><span>76 tall for every mid-song control (the minimum is 64)</span>
+      <span style="color: #a6977f">--radius</span><span>pills 38 · panels 12–14 · paper 6 · map blocks 0</span>
+      <span style="color: #a6977f">header</span><span>24 → 355: video 588 × 331, the glance numbers, the controls row at 279</span>
+      <span style="color: #a6977f">song map</span><span>80 tall (names of short sections 32, strip 44); 164 while picking</span>
+      <span style="color: #a6977f">paper</span><span>2114 wide · alphaTab scale 2.25 = 20.25 px between staff lines</span>
+      <span style="color: #a6977f">a notation line</span><span>≈ 263 + 30 for sticking, + 44 when a section starts in it</span>
+      <span style="color: #a6977f">lines visible</span><span>2 × 4 bars with the video (paper 624), 3 × 4 without (paper ≈ 860)</span>
+      <span style="color: #a6977f">never</span><span>change the paper's width mid-song: panels lay over it</span>
+    </div>
+
+    <div style="margin-top: 50px; font-size: 36px; font-weight: 700; line-height: 1; margin-bottom: 20px">Components</div>
+    <div style="display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 10px 20px">
+      <span style="font-weight: 700">Where</span><span>section name, bar of total; while browsing: "bars 25–32" and Back to bar 11</span>
+      <span style="font-weight: 700">Pass</span><span>loop icon + "pass 3", or "loop off"; one line under it for the loop or the ramp</span>
+      <span style="font-weight: 700">Tempo</span><span>percent first, BPM second; −10 −5 100% +5 +10 pills</span>
+      <span style="font-weight: 700">Ramp ladder</span><span>replaces the tempo pills while the ramp runs: done, now, next (dashed), later</span>
+      <span style="font-weight: 700">Count-in</span><span>1 2 3 4 at 160: beats done, the beat now in brass, the one to come dim</span>
+      <span style="font-weight: 700">Song map</span><span>blocks as long as they last; short ones named above; loop outline; playhead; dashed box for browsing; picker mode with bar marks and handles</span>
+      <span style="font-weight: 700">Paper</span><span>alphaTab's engraving + the page's layers: label lane, loop bracket, current bar, cursor, R/L</span>
+      <span style="font-weight: 700">Mix panel</span><span>four channel rows: name, a 76 mute pill with its key, a desktop-size level; messages under a row</span>
+      <span style="font-weight: 700">Reading card</span><span>Notes, Steady, Feel (needle), the bar strip, one sentence. Only with the kit connected</span>
+      <span style="font-weight: 700">Kit chip</span><span>connected · calibrated, in the corner; nothing at all without a kit</span>
+      <span style="font-weight: 700">Library row</span><span>picture or "no video", artist — title, length · BPM · bars, where you left off</span>
+      <span style="font-weight: 700">Settings sheet</span><span>notation, look, loop, ramp, kit, keys; desktop sizes</span>
+    </div>
+  </section>
+
+  <section aria-label="Colour tokens" style="position: absolute; left: 1134px; top: 220px; width: 1000px">
+    <div style="font-size: 36px; font-weight: 700; line-height: 1; margin-bottom: 20px">Colour</div>
+
+    <div style="font-size: 28px; font-weight: 700; margin-bottom: 12px">Interface, dark (the default)</div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #14110d; box-shadow: inset 0 0 0 1px #4a3f32"></span><span style="font-size: 20px; line-height: 1.2">--bg<br><span style="color: #a6977f">#14110d</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #1f1a15; box-shadow: inset 0 0 0 1px #4a3f32"></span><span style="font-size: 20px; line-height: 1.2">--raise<br><span style="color: #a6977f">#1f1a15</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #2a231c"></span><span style="font-size: 20px; line-height: 1.2">--raise-2<br><span style="color: #a6977f">#2a231c</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #3a3128"></span><span style="font-size: 20px; line-height: 1.2">--line<br><span style="color: #a6977f">#3a3128</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #efe4d0"></span><span style="font-size: 20px; line-height: 1.2">--text<br><span style="color: #a6977f">#efe4d0</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #a6977f"></span><span style="font-size: 20px; line-height: 1.2">--muted<br><span style="color: #a6977f">#a6977f</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #8f826d"></span><span style="font-size: 20px; line-height: 1.2">--faint<br><span style="color: #a6977f">#8f826d</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #e3a94e"></span><span style="font-size: 20px; line-height: 1.2">--accent<br><span style="color: #a6977f">#e3a94e</span></span></div>
+    </div>
+
+    <div style="margin-top: 28px; font-size: 28px; font-weight: 700; margin-bottom: 12px">Interface, light</div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #efe8db"></span><span style="font-size: 20px; line-height: 1.2">--bg<br><span style="color: #a6977f">#efe8db</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #e5dccb"></span><span style="font-size: 20px; line-height: 1.2">--raise<br><span style="color: #a6977f">#e5dccb</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #d3c5ab"></span><span style="font-size: 20px; line-height: 1.2">--raise-2<br><span style="color: #a6977f">#d3c5ab</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #cdbfa6"></span><span style="font-size: 20px; line-height: 1.2">--line<br><span style="color: #a6977f">#cdbfa6</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #241e16; box-shadow: inset 0 0 0 1px #4a3f32"></span><span style="font-size: 20px; line-height: 1.2">--text<br><span style="color: #a6977f">#241e16</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #6b5e4b"></span><span style="font-size: 20px; line-height: 1.2">--muted<br><span style="color: #a6977f">#6b5e4b</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #7d6f58"></span><span style="font-size: 20px; line-height: 1.2">--faint<br><span style="color: #a6977f">#7d6f58</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #a86d14"></span><span style="font-size: 20px; line-height: 1.2">--accent<br><span style="color: #a6977f">#a86d14</span></span></div>
+    </div>
+
+    <div style="margin-top: 28px; font-size: 28px; font-weight: 700; margin-bottom: 12px">Notation, light paper</div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #ece2cc"></span><span style="font-size: 20px; line-height: 1.2">--tab-paper<br><span style="color: #a6977f">#ece2cc</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #211b14; box-shadow: inset 0 0 0 1px #4a3f32"></span><span style="font-size: 20px; line-height: 1.2">--tab-ink<br><span style="color: #a6977f">#211b14</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #a3957d"></span><span style="font-size: 20px; line-height: 1.2">--tab-staff<br><span style="color: #a6977f">#a3957d</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #c2410c"></span><span style="font-size: 20px; line-height: 1.2">--tab-cursor<br><span style="color: #a6977f">#c2410c</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #e6d09d"></span><span style="font-size: 20px; line-height: 1.2">--tab-current<br><span style="color: #a6977f">accent 26%</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #b7791f"></span><span style="font-size: 20px; line-height: 1.2">--tab-loop<br><span style="color: #a6977f">#b7791f</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #7d6d55"></span><span style="font-size: 20px; line-height: 1.2">--tab-sticking<br><span style="color: #a6977f">#7d6d55</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #4f4130"></span><span style="font-size: 20px; line-height: 1.2">--tab-label<br><span style="color: #a6977f">#4f4130</span></span></div>
+    </div>
+
+    <div style="margin-top: 28px; font-size: 28px; font-weight: 700; margin-bottom: 12px">Notation, dark paper</div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #1d1914; box-shadow: inset 0 0 0 1px #4a3f32"></span><span style="font-size: 20px; line-height: 1.2">--tab-paper<br><span style="color: #a6977f">#1d1914</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #ece2cf"></span><span style="font-size: 20px; line-height: 1.2">--tab-ink<br><span style="color: #a6977f">#ece2cf</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #5f5547"></span><span style="font-size: 20px; line-height: 1.2">--tab-staff<br><span style="color: #a6977f">#5f5547</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #ef7a3c"></span><span style="font-size: 20px; line-height: 1.2">--tab-cursor<br><span style="color: #a6977f">#ef7a3c</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #3a3020"></span><span style="font-size: 20px; line-height: 1.2">--tab-current<br><span style="color: #a6977f">accent 13%</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #e3a94e"></span><span style="font-size: 20px; line-height: 1.2">--tab-loop<br><span style="color: #a6977f">#e3a94e</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #a6977f"></span><span style="font-size: 20px; line-height: 1.2">--tab-sticking<br><span style="color: #a6977f">#a6977f</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 8px; background: #d8c9ae"></span><span style="font-size: 20px; line-height: 1.2">--tab-label<br><span style="color: #a6977f">#d8c9ae</span></span></div>
+    </div>
+
+    <div style="margin-top: 28px; font-size: 28px; font-weight: 700; margin-bottom: 12px">Verdicts: three, never blended</div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 24px; background: #1f5fa8"></span><span style="font-size: 20px; line-height: 1.2">--verdict-played<br><span style="color: #a6977f">#1f5fa8 · dark paper #6ea4e6</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 24px; background: #e8840f"></span><span style="font-size: 20px; line-height: 1.2">--verdict-missed<br><span style="color: #a6977f">#e8840f · same on both</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center"><span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 24px; background: #c0265e"></span><span style="font-size: 20px; line-height: 1.2">--verdict-wrong<br><span style="color: #a6977f">#c0265e · dark paper #ec6b9b</span></span></div>
+    </div>
+    <div style="margin-top: 10px; font-size: 22px; color: #a6977f">Blue, orange and magenta also differ in lightness, so they stay apart for red-green colour blindness.</div>
+
+    <div style="margin-top: 36px; font-size: 28px; font-weight: 700; margin-bottom: 12px">As CSS custom properties</div>
+    <pre style="margin: 0; padding: 22px 26px; border-radius: 12px; background: #1f1a15; box-shadow: inset 0 0 0 1px #3a3128; color: #efe4d0; font: 400 19px/1.45 'Atkinson Hyperlegible Mono', 'Cascadia Mono', Consolas, monospace; white-space: pre">:root {
+  --font: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  --bg: #14110d; --raise: #1f1a15; --raise-2: #2a231c; --line: #3a3128;
+  --text: #efe4d0; --muted: #a6977f; --faint: #8f826d;
+  --accent: #e3a94e; --accent-wash: rgb(227 169 78 / 0.16); --on-accent: #1b140a;
+  --ok: #7fb38a;
+  --type-tempo: 176px; --type-countin: 160px; --type-section: 120px;
+  --type-glance: 64px; --type-title: 44px; --type-read: 34px;
+  --type-label: 26px; --type-caption: 22px;
+  --target: 76px; --margin: 40px; --radius-pill: 38px; --radius-panel: 12px;
+}
+:root[data-theme="light"] {
+  --bg: #efe8db; --raise: #e5dccb; --raise-2: #d3c5ab; --line: #cdbfa6;
+  --text: #241e16; --muted: #6b5e4b; --faint: #7d6f58;
+  --accent: #a86d14; --accent-wash: rgb(168 109 20 / 0.14); --on-accent: #fff8ea;
+}
+:root, :root[data-tab-theme="light"] {
+  --tab-paper: #ece2cc; --tab-paper-hi: #f4ecda; --tab-ink: #211b14;
+  --tab-staff: #a3957d; --tab-barno: #a3957d; --tab-cursor: #c2410c;
+  --tab-current: rgb(227 169 78 / 0.26); --tab-loop: #b7791f;
+  --tab-sticking: #7d6d55; --tab-label: #4f4130;
+  --verdict-played: #1f5fa8; --verdict-missed: #e8840f; --verdict-wrong: #c0265e;
+}
+:root[data-tab-theme="dark"] {
+  --tab-paper: #1d1914; --tab-paper-hi: #25201a; --tab-ink: #ece2cf;
+  --tab-staff: #5f5547; --tab-barno: #75695a; --tab-cursor: #ef7a3c;
+  --tab-current: rgb(227 169 78 / 0.13); --tab-loop: #e3a94e;
+  --tab-sticking: #a6977f; --tab-label: #d8c9ae;
+  --verdict-played: #6ea4e6; --verdict-missed: #e8840f; --verdict-wrong: #ec6b9b;
+}</pre>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2194,"height":2700}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

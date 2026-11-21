@@ -20,7 +20,9 @@
 //  3. The count-ins happen where they should (before the first pass, before
 //     every pass when a rest bar is set, and when Play starts from a pause,
 //     on a bar line), the ramp moves the tempo on schedule and stops at its
-//     top, the tempo keys and buttons agree with the slider, a reload comes
+//     top, the tempo keys and pills agree with the readout, a loop is picked
+//     on the song map and a pick made while the song plays waits for the next
+//     bar line (or, from L, loops the section being played), a reload comes
 //     back to the same loop and tempo without playing, and Record writes one
 //     take per pass with the right cell.
 //
@@ -29,7 +31,7 @@
 //
 // Screenshots, at the size of the screen the user practises in front of:
 // `<out>` (the loop going round, the ramp running) and `<out>-scored.png`
-// (the reading after a marked loop, with its row of passes).
+// (the reading card after a marked loop, the noteheads coloured).
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -99,12 +101,20 @@ const setField = (id, value) =>
     },
     [id, value]
   );
+/** The Settings page (the gear), where the loop's numbers and the count-ins live. */
+const settings = async (open) => {
+  await page.evaluate((open) => window.drums.setSettings(open), open);
+  await page.waitForTimeout(100);
+};
+/** Settings' "Between passes": a bar of click (true) or straight back. */
+const between = (rest) =>
+  page.evaluate((rest) => document.querySelector(`#loop-between [data-value="${rest ? 'click' : 'straight'}"]`).click(), rest);
 const state = () =>
   page.evaluate(() => {
     const d = window.drums;
     return {
-      speed: document.getElementById('speed').value,
-      speedOut: document.getElementById('speed-out').textContent,
+      speed: String(d.tempo),
+      speedOut: document.getElementById('tempo-pct').textContent,
       playbackSpeed: d.api.playbackSpeed,
       paused: d.mix.paused,
       mixMs: d.mix.currentTime * 1000,
@@ -115,18 +125,33 @@ const state = () =>
       pass: d.loop.pass,
       phase: d.loop.phase ?? '',
       passOut: document.getElementById('loop-pass').textContent,
+      passSub: document.getElementById('pass-sub').textContent,
+      bpmLine: document.getElementById('tempo-bpm').textContent,
+      // The header's count-in (Lamp-05) and the ramp's ladder (Lamp-04).
+      counting: document.getElementById('app').dataset.counting ?? '',
+      countSays: document.getElementById('count-says').textContent,
+      countNow: document.querySelector('#count-beats [data-beat="now"]')?.textContent ?? '',
+      steps: !document.getElementById('tempo-steps').hidden,
+      ladder: document.getElementById('ladder').hidden
+        ? ''
+        : [...document.querySelectorAll('#ladder .rung')]
+            .map((r) => `${r.textContent}${{ done: '-', now: '*', next: '>', later: '' }[r.dataset.state]}`)
+            .join(' '),
+      rampBtn: (() => {
+        const b = document.getElementById('ramp-btn');
+        return { shown: !b.hidden, pressed: b.getAttribute('aria-pressed') };
+      })(),
       pressed: document.getElementById('loop').getAttribute('aria-pressed'),
-      band: document.querySelectorAll('.loop-band span').length,
-      bandShown: !document.querySelector('.loop-band').hidden,
-      from: document.getElementById('loop-from').value,
-      to: document.getElementById('loop-to').value,
-      rest: document.getElementById('loop-rest').checked,
+      bracket: document.querySelectorAll('.tab-bracket span').length,
+      outline: document.querySelectorAll('#map .map-loop').length,
+      picking: document.getElementById('map').hasAttribute('data-picking'),
+      line: document.querySelector('#map .map-line')?.textContent ?? '',
+      from: String(d.loop.armed ? d.loop.range?.startBar ?? '' : ''),
+      to: String(d.loop.armed ? d.loop.range?.endBar ?? '' : ''),
+      rest: document.querySelector('#loop-between [aria-pressed="true"]')?.dataset.value === 'click',
       ramp: { ...d.loop.ramp },
-      rampState: document.getElementById('ramp-state').textContent,
-      chips: [...document.querySelectorAll('#passes .pass')].map((e) => ({
-        text: e.textContent,
-        cls: e.className,
-      })),
+      rampState: d.loop.rampSaid(),
+      reading: document.getElementById('reading').hidden ? '' : document.querySelector('#reading .rd-title').textContent,
     };
   });
 
@@ -152,7 +177,7 @@ try {
 
   // The audio graph is built on a gesture. A click on the header is one that
   // does nothing else.
-  await page.mouse.click(40, 33);
+  await page.locator('#bar-of').click();
   await page.waitForTimeout(300);
   await watchTransport();
 
@@ -165,9 +190,17 @@ try {
   }
   check(
     tempos.join(' ') === '105/105%/105 115/115%/115 110/110%/110 100/100%/100 90/90%/90 100/100%/100',
-    '[ ] step 5, with Shift 10, \\ goes home -- slider, readout and alphaTab agree',
+    '[ ] step 5, with Shift 10, \\ goes home -- the tempo, its readout and alphaTab agree',
     tempos.join(' ')
   );
+  // `{` and `}` as characters, the way a layout without them on Shift+[ ]
+  // sends them: the character decides, not the key it came from.
+  const braces = [];
+  for (const key of ['}', '{', '{', 'Backslash']) {
+    await page.keyboard.press(key);
+    braces.push((await state()).speed);
+  }
+  check(braces.join(' ') === '110 100 90 100', '{ } step 10 typed as characters too', braces.join(' '));
   await page.locator('#tempo-steps button[data-step="-10"]').click();
   await page.locator('#tempo-steps button[data-step="5"]').click();
   let s = await state();
@@ -217,7 +250,8 @@ try {
     `${Math.round(s.mixMs)} ms vs bar 10 at ${Math.round(bar.start)} ms`
   );
   check(s.play === 'Pause', 'and the button says so from the first click', s.play);
-  check(/Counting in/.test(s.status), 'the status says it is counting in', s.status);
+  check(s.counting === 'on' && /^count-in · then .*bar 10$/.test(s.countSays), 'the header says it is counting in, and into what', s.countSays);
+  check(!/Counting in/.test(s.status), 'and the status line does not repeat it', s.status);
   await page.waitForFunction(() => window.__log.some((e) => e.type === 'play'), null, { timeout: 8000 });
   let log = await transportLog();
   const started = log.find((e) => e.type === 'play');
@@ -251,7 +285,9 @@ try {
   );
 
   // Turned off, Play is Play again: from where it is, straight away.
+  await settings(true);
   await page.locator('#count-in').uncheck();
+  await settings(false);
   await seekMix(bar.start + bar.ms / 2);
   await page.evaluate(() => (window.__log = []));
   const plainAt = await now();
@@ -265,8 +301,97 @@ try {
     `${Math.round(plain.wall - plainAt)} ms later, at ${Math.round(plain.ms)} ms`
   );
   await page.keyboard.press('Space');
+  await settings(true);
   await page.locator('#count-in').check();
+  await settings(false);
   await page.waitForTimeout(300);
+
+  // --- a pick while the song plays ---------------------------------------------------
+  // It is not cut off mid-bar. L in the middle of a section loops the section
+  // around the bar being played: no pause, pass 1 is the one under way.
+  const here = await page.evaluate(() => {
+    const d = window.drums;
+    const song = d.songs.find((x) => x.slug === d.current.slug);
+    const grid = d.current.grid;
+    const sec = song.sections.find(
+      (x) => x.end_bar - x.start_bar >= 3 && d.barStartMs(grid, x.start_bar - 1) !== undefined && d.barStartMs(grid, x.end_bar) !== undefined
+    );
+    return { name: sec.name, startBar: sec.start_bar, endBar: sec.end_bar, ms: d.barStartMs(grid, sec.start_bar) + 300 };
+  });
+  await settings(true);
+  await page.locator('#count-in').uncheck();
+  await settings(false);
+  await seekMix(here.ms);
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => !window.drums.mix.paused, null, { timeout: 5000 });
+  await page.waitForTimeout(400);
+  await page.evaluate(() => (window.__log = []));
+  await page.keyboard.press('KeyL');
+  await page.waitForTimeout(400);
+  s = await state();
+  log = await transportLog();
+  check(
+    s.armed && s.running && s.pass === 1 && s.phase === 'playing' && !s.paused && log.length === 0,
+    'L while playing loops the section being played, without stopping the music',
+    `${s.from}-${s.to} pass ${s.pass} ${s.phase}, ${log.length} transport events`
+  );
+  check(
+    s.from === String(here.startBar) && s.to === String(here.endBar) && s.picking,
+    'that section, and the map opens as the picker to adjust it',
+    `${s.from}-${s.to}, picking ${s.picking}`
+  );
+  // A click on another section while it plays: the music carries on to the
+  // next bar line, then pass 1 of the new loop starts on its first bar.
+  const other = await page.evaluate((here) => {
+    const d = window.drums;
+    const song = d.songs.find((x) => x.slug === d.current.slug);
+    const grid = d.current.grid;
+    const i = song.sections.findIndex(
+      (x) => x.start_bar > here.endBar + 1 && d.barStartMs(grid, x.start_bar - 1) !== undefined && d.barStartMs(grid, x.end_bar) !== undefined
+    );
+    const sec = song.sections[i];
+    return { i, startBar: sec.start_bar, endBar: sec.end_bar, startMs: d.barStartMs(grid, sec.start_bar - 1) };
+  }, here);
+  await page.evaluate(() => (window.__log = []));
+  // Where the music was at the click, and when on the wall clock: the
+  // pause's own event comes after the seek, so its position is the new one.
+  const clicked = await page.evaluate(() => ({ wall: performance.now(), ms: window.drums.clock.mixTimeAt(performance.now()), rate: window.drums.mix.playbackRate }));
+  const clickedMs = clicked.ms;
+  await page.locator(`#map .map-block[data-index="${other.i}"]`).click();
+  await page.waitForFunction(() => window.__log.some((e) => e.type === 'play'), null, { timeout: 8000 });
+  await page.waitForTimeout(300);
+  log = await transportLog();
+  s = await state();
+  const lineAfter = await page.evaluate((ms) => {
+    const d = window.drums;
+    const grid = d.current.grid;
+    for (let b = 0; b < grid.bar_count; b++) {
+      const t = d.barStartMs(grid, b);
+      if (t !== undefined && t > ms) return t;
+    }
+    return undefined;
+  }, clickedMs);
+  const cut = log.find((e) => e.type === 'pause');
+  const went = log.find((e) => e.type === 'play');
+  const cutAt = cut ? clicked.ms + (cut.wall - clicked.wall) * clicked.rate : -1;
+  check(
+    cut && lineAfter !== undefined && cutAt >= lineAfter - 30 && cutAt <= lineAfter + 80,
+    'a pick somewhere else waits for the next bar line',
+    `cut at ${Math.round(cutAt)} ms, bar line at ${Math.round(lineAfter ?? -1)} ms (clicked at ${Math.round(clicked.ms)})`
+  );
+  check(
+    went && Math.abs(went.ms - other.startMs) < 30 && s.pass === 1 && s.phase === 'playing' && s.from === String(other.startBar),
+    'then plays pass 1 of the new loop from its first bar, no count-in',
+    `${Math.round((went?.ms ?? 0) - other.startMs)} ms off its start, pass ${s.pass} ${s.phase}`
+  );
+  await page.keyboard.press('Space');
+  await page.keyboard.press('KeyL');
+  await page.waitForTimeout(300);
+  s = await state();
+  check(!s.armed && !s.picking && s.outline === 0 && s.bracket === 0, 'L with a loop on turns it off, and closes the picker', `${s.armed} ${s.picking}`);
+  await settings(true);
+  await page.locator('#count-in').check();
+  await settings(false);
 
   // --- the loop, nobody marking it ---------------------------------------------------
   // A short section with notes in it, which both ends of the beat map can
@@ -300,21 +425,31 @@ try {
   const span = range.endMs - range.startMs;
   console.log(`     looping "${range.name}", bars ${range.startBar}-${range.endBar}: ${range.notes} notes, ${Math.round(span)} ms`);
 
-  await page.selectOption('#loop-section', String(range.index));
-  await page.waitForTimeout(300);
+  // Picked on the song map: the Loop pill opens it as the picker, and a
+  // click on the section's block loops it.
+  await page.locator('#loop').click();
+  await page.waitForTimeout(200);
   s = await state();
-  check(
-    s.from === String(range.startBar) && s.to === String(range.endBar),
-    'picking a section fills in its bars',
-    `${s.from}-${s.to}`
-  );
-  check(!s.armed && !s.bandShown, 'and does not turn the loop on by itself');
-  check(s.rest, 'a bar of rest between passes is the default');
-  await page.keyboard.press('KeyL');
+  check(s.picking && !s.armed && /^Click a section to loop it/.test(s.line), 'the Loop pill opens the picker, nothing picked', s.line);
+  await page.locator(`#map .map-block[data-index="${range.index}"]`).click();
   await page.waitForTimeout(400);
   s = await state();
-  check(s.armed && s.pressed === 'true', 'L turns the loop on');
-  check(s.bandShown && s.band >= 1, 'it is drawn over the notation', `${s.band} block(s)`);
+  check(
+    s.armed && s.pressed === 'true' && s.from === String(range.startBar) && s.to === String(range.endBar),
+    'a click on a section loops it',
+    `${s.from}-${s.to}`
+  );
+  check(s.line.startsWith(`Loop: ${range.name} · `), 'the line under the picker says what is looped', s.line);
+  check(s.outline === 1 && s.bracket >= 1, 'outlined on the map and bracketed on the paper', `${s.outline} outline, ${s.bracket} bracket piece(s)`);
+  check(s.rest, 'a bar of rest between passes is the default');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+  check(!(await state()).picking, 'Esc closes the picker');
+  check(
+    s.passOut === 'loop on' && s.passSub.includes(`${range.startBar}`) && s.rampBtn.shown,
+    'the header says the loop is on, which bars, and offers the ramp',
+    `${s.passOut} / ${s.passSub} / ramp pill ${s.rampBtn.shown}`
+  );
   check(
     s.paused && Math.abs(s.mixMs - range.startMs) < 5,
     'and the cursor goes to it, not playing',
@@ -338,11 +473,17 @@ try {
   s = await state();
   check(s.running && s.play === 'Pause', 'Space plays the loop', `${s.play}, ${s.passOut}`);
   check(s.passOut === 'counting in', 'starting with a count-in', s.passOut);
+  check(
+    s.counting === 'on' && /^count-in · then .*, pass 1$/.test(s.countSays),
+    'the header shows the count-in into pass 1',
+    s.countSays
+  );
   // Three passes with the rest bar, then two straight back.
   await page.waitForFunction(() => window.drums.loop.pass >= 3 && window.drums.loop.phase === 'playing', null, { timeout: 40000 });
   s = await state();
   check(s.passOut === 'pass 3', 'the pass counter counts', s.passOut);
-  await setField('loop-rest', false);
+  check(/^looping /.test(s.passSub), 'and the line under it says what is looping', s.passSub);
+  await between(false);
   await page.waitForFunction(() => window.drums.loop.pass >= 5 && window.drums.loop.phase === 'playing', null, { timeout: 30000 });
   await page.screenshot({ path: out.replace(/\.png$/, '-going.png') });
   await page.keyboard.press('Space');
@@ -350,7 +491,7 @@ try {
   s = await state();
   log = await transportLog();
   check(!s.running && s.armed && s.paused && s.play === 'Play', 'Space stops it, and the loop stays on', `${s.play}`);
-  check(s.chips.length === 0, 'a loop nobody is marking draws no passes', `${s.chips.length} chips`);
+  check(s.reading === '', 'a loop nobody is marking draws no reading', s.reading);
 
   const plays = log.filter((e) => e.type === 'play');
   const pauses = log.filter((e) => e.type === 'pause');
@@ -393,23 +534,53 @@ try {
     gaps.slice(2, 4).map(Math.round).join(', ') + ' ms'
   );
 
+  // --- no count-in before the first pass (a Settings switch, on by default) -----------
+  await settings(true);
+  await page.locator('#count-in-loop').uncheck();
+  await settings(false);
+  const asked = await now();
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => window.drums.loop.pass === 1 && window.drums.loop.phase === 'playing', null, { timeout: 5000 });
+  const straightIn = (await now()) - asked;
+  check(straightIn < 700, 'with that count-in off, pass 1 starts at once', `${Math.round(straightIn)} ms`);
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(300);
+  await settings(true);
+  await page.locator('#count-in-loop').check();
+  await settings(false);
+
   // --- the ramp -----------------------------------------------------------------------
   await setField('ramp-from', 80);
   await setField('ramp-to', 100);
   await setField('ramp-step', 10);
   await setField('ramp-every', 1);
-  await setField('ramp', true);
+  await page.locator('#ramp-btn').click();
   s = await state();
   check(s.rampState === '80% → 100%, +10% every pass', 'the ramp says what it will do', s.rampState);
+  check(s.rampBtn.pressed === 'true', 'the Ramp pill shows it on', s.rampBtn.pressed);
+  check(!s.steps && s.ladder !== '', 'the ladder takes the tempo pills\' place', `steps ${s.steps}, ladder ${s.ladder}`);
+  await page.keyboard.press('KeyR');
+  s = await state();
+  check(!s.ramp.on && s.rampBtn.pressed === 'false', 'R turns the ramp off', JSON.stringify(s.rampBtn));
+  await page.keyboard.press('KeyR');
+  s = await state();
+  check(s.ramp.on && s.ramp.from === 80 && s.ramp.step === 10, 'and on again, its numbers kept', JSON.stringify(s.ramp));
   await page.evaluate(() => (window.__log = []));
   await page.keyboard.press('Space');
   await page.waitForFunction(() => window.drums.loop.pass === 1 && window.drums.loop.phase === 'playing', null, { timeout: 10000 });
   s = await state();
   check(s.speed === '80', 'it starts at its own first tempo', `${s.speed}%`);
+  check(s.ladder === '80* 90> 100', 'the ladder: here now, the next step dashed, the top', s.ladder);
   check(s.rampState === '80% → 100%, next step after this pass', 'and says where it is', s.rampState);
+  check(
+    s.passSub === 'next step after this pass' && /BPM · ramp to 100%$/.test(s.bpmLine),
+    'the header says it too: under the pass, and beside the BPM',
+    `${s.passSub} / ${s.bpmLine}`
+  );
   await page.waitForFunction(() => window.drums.loop.pass >= 4 && window.drums.loop.phase === 'playing', null, { timeout: 40000 });
   s = await state();
-  check(s.rampState === '100%, the top of the ramp', 'until it reaches the top', s.rampState);
+  check(s.rampState === '100%, ramp done: full speed', 'until it reaches the top', s.rampState);
+  check(s.passSub === 'ramp done: full speed' && s.ladder === '80- 90- 100*', 'and the header says the ramp is done', `${s.passSub} / ${s.ladder}`);
   await page.screenshot({ path: out });
   await page.keyboard.press('Space');
   await page.waitForTimeout(400);
@@ -419,7 +590,7 @@ try {
   s = await state();
   check(
     s.speed === '100' && s.speedOut === '100%' && s.playbackSpeed === 1,
-    'through the slider, so the slider, the readout and alphaTab agree',
+    'through the one setter, so the tempo, the readout and alphaTab agree',
     `${s.speed} / ${s.speedOut} / ${s.playbackSpeed}`
   );
 
@@ -433,7 +604,7 @@ try {
   s = await state();
   check(s.speed === '85' && s.playbackSpeed === 0.85, 'a reload keeps the tempo', `${s.speed}%`);
   check(
-    s.armed && s.from === String(range.startBar) && s.to === String(range.endBar) && s.bandShown,
+    s.armed && s.from === String(range.startBar) && s.to === String(range.endBar) && s.bracket >= 1 && s.outline === 1,
     'and the loop, on',
     `${s.armed} ${s.from}-${s.to}`
   );
@@ -460,8 +631,8 @@ try {
   // Record with the loop on marks every pass and writes each as a take. The
   // ramp waits for a good pass: the first is played half wrong and must not
   // move it, the second is clean and must.
-  await page.mouse.click(40, 33);
-  await setField('loop-rest', true);
+  await page.locator('#bar-of').click();
+  await between(true);
   await setField('ramp-from', 90);
   await setField('ramp-to', 100);
   await setField('ramp-step', 10);
@@ -472,13 +643,35 @@ try {
   await page.evaluate(() => window.drums.practice.midi.inject(38, 1));
   await page.waitForTimeout(300);
   s = await page.evaluate(() => ({
-    target: document.getElementById('take-target').textContent,
+    target: window.drums.practice.plan,
+    shown: !document.getElementById('record').hidden,
     disabled: document.getElementById('record').disabled,
     title: document.getElementById('record').title,
   }));
-  check(/every pass/.test(s.target) && !s.disabled, 'Record offers to mark every pass of the loop', `${s.target} (${s.title})`);
+  check(
+    /every pass/.test(s.target) && s.shown && !s.disabled,
+    'the kit brings the Record pill, offering to mark every pass of the loop',
+    `${s.target} (${s.title})`
+  );
 
   await watchTransport();
+  // Every reading the card shows while the loop goes round, as it shows it.
+  await page.evaluate(() => {
+    window.__readings = [];
+    const card = document.getElementById('reading');
+    new MutationObserver(() => {
+      if (card.hidden) return;
+      const said = {
+        title: card.querySelector('.rd-title').textContent,
+        notes: card.querySelector('.rd-big').textContent,
+        recording: !card.querySelector('.rd-rec').hidden,
+        close: !card.querySelector('.rd-close').hidden,
+        bars: card.querySelectorAll('.rd-bar').length,
+      };
+      const last = window.__readings.at(-1);
+      if (!last || last.title !== said.title || last.notes !== said.notes) window.__readings.push(said);
+    }).observe(card, { subtree: true, childList: true, characterData: true, attributes: true });
+  });
   await page.locator('#record').click();
   await page.evaluate(
     ({ LATE_MS, TAIL_MS }) => {
@@ -524,9 +717,18 @@ try {
     },
     { LATE_MS, TAIL_MS }
   );
-  await page.waitForFunction(() => document.querySelectorAll('#passes .pass').length >= 3, null, { timeout: 60000 });
-  // A chip appears when a pass closes, at the start of the rest. Wait for the
-  // music to come back, then stop part way through the fourth.
+  const recordingSaid = await page.evaluate(() => ({
+    pressed: document.getElementById('record').getAttribute('aria-pressed'),
+    word: document.getElementById('record-word').textContent,
+  }));
+  check(recordingSaid.pressed === 'true' && recordingSaid.word === 'Recording', 'the pill says Recording', JSON.stringify(recordingSaid));
+  // The card comes up as a pass closes, at the start of the rest. Wait for the
+  // third, then for the music to come back, then stop part way through the fourth.
+  await page.waitForFunction(
+    () => document.querySelector('#reading .rd-title')?.textContent === 'Pass 3, just played' && !document.getElementById('reading').hidden,
+    null,
+    { timeout: 60000 }
+  );
   await page.waitForFunction(() => !window.drums.mix.paused, null, { timeout: 15000 });
   await page.waitForTimeout(Math.min(900, span / 2));
   await page.locator('#record').click();
@@ -535,38 +737,62 @@ try {
 
   const marked = await page.evaluate(() => {
     const heads = [...document.querySelectorAll('#score svg text')].map((t) => t.getAttribute('fill'));
-    const fills = new Set(heads.filter((f) => f && /^#/.test(f) && f !== '#B4B4B4'));
+    const css = getComputedStyle(document.documentElement);
+    // The paper's own colours: anything else on a notehead is a verdict.
+    const neutral = new Set(['--tab-ink', '--tab-staff', '--tab-barno'].map((v) => css.getPropertyValue(v).trim().toUpperCase()));
+    const fills = new Set(heads.filter((f) => f && /^#/.test(f) && !neutral.has(f.toUpperCase())));
+    const card = document.getElementById('reading');
     return {
-      chips: [...document.querySelectorAll('#passes .pass')].map((e) => ({ text: e.textContent, cls: e.className })),
-      dials: [...document.querySelectorAll('#report .dial .label')].map((e) => e.textContent),
-      notesSub: document.querySelector('#report .dial .sub')?.textContent ?? '',
-      stripBars: document.querySelectorAll('#report .strip .bar').length,
+      readings: window.__readings,
+      shown: !card.hidden,
+      title: card.querySelector('.rd-title').textContent,
+      dials: [...card.querySelectorAll('.rd-label')].map((e) => e.textContent),
+      stripBars: card.querySelectorAll('.rd-bar').length,
+      recording: !card.querySelector('.rd-rec').hidden,
+      close: !card.querySelector('.rd-close').hidden,
       colours: fills.size,
-      record: document.getElementById('record').textContent.trim(),
+      record: document.getElementById('record-word').textContent,
       running: window.drums.loop.running,
       status: document.getElementById('status').textContent.trim(),
     };
   });
+  const titles = marked.readings.map((r) => r.title);
   check(!marked.running && marked.record === 'Record', 'Record stops a marked loop', marked.record);
-  check(marked.chips.length === 4, 'one chip per pass, the one stopped part way included', marked.chips.map((c) => c.text).join(' '));
   check(
-    /bad/.test(marked.chips[0]?.cls) && /good/.test(marked.chips[1]?.cls) && /good/.test(marked.chips[2]?.cls),
-    'coloured against the same line the dials use',
-    marked.chips.map((c) => c.cls.replace('pass ', '')).join(' ')
+    ['Pass 1, just played', 'Pass 2, just played', 'Pass 3, just played'].every((t) => titles.includes(t)),
+    'the card follows the passes as they close',
+    titles.join(' | ')
   );
-  check(/part/.test(marked.chips[3]?.cls), 'the stopped pass is drawn as unfinished', marked.chips[3]?.cls);
-  check(marked.dials.join(' ') === 'Notes Steady Feel', 'the reading is the same three dials', marked.dials.join(' '));
-  check(/^pass 3 of 4/.test(marked.notesSub), 'showing the last pass that reached its end, and saying which', marked.notesSub);
+  const during = marked.readings.filter((r) => /just played/.test(r.title) && r.title !== marked.title);
+  check(
+    during.length >= 3 && during.every((r) => r.recording && !r.close),
+    'while it records the card says so, and has no close',
+    JSON.stringify(during.map((r) => [r.recording, r.close]))
+  );
+  const notesOf = (n) => Number(marked.readings.find((r) => r.title === `Pass ${n}, just played`)?.notes.replace('%', '') ?? -1);
+  check(
+    notesOf(1) < 90 && notesOf(2) >= 90 && notesOf(3) >= 90,
+    'the half-played pass reads as one, and the clean ones as clean',
+    `${notesOf(1)}% ${notesOf(2)}% ${notesOf(3)}%`
+  );
+  check(marked.shown && marked.title === 'Pass 3, the last one played through', 'stopped, it shows the last pass that reached its end, and says so', marked.title);
+  check(!marked.recording && marked.close, 'and can be put away', `recording ${marked.recording}, close ${marked.close}`);
+  check(marked.dials.join(' ') === 'Notes Steady Feel', 'the reading is the same three readings', marked.dials.join(' '));
   check(marked.stripBars === range.endBar - range.startBar + 1, 'the bar strip covers the loop', `${marked.stripBars} blocks`);
   check(marked.colours >= 1, 'and the noteheads are coloured once it stops', `${marked.colours} colours`);
-  await page.locator('#passes .pass').nth(1).click();
-  await page.waitForTimeout(800);
-  const picked = await page.evaluate(() => ({
-    sub: document.querySelector('#report .dial .sub')?.textContent ?? '',
-    at: [...document.querySelectorAll('#passes .pass')].findIndex((e) => e.classList.contains('at')),
-  }));
-  check(/^pass 2 of 4/.test(picked.sub) && picked.at === 1, 'a chip puts its own pass on show', picked.sub);
+  // A block of the strip puts the cursor on its bar.
+  await page.locator('#reading .rd-bar').last().click();
+  await page.waitForTimeout(500);
+  const jumped = await page.evaluate(() => document.getElementById('bar-now').textContent);
+  check(jumped === `bar ${range.endBar}`, 'a block of the strip jumps to its bar', jumped);
   await page.screenshot({ path: out.replace(/\.png$/, '-scored.png') });
+  await page.locator('#reading .rd-close').click();
+  await page.waitForTimeout(1500);
+  const putAway = await page.evaluate(() => ({
+    card: !document.getElementById('reading').hidden,
+    reading: document.getElementById('app').hasAttribute('data-reading'),
+  }));
+  check(!putAway.card && !putAway.reading, 'its close puts the reading away', JSON.stringify(putAway));
 
   // What reached the disk.
   const written = (existsSync(takesDir) ? readdirSync(takesDir) : []).filter((f) => !before.has(f)).sort();

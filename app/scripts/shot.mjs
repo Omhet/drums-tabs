@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 const out = process.argv[2];
 const browser = await launch();
-const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+const page = await browser.newPage({ viewport: { width: 2194, height: 1100 } });
 await page.goto(pageUrl());
 await waitForPlayer(page);
 // Wait for the notation to be engraved, and for the picture (when there is

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Song map</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@200..800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="position: relative; width: {{w}}px; height: {{h}}px; font-family: 'Atkinson Hyperlegible Next', 'Segoe UI', sans-serif; color: {{c.label}}">
+  <sc-for list="{{tier}}" as="t" hint-placeholder-count="5">
+    <div style="position: absolute; left: {{t.left}}px; top: 0; font-size: 32px; line-height: 1; white-space: nowrap; color: {{t.color}}">{{t.text}}</div>
+  </sc-for>
+  <sc-for list="{{blocks}}" as="b" hint-placeholder-count="13">
+    <button aria-label="{{b.aria}}" onClick="{{b.pick}}" style="position: absolute; left: {{b.left}}px; top: 36px; width: {{b.width}}px; height: {{stripH}}px; box-sizing: border-box; margin: 0; padding: 0 0 0 12px; border: 0; border-right: 3px solid {{c.gap}}; border-radius: 0; background: {{b.bg}}; color: {{b.color}}; font: 400 32px/1 'Atkinson Hyperlegible Next', 'Segoe UI', sans-serif; text-align: left; white-space: nowrap; overflow: hidden; cursor: pointer">{{b.label}}</button>
+  </sc-for>
+  <sc-if value="{{picking}}" hint-placeholder-val="{{ false }}">
+    <sc-for list="{{ticks}}" as="k" hint-placeholder-count="16">
+      <div style="position: absolute; left: {{k.left}}px; top: {{tickTop}}px; width: 2px; height: {{k.h}}px; background: {{c.tick}}"></div>
+    </sc-for>
+    <sc-for list="{{numbers}}" as="n" hint-placeholder-count="16">
+      <div style="position: absolute; left: {{n.left}}px; top: {{numTop}}px; font-size: 24px; line-height: 1; color: {{c.tier}}">{{n.text}}</div>
+    </sc-for>
+  </sc-if>
+  <sc-if value="{{hasView}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; left: {{viewLeft}}px; top: 30px; width: {{viewWidth}}px; height: {{loopH}}px; box-sizing: border-box; border: 3px dashed {{c.view}}; border-radius: 4px; pointer-events: none"></div>
+  </sc-if>
+  <sc-if value="{{hasLoop}}" hint-placeholder-val="{{ true }}">
+    <div style="position: absolute; left: {{loopLeft}}px; top: 31px; width: {{loopWidth}}px; height: {{loopH}}px; box-sizing: border-box; border: 3px solid {{c.outline}}; border-radius: 4px; pointer-events: none"></div>
+  </sc-if>
+  <sc-if value="{{hasHandles}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; left: {{handleL}}px; top: 24px; width: 14px; height: {{handleH}}px; border-radius: 4px; background: {{c.outline}}; pointer-events: none"></div>
+    <div style="position: absolute; left: {{handleR}}px; top: 24px; width: 14px; height: {{handleH}}px; border-radius: 4px; background: {{c.outline}}; pointer-events: none"></div>
+  </sc-if>
+  <sc-if value="{{hasHead}}" hint-placeholder-val="{{ true }}">
+    <div style="position: absolute; left: {{headLeft}}px; top: 26px; width: 4px; height: {{headH}}px; border-radius: 2px; background: {{c.head}}; pointer-events: none"></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"song":{"editor":"enum","options":["song2","killme"],"default":"song2"},"loopFrom":{"editor":"int","default":9},"loopTo":{"editor":"int","default":16},"at":{"editor":"float","default":11.4},"width":{"editor":"int","default":2114},"picking":{"editor":"boolean","default":false},"theme":{"editor":"enum","options":["dark","light"],"default":"dark"},"viewFrom":{"editor":null},"viewTo":{"editor":null},"onPick":{"editor":null},"$preview":{"width":2114,"height":80}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const SONGS = {
+      song2: { bars: 64, s: [['verse', 1, 7], ['into chorus', 8, 8], ['chorus', 9, 16], ['into verse', 17, 17], ['verse', 18, 24], ['chorus to break', 25, 33], ['break', 34, 34], ['chorus', 35, 38], ['into verse', 39, 39], ['verse', 40, 46], ['chorus to break', 47, 55], ['break', 56, 56], ['last chorus', 57, 64]] },
+      killme: { bars: 62, s: [['verse', 1, 12], ['into chorus', 13, 14], ['chorus', 15, 22], ['into verse', 23, 23], ['verse', 24, 31], ['into chorus 2', 32, 33], ['chorus', 34, 40], ['into bridge', 41, 41], ['bridge', 42, 45], ['build', 46, 49], ['into last chorus', 50, 53], ['last chorus', 54, 62]] }
+    };
+    // Measured widths of each name at 32 px in Atkinson Hyperlegible Next.
+    const W32 = { 'verse': 76, 'into chorus': 157, 'chorus': 96, 'into verse': 137, 'chorus to break': 220, 'break': 79, 'last chorus': 155, 'into chorus 2': 184, 'into bridge': 154, 'bridge': 92, 'build': 70, 'into last chorus': 217 };
+    const p = this.props;
+    const num = (v, d) => (v === undefined || v === null || v === '' ? d : Number(v));
+    const r = (v) => Math.round(v * 10) / 10;
+    const song = SONGS[p.song] || SONGS.song2;
+    const w = num(p.width, 2114);
+    const picking = p.picking === true || p.picking === '1' || p.picking === 'true';
+    const light = p.theme === 'light';
+    const c = light
+      ? { verse: '#e3d9c6', chorus: '#d8cab0', fill: '#c4b291', loopBg: 'rgba(168, 109, 20, 0.2)', label: '#5b4f3e', now: '#221c14', loopText: '#7a4c0c', tier: '#6f6250', gap: '#efe8db', outline: '#a86d14', head: '#221c14', tick: '#b9a98c', view: '#6f6250' }
+      : { verse: '#241e18', chorus: '#352b1f', fill: '#4a3b26', loopBg: 'rgba(227, 169, 78, 0.22)', label: '#a6977f', now: '#efe4d0', loopText: '#e3a94e', tier: '#8f826d', gap: '#14110d', outline: '#e3a94e', head: '#efe4d0', tick: '#5a4f40', view: '#a6977f' };
+    const per = w / song.bars;
+    const lf = num(p.loopFrom, null);
+    const lt = num(p.loopTo, null);
+    const hasLoop = lf !== null && lt !== null && !isNaN(lf) && !isNaN(lt);
+    const at = num(p.at, null);
+    const stripH = picking ? 88 : 44;
+    const blocks = [];
+    const tier = [];
+    song.s.forEach(([name, from, to], i) => {
+      const left = (from - 1) * per;
+      const width = (to - from + 1) * per;
+      const kind = /^(into|break)/.test(name) ? 'fill' : /chorus/.test(name) ? 'chorus' : 'verse';
+      const inLoop = hasLoop && from >= lf && to <= lt;
+      const now = at !== null && at >= from && at < to + 1;
+      const tw = W32[name] || name.length * 19;
+      const fits = tw + 27 <= width;
+      blocks.push({
+        left: r(left), width: r(width),
+        bg: inLoop ? c.loopBg : c[kind],
+        color: now ? c.now : inLoop ? c.loopText : c.label,
+        label: fits ? name : '',
+        aria: name + ', bars ' + from + ' to ' + to,
+        pick: (e) => { if (typeof p.onPick === 'function') p.onPick(i, !!(e && e.shiftKey)); }
+      });
+      if (!fits) tier.push({ text: name, l: left + width / 2 - tw / 2, tw, color: now ? c.now : inLoop ? c.loopText : c.tier });
+    });
+    for (let pass = 0; pass < 30; pass++) {
+      let moved = false;
+      for (let k = 1; k < tier.length; k++) {
+        const a = tier[k - 1], b = tier[k];
+        const over = a.l + a.tw + 18 - b.l;
+        if (over > 0.5) { a.l -= over / 2; b.l += over / 2; moved = true; }
+      }
+      if (!moved) break;
+    }
+    tier.forEach((t) => { t.left = r(Math.max(0, Math.min(w - t.tw, t.l))); });
+    const ticks = [];
+    const numbers = [];
+    for (let b = 1; b <= song.bars; b++) {
+      const x = (b - 1) * per;
+      ticks.push({ left: r(x), h: (b - 1) % 4 === 0 ? 22 : 12 });
+      if ((b - 1) % 4 === 0) numbers.push({ left: r(x + 4), text: String(b) });
+    }
+    const vf = num(p.viewFrom, null);
+    const vt = num(p.viewTo, null);
+    const hasView = vf !== null && vt !== null;
+    return {
+      w, h: picking ? 164 : 80, c, stripH, blocks, tier, picking, ticks, numbers,
+      tickTop: 36 + stripH - 22, numTop: 36 + stripH + 10,
+      hasLoop, loopLeft: hasLoop ? r((lf - 1) * per) : 0, loopWidth: hasLoop ? r((lt - lf + 1) * per) : 0, loopH: stripH + 10,
+      hasHandles: picking && hasLoop, handleL: hasLoop ? r((lf - 1) * per - 7) : 0, handleR: hasLoop ? r(lt * per - 7) : 0, handleH: stripH + 24,
+      hasHead: at !== null, headLeft: at !== null ? r((at - 1) * per - 2) : 0, headH: stripH + 20,
+      hasView, viewLeft: hasView ? r((vf - 1) * per) : 0, viewWidth: hasView ? r((vt - vf + 1) * per) : 0
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lamp prototype: loop, tempo, ramp</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@200..800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#e3a94e}a:hover{color:#f0c47a}
+</style>
+</helmet>
+<div style="position: relative; width: 2194px; height: 1100px; overflow: hidden; background: #14110d; color: #efe4d0; font-family: 'Atkinson Hyperlegible Next', 'Segoe UI', sans-serif">
+
+  <img src="/_blob/b4936527d8ec711118361359f746784c" alt="Song 2 music video: the drummer behind a cymbal" style="position: absolute; left: 40px; top: 24px; width: 588px; height: 331px; object-fit: cover; border-radius: 6px; box-shadow: 0 0 0 1px #2a231c">
+
+  <div style="position: absolute; left: 672px; top: 24px; font-size: 36px; line-height: 1; color: #a6977f"><span style="font-weight: 700; color: #efe4d0">Song 2</span> — Blur</div>
+
+  <button onClick="{{endPass}}" style="position: absolute; left: 1040px; top: 14px; height: 52px; padding: 0 20px; border-radius: 26px; border: 2px dashed #8f826d; background: transparent; color: #a6977f; font: 700 24px/1 'Atkinson Hyperlegible Next', sans-serif; cursor: pointer">End this pass · prototype only</button>
+
+  <div style="position: absolute; left: 668px; top: 72px">
+    <div style="font-size: 120px; font-weight: 700; line-height: 1; letter-spacing: -0.02em">chorus</div>
+    <div style="margin-top: 14px; font-size: 64px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums">bar 11<span style="font-size: 34px; font-weight: 400; color: #a6977f; margin-left: 12px">of 64</span></div>
+  </div>
+
+  <div style="position: absolute; left: 1160px; top: 96px">
+    <div style="display: flex; align-items: center; gap: 16px; font-size: 64px; font-weight: 700; line-height: 1; color: {{passColor}}"><svg aria-hidden="true" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l3 3-3 3"></path><path d="M4 11V9a3 3 0 0 1 3-3h13"></path><path d="M7 21l-3-3 3-3"></path><path d="M20 13v2a3 3 0 0 1-3 3H4"></path></svg>{{passBig}}</div>
+    <div style="margin-top: 22px; font-size: 34px; line-height: 1.2; color: {{passSubColor}}">{{passSub}}</div>
+  </div>
+
+  <div style="position: absolute; right: 40px; top: 40px; text-align: right">
+    <div style="font-size: 176px; font-weight: 600; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums">{{tempo}}<span style="font-size: 96px; font-weight: 500; color: #a6977f; margin-left: 6px">%</span></div>
+    <div style="margin-top: 8px; font-size: 36px; line-height: 1; color: #a6977f; font-variant-numeric: tabular-nums"><span style="font-weight: 700; color: #efe4d0">{{bpm}}</span> BPM · {{tempoNote}}</div>
+  </div>
+
+  <div style="position: absolute; left: 668px; right: 40px; top: 279px; height: 76px; display: flex; align-items: center; gap: 16px">
+    <button aria-label="{{playLabel}}" onClick="{{togglePlay}}" style="width: 76px; height: 76px; flex: none; border-radius: 38px; border: 1px solid #e3a94e; background: #e3a94e; color: #1b140a; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer">
+      <sc-if value="{{playing}}" hint-placeholder-val="{{ true }}">
+        <svg aria-hidden="true" width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1"></rect><rect x="14" y="4.5" width="4" height="15" rx="1"></rect></svg>
+      </sc-if>
+      <sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
+        <svg aria-hidden="true" width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+      </sc-if>
+    </button>
+    <button aria-pressed="{{loopOn}}" onClick="{{toggleLoop}}" style="height: 76px; padding: 0 28px; border-radius: 38px; border: 1px solid {{loopBorder}}; background: {{loopBg}}; color: {{loopColor}}; font: 700 34px/1 'Atkinson Hyperlegible Next', sans-serif; display: flex; align-items: center; gap: 12px; cursor: pointer"><svg aria-hidden="true" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l3 3-3 3"></path><path d="M4 11V9a3 3 0 0 1 3-3h13"></path><path d="M7 21l-3-3 3-3"></path><path d="M20 13v2a3 3 0 0 1-3 3H4"></path></svg>Loop</button>
+    <button aria-pressed="{{ramp}}" onClick="{{toggleRamp}}" style="height: 76px; padding: 0 28px; border-radius: 38px; border: 1px solid {{rampBorder}}; background: {{rampBg}}; color: {{rampColor}}; font: 700 34px/1 'Atkinson Hyperlegible Next', sans-serif; display: flex; align-items: center; gap: 12px; cursor: pointer"><svg aria-hidden="true" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h5v-5h5v-5h5V5h3"></path></svg>Ramp</button>
+    <div style="flex: 1"></div>
+    <sc-if value="{{showSteps}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; gap: 10px">
+        <button onClick="{{down10}}" style="height: 76px; min-width: 104px; padding: 0 22px; border-radius: 38px; border: 1px solid #3a3128; background: #1f1a15; color: #efe4d0; font: 700 34px/1 'Atkinson Hyperlegible Next', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer">−10</button>
+        <button onClick="{{down5}}" style="height: 76px; min-width: 104px; padding: 0 22px; border-radius: 38px; border: 1px solid #3a3128; background: #1f1a15; color: #efe4d0; font: 700 34px/1 'Atkinson Hyperlegible Next', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer">−5</button>
+        <button onClick="{{full}}" style="height: 76px; min-width: 104px; padding: 0 22px; border-radius: 38px; border: 1px solid #3a3128; background: #1f1a15; color: #a6977f; font: 700 34px/1 'Atkinson Hyperlegible Next', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer">100%</button>
+        <button onClick="{{up5}}" style="height: 76px; min-width: 104px; padding: 0 22px; border-radius: 38px; border: 1px solid #3a3128; background: #1f1a15; color: #efe4d0; font: 700 34px/1 'Atkinson Hyperlegible Next', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer">+5</button>
+        <button onClick="{{up10}}" style="height: 76px; min-width: 104px; padding: 0 22px; border-radius: 38px; border: 1px solid #3a3128; background: #1f1a15; color: #efe4d0; font: 700 34px/1 'Atkinson Hyperlegible Next', sans-serif; font-variant-numeric: tabular-nums; cursor: pointer">+10</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ramp}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; gap: 8px; align-items: center">
+        <sc-for list="{{ladder}}" as="r" hint-placeholder-count="7">
+          <div style="width: {{r.w}}px; height: 76px; box-sizing: border-box; border-radius: 38px; border: {{r.border}}; background: {{r.bg}}; color: {{r.color}}; font: 700 32px/72px 'Atkinson Hyperlegible Next', sans-serif; text-align: center; font-variant-numeric: tabular-nums">{{r.v}}</div>
+        </sc-for>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="position: absolute; left: 40px; top: 372px; width: 2114px; height: 80px">
+    <dc-import name="LampMap" song="song2" loop-from="{{mapFrom}}" loop-to="{{mapTo}}" at="11.4" width="2114" on-pick="{{pick}}" hint-size="2114px,80px"></dc-import>
+  </div>
+
+  <img src="/_blob/37d85984643324dccd1fe4a626d9a113" alt="Drum notation on cream paper: Song 2, bars 9 to 16, with R and L sticking and the cursor in bar 11" style="position: absolute; left: 40px; top: 466px; width: 2114px; height: 624px; border-radius: 6px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45)">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2194,"height":1100}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { pick: null, loopOn: false, tempo: 80, ramp: false, pass: 1, atStep: 0, playing: true };
+  }
+  renderVals() {
+    const SECTIONS = [['verse', 1, 7], ['into chorus', 8, 8], ['chorus', 9, 16], ['into verse', 17, 17], ['verse', 18, 24], ['chorus to break', 25, 33], ['break', 34, 34], ['chorus', 35, 38], ['into verse', 39, 39], ['verse', 40, 46], ['chorus to break', 47, 55], ['break', 56, 56], ['last chorus', 57, 64]];
+    const RAMP = { start: 70, step: 5, every: 2, stop: 100 };
+    const st = this.state;
+    const clamp = (v) => Math.max(25, Math.min(125, v));
+    const setLoop = (from, to) => this.setState((s) => ({ pick: { from, to }, loopOn: true, pass: 1, atStep: 0, tempo: s.ramp ? RAMP.start : s.tempo }));
+    const pick = (i, shift) => {
+      const sec = SECTIONS[i];
+      if (!sec) return;
+      const from = sec[1], to = sec[2];
+      const cur = this.state.loopOn ? this.state.pick : null;
+      if (shift && cur) { setLoop(Math.min(cur.from, from), Math.max(cur.to, to)); return; }
+      if (cur && from >= cur.from && to <= cur.to) { this.setState({ loopOn: false, ramp: false }); return; }
+      setLoop(from, to);
+    };
+    const step = (d) => () => this.setState((s) => ({ tempo: clamp(s.tempo + d), ramp: false }));
+    const toggleLoop = () => this.setState((s) => (s.loopOn ? { loopOn: false, ramp: false } : { loopOn: true, pick: s.pick || { from: 9, to: 16 }, pass: 1, atStep: 0 }));
+    const toggleRamp = () => this.setState((s) => (s.ramp ? { ramp: false } : { ramp: true, loopOn: true, pick: s.pick || { from: 9, to: 16 }, tempo: RAMP.start, pass: 1, atStep: 0 }));
+    const endPass = () => this.setState((s) => {
+      if (!s.loopOn) return null;
+      let { tempo, atStep } = s;
+      if (s.ramp && tempo < RAMP.stop) {
+        atStep += 1;
+        if (atStep >= RAMP.every) { tempo = Math.min(RAMP.stop, tempo + RAMP.step); atStep = 0; }
+      }
+      return { pass: s.pass + 1, tempo, atStep };
+    });
+    const loop = st.loopOn ? st.pick : null;
+    const named = loop ? SECTIONS.find((s) => s[1] === loop.from && s[2] === loop.to) : null;
+    const loopName = loop ? (named ? named[0] + ' · bars ' + loop.from + '–' + loop.to : 'bars ' + loop.from + '–' + loop.to) : '';
+    let passSub = 'playing the whole song';
+    if (loop) passSub = 'looping ' + loopName;
+    if (loop && st.ramp) {
+      const left = RAMP.every - st.atStep;
+      passSub = st.tempo >= RAMP.stop ? 'ramp done: full speed' : left === 1 ? 'next step after this pass' : 'next step after ' + left + ' passes';
+    }
+    const ladder = [];
+    for (let v = RAMP.start; v <= RAMP.stop; v += RAMP.step) {
+      const done = v < st.tempo, cur = v === st.tempo, next = v === st.tempo + RAMP.step;
+      ladder.push({
+        v, w: cur ? 108 : v === 100 ? 104 : 92,
+        border: cur ? '1px solid #e3a94e' : next ? '2px dashed #e3a94e' : done ? '1px solid #5a4f40' : '1px solid #3a3128',
+        bg: cur ? '#e3a94e' : done ? 'rgba(227, 169, 78, 0.12)' : 'transparent',
+        color: cur ? '#1b140a' : next ? '#e3a94e' : done ? '#a6977f' : '#8f826d'
+      });
+    }
+    const on = (flag) => ({ border: flag ? '#e3a94e' : '#3a3128', bg: flag ? 'rgba(227, 169, 78, 0.16)' : '#1f1a15', color: flag ? '#e3a94e' : '#efe4d0' });
+    const lb = on(st.loopOn), rb = on(st.ramp);
+    return {
+      tempo: st.tempo, bpm: Math.round(130 * st.tempo / 100), tempoNote: st.ramp ? 'ramp to 100%' : 'record 130',
+      passBig: st.loopOn ? 'pass ' + st.pass : 'loop off', passColor: st.loopOn ? '#e3a94e' : '#8f826d',
+      passSub, passSubColor: st.ramp ? '#e3a94e' : '#a6977f',
+      playing: st.playing, paused: !st.playing, playLabel: st.playing ? 'Pause' : 'Play',
+      loopOn: st.loopOn, ramp: st.ramp, showSteps: !st.ramp,
+      loopBorder: lb.border, loopBg: lb.bg, loopColor: lb.color,
+      rampBorder: rb.border, rampBg: rb.bg, rampColor: rb.color,
+      ladder,
+      mapFrom: loop ? loop.from : '', mapTo: loop ? loop.to : '',
+      pick, endPass, toggleLoop, toggleRamp,
+      togglePlay: () => this.setState((s) => ({ playing: !s.playing })),
+      down10: step(-10), down5: step(-5), up5: step(5), up10: step(10),
+      full: () => this.setState({ tempo: 100, ramp: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

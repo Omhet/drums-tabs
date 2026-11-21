@@ -6,906 +6,1180 @@
     <title>drums-tabs</title>
     <!-- No icon file; without this the browser asks for /favicon.ico and logs a 404 on every load. -->
     <link rel="icon" href="data:," />
-    <!-- Apply both saved themes before first paint so the page does not flash.
-         They are independent: the chrome and the notation each have their own,
-         and an absent tab theme means "follow the chrome". -->
+    <!-- The one face, self-hosted (public/fonts/, OFL). Preloaded because the
+         section name is fitted to its space by measuring it, and a measurement
+         taken in the fallback face would be wrong once this one arrives. -->
+    <link
+      rel="preload"
+      href="/fonts/atkinson-hyperlegible-next-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <!-- Apply the saved themes and the video switch before first paint, so the
+         page does not flash and the header does not change shape under the
+         notation a moment after load. -->
     <script>
       try {
         const t = localStorage.getItem('theme');
-        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+        if (t === 'light') document.documentElement.dataset.theme = t;
         const b = localStorage.getItem('tabTheme');
-        if (b === 'light' || b === 'dark') document.documentElement.dataset.tabTheme = b;
-        // The rails, before first paint for a stronger reason than the flash:
-        // the middle column's width is what alphaTab engraves the score
-        // against, so a rail that collapsed a moment after load would cost a
-        // full re-engrave on every single load.
-        for (const side of ['rail', 'desk']) {
-          if (localStorage.getItem(side) === 'icons') document.documentElement.dataset[side] = 'icons';
-        }
+        if (b === 'dark') document.documentElement.dataset.tabTheme = b;
       } catch {}
     </script>
     <style>
-      /* Two palettes that do not talk to each other.
-         --* is the chrome: rails, buttons, the reading.
-         --tab-* is the notation pane and only the notation pane, so a dark
-         page can hold a sheet of white paper. The notes themselves are not in
-         here: alphaTab paints those from palette() in main.ts. */
+      @font-face {
+        font-family: 'Atkinson Hyperlegible Next';
+        font-style: normal;
+        font-weight: 200 800;
+        font-display: block;
+        src: url(/fonts/atkinson-hyperlegible-next-latin.woff2) format('woff2');
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+          U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+      @font-face {
+        font-family: 'Atkinson Hyperlegible Next';
+        font-style: normal;
+        font-weight: 200 800;
+        font-display: block;
+        src: url(/fonts/atkinson-hyperlegible-next-latin-ext.woff2) format('woff2');
+        unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+          U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+      }
+
+      /* --- tokens: design/lamp/Lamp-Spec.dc.html, verbatim ------------------
+         Two palettes that do not talk to each other. --* is the interface and
+         takes data-theme (dark unless set); --tab-* and --verdict-* are the
+         paper and take data-tab-theme (light unless set), so a dark room can
+         hold a sheet of cream paper. alphaTab paints the notes from the
+         --tab-* tokens too (main.ts palette()), and the heatmap its noteheads
+         from --verdict-* (heatmap.ts). */
       :root {
-        color-scheme: light;
-        --bg: #f7f7f8;
-        --fg: #1a1a1c;
-        --muted: #6b6b73;
-        --panel: #ffffff;
-        --border: #e2e2e6;
-        /* The reading's verdicts. They are the heatmap's `tight` and `missed`
-           in spirit -- a green bar and a green notehead mean the same thing --
-           but not always the same hex: the reading is chrome and takes the
-           interface's theme, while the noteheads are ink and take the
-           notation's (heatmap.ts). Green on a dark rail is lighter than green
-           on white paper, which is the point of having two themes at all. */
-        --pass: #208c4e;
-        --warn: #c87814;
-        --fail: #c82d28;
-        /* How wide the rails are, collapsed and open, and how much of the
-           screen the picture keeps when the notation is set to Fill. A third:
-           Fill is the mode you read the notation in, and the picture is still
-           there to be watched rather than glanced at. */
-        --rail: 232px;
-        --desk: 400px;
-        --fill-picture: 33.333vh;
-      }
-      :root[data-theme="dark"] {
         color-scheme: dark;
-        --bg: #17171a;
-        --fg: #ececf0;
-        --muted: #9a9aa4;
-        --panel: #1f1f24;
-        --border: #303038;
-        --pass: #50c882;
-        --warn: #f0af50;
-        --fail: #f56e64;
+        --font: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+        --bg: #14110d; --raise: #1f1a15; --raise-2: #2a231c; --line: #3a3128;
+        --text: #efe4d0; --muted: #a6977f; --faint: #8f826d;
+        --accent: #e3a94e; --accent-wash: rgb(227 169 78 / 0.16); --on-accent: #1b140a;
+        --ok: #7fb38a;
+        /* Lamp-11: zen's ground, a shade under --bg. */
+        --zen-bg: #0f0d0a;
+        --type-tempo: 176px; --type-countin: 160px; --type-section: 120px;
+        --type-glance: 64px; --type-title: 44px; --type-read: 34px;
+        --type-label: 26px; --type-caption: 22px; --type-sticking: 25px;
+        --target: 76px; --margin: 40px; --radius-pill: 38px; --radius-panel: 12px;
+        /* Not in the spec: something has gone wrong, in the interface. The
+           wrong-note magenta, since it is the one red the design has. */
+        --danger: #ec6b9b;
+        /* An "off" pill's dashed edge (Lamp-02's Video). */
+        --line-dashed: #5a4f40;
+        /* A raised panel's edge and the pills on it (Lamp-08's #4a3f32), and
+           a muted channel's key chip. */
+        --line-strong: #4a3f32; --accent-line: #6b5a3a;
+        /* The song map's own shades (design/lamp/LampMap, not in the spec's
+           list): verse, chorus and fill blocks, the looped bars and their
+           names, the names in a block, the names on the tier above, the bar
+           marks. */
+        --map-verse: #241e18; --map-chorus: #352b1f; --map-fill: #4a3b26;
+        --map-loop: rgb(227 169 78 / 0.22); --map-loop-text: #e3a94e;
+        --map-label: #a6977f; --map-tier: #8f826d; --map-tick: #5a4f40;
       }
-      @media (prefers-color-scheme: dark) {
-        :root:not([data-theme="light"]) {
-          color-scheme: dark;
-          --bg: #17171a;
-          --fg: #ececf0;
-          --muted: #9a9aa4;
-          --panel: #1f1f24;
-          --border: #303038;
-          --pass: #50c882;
-          --warn: #f0af50;
-          --fail: #f56e64;
-        }
+      :root[data-theme='light'] {
+        color-scheme: light;
+        --bg: #efe8db; --raise: #e5dccb; --raise-2: #d3c5ab; --line: #cdbfa6;
+        --text: #241e16; --muted: #6b5e4b; --faint: #7d6f58;
+        --accent: #a86d14; --accent-wash: rgb(168 109 20 / 0.14); --on-accent: #fff8ea;
+        --zen-bg: #e5dccb;
+        --danger: #c0265e;
+        --line-dashed: #a89878;
+        --line-strong: #b9a98c; --accent-line: #c79a55;
+        --map-verse: #e3d9c6; --map-chorus: #d8cab0; --map-fill: #c4b291;
+        --map-loop: rgb(168 109 20 / 0.2); --map-loop-text: #7a4c0c;
+        --map-label: #5b4f3e; --map-tier: #6f6250; --map-tick: #b9a98c;
       }
-      /* The notation pane's own palette. --tab-accent is the heatmap's `extra`
-         colour (heatmap.ts) written as hex, so an extra x and a missed
-         notehead are the same red. With no tab theme chosen the pane follows
-         the chrome, which is what the two blocks after these are for. */
-      /* --tab-loop is the loop's tint over its bars and --tab-loop-edge the
-         line at its two ends (loop.ts): blue, so it never reads as the
-         cursor's yellow or a verdict's green and red. */
-      :root[data-tab-theme="light"] {
-        --tab-bg: #ffffff;
-        --tab-muted: #6b6b73;
-        --tab-border: #e2e2e6;
-        --tab-accent: #c82d28;
-        --tab-cursor-bar: rgba(255, 200, 0, 0.22);
-        --tab-cursor-beat: rgba(230, 60, 60, 0.85);
-        --tab-loop: rgba(40, 120, 220, 0.09);
-        --tab-loop-edge: rgba(40, 120, 220, 0.75);
+      :root, :root[data-tab-theme='light'] {
+        --tab-paper: #ece2cc; --tab-paper-hi: #f4ecda; --tab-ink: #211b14;
+        --tab-staff: #a3957d; --tab-barno: #a3957d; --tab-cursor: #c2410c;
+        --tab-current: rgb(227 169 78 / 0.26); --tab-loop: #b7791f;
+        --tab-sticking: #7d6d55; --tab-label: #4f4130;
+        --verdict-played: #1f5fa8; --verdict-missed: #e8840f; --verdict-wrong: #c0265e;
       }
-      :root:not([data-tab-theme]) {
-        --tab-bg: var(--panel);
-        --tab-muted: var(--muted);
-        --tab-border: var(--border);
-        --tab-accent: var(--fail);
-        --tab-cursor-bar: rgba(255, 200, 0, 0.22);
-        --tab-cursor-beat: rgba(230, 60, 60, 0.85);
-        --tab-loop: rgba(60, 135, 235, 0.11);
-        --tab-loop-edge: rgba(60, 135, 235, 0.8);
+      :root[data-tab-theme='dark'] {
+        --tab-paper: #1d1914; --tab-paper-hi: #25201a; --tab-ink: #ece2cf;
+        --tab-staff: #5f5547; --tab-barno: #75695a; --tab-cursor: #ef7a3c;
+        --tab-current: rgb(227 169 78 / 0.13); --tab-loop: #e3a94e;
+        --tab-sticking: #a6977f; --tab-label: #d8c9ae;
+        --verdict-played: #6ea4e6; --verdict-missed: #e8840f; --verdict-wrong: #ec6b9b;
       }
-      :root[data-tab-theme="dark"] {
-        --tab-bg: #1f1f24;
-        --tab-muted: #9a9aa4;
-        --tab-border: #303038;
-        --tab-accent: #f56e64;
-        --tab-cursor-bar: rgba(255, 200, 0, 0.16);
-        --tab-cursor-beat: rgba(245, 110, 100, 0.9);
-        --tab-loop: rgba(100, 165, 255, 0.13);
-        --tab-loop-edge: rgba(110, 170, 255, 0.85);
-      }
+
+      /* --- the page ------------------------------------------------------- */
+      [hidden] { display: none !important; }
       html, body { height: 100%; }
       body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--fg);
-        font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+        margin: 0; overflow: hidden;
+        background: var(--bg); color: var(--text);
+        font: 400 var(--type-read)/1.2 var(--font);
+        font-variant-numeric: tabular-nums;
       }
-      /* Desktop only, and one screen: the controls are a rail down the left,
-         what practice measures is a rail down the right, and everything
-         between is the stage. Only the rails scroll -- the stage is sized to
-         fit and never is. */
-      /* Fixed tracks, not content-sized ones: a rail that grew when a reading
-         arrived would narrow the middle, and alphaTab re-engraves the score
-         whenever its width moves -- at the exact moment you want to read it. */
+      button, select, input { font: inherit; color: inherit; }
+      button { cursor: pointer; }
+      button:disabled { cursor: default; opacity: 0.5; }
+      .sr {
+        position: absolute; width: 1px; height: 1px; overflow: hidden;
+        clip-path: inset(50%); white-space: nowrap;
+      }
+
+      /* One screen, top to bottom: the header (24-355 with the video), the
+         song map's slot, and the paper taking the rest. The paper's width is
+         the window's less two margins, set once: nothing opened mid-song may
+         change it, because alphaTab re-engraves the whole score whenever it
+         does. Anything that has to appear mid-song lays over it. */
       #app {
         box-sizing: border-box; height: 100%;
-        display: grid; grid-template-columns: var(--rail) minmax(0, 1fr) var(--desk);
-        /* The header, then everything else. `auto` rather than a fixed height
-           so the row is whatever the controls in it need, and minmax(0, 1fr)
-           because a grid row's default minimum is its content -- without it a
-           long score pushes the page taller than the window instead of
-           scrolling inside the rails. */
-        grid-template-rows: auto minmax(0, 1fr);
-        gap: 12px; padding: 12px;
-      }
-      main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-
-      /* --- the rails ----------------------------------------------------- */
-      aside {
-        display: flex; flex-direction: column; gap: 8px;
-        min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-      }
-      aside::-webkit-scrollbar { width: 8px; }
-      aside::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-      h1 { font-size: 15px; margin: 0 0 2px; padding: 0 2px; letter-spacing: -0.01em; }
-      /* The two switches, side by side: what each one changes on the left, the
-         switch on the right. Together, because the useful thing about having
-         two is setting them against each other -- a dark room and a light
-         score -- and that is a comparison you make in one place. */
-      #theme, #tab-theme { padding: 3px 10px; font-size: 14px; line-height: 1.2; }
-      .row > .name { flex: 1; min-width: 0; color: var(--muted); }
-      .group {
-        display: flex; flex-direction: column; gap: 7px;
-        padding: 8px 11px 10px;
-        background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-      }
-      .group > h2 {
-        margin: 0; font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
-        text-transform: uppercase; color: var(--muted);
-      }
-      /* Controls side by side on one line of the group. */
-      .row { display: flex; align-items: center; gap: 8px; }
-      /* The right rail is wide enough to hold the reading, which leaves a
-         lone button stretched across it looking like a banner. Buttons there
-         are their own width; the outputs beside them still take the slack. */
-      #desk .group > button { align-self: flex-start; }
-      #desk select { max-width: 260px; }
-      .row > .grow { flex: 1; min-width: 0; }
-      select, button, input[type="range"] { font: inherit; }
-      select {
-        width: 100%; padding: 4px 7px; border-radius: 6px;
-        border: 1px solid var(--border); background: var(--panel); color: var(--fg);
-      }
-      button {
-        padding: 5px 12px; border-radius: 6px;
-        border: 1px solid var(--border); background: var(--panel); color: var(--fg);
-        cursor: pointer; white-space: nowrap;
-      }
-      button:hover:not(:disabled) { border-color: var(--muted); }
-      button:disabled { opacity: 0.5; cursor: default; }
-      label { display: flex; align-items: center; gap: 7px; color: var(--muted); }
-      output { color: var(--fg); font-variant-numeric: tabular-nums; }
-      /* A fader: name on the left, value on the right, slider under both. */
-      .fader { display: grid; grid-template-columns: 1fr auto; gap: 1px 8px; color: var(--muted); }
-      .fader input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 0; }
-      .fader output { text-align: right; font-size: 12px; }
-      /* A line of words with numbers typed into it: "Bars 15 to 22". */
-      .nums { display: flex; align-items: center; gap: 5px; color: var(--muted); }
-      input[type="number"] {
-        width: 50px; padding: 3px 4px; font: inherit; font-variant-numeric: tabular-nums;
-        border-radius: 6px; border: 1px solid var(--border); background: var(--panel); color: var(--fg);
-      }
-      /* The tempo steps: five small buttons sharing the rail's width. */
-      #tempo-steps { gap: 4px; }
-      #tempo-steps button { flex: 1; min-width: 0; padding: 3px 0; font-size: 12px; }
-      /* The loop's switch shows which way it is set, filled when on. */
-      #loop[aria-pressed="true"] {
-        background: var(--fg); color: var(--panel); border-color: var(--fg); font-weight: 600;
-      }
-      #loop-pass { font-weight: 600; }
-      #ramp-state { font-size: 12px; line-height: 1.35; }
-
-      /* --- the rails, one icon wide --------------------------------------- */
-      /* The same controls, not a second set of them: a button keeps its word
-         for the tooltip and the screen reader and grows a glyph in place of
-         it, a select keeps its native arrow and its native popup, a checkbox
-         is already icon-sized. What has no icon -- a fader, a reading -- is
-         not there until the rail is opened again.
-         46 = 34 (the icon) + 2x5 (the group's padding) + 2x1 (its border).
-         Nothing here may be animated: the width of the middle column is what
-         alphaTab engraves against, and a transition would re-engrave the whole
-         score once a frame for the length of it. */
-      :root[data-rail="icons"] { --rail: 46px; }
-      :root[data-desk="icons"] { --desk: 46px; }
-      :root[data-rail="icons"] #rail
-        :is(h1, h2, .fader, .keys, output, label > span, .row > .name, .nums, #tempo-steps),
-      :root[data-desk="icons"] #desk
-        :is(h1, h2, .fader, .keys, output, label > span, .row > .name, #monitor, #report, #passes) {
-        display: none;
-      }
-      :root[data-rail="icons"] #rail .group,
-      :root[data-desk="icons"] #desk .group { padding: 7px 5px 8px; gap: 6px; }
-      /* A fader has no icon -- it is a position, not a state -- so the Mix
-         group comes out of the collapse as an empty panel. Asked as "a group
-         with nothing left in it" rather than by name, so the next group made
-         of faders does not need this rule written again. (The faders are still
-         on 1/2/3/4, and the tempo on [ and ].) */
-      :root[data-rail="icons"] #rail .group:not(:has(button, select, input[type="checkbox"])),
-      :root[data-desk="icons"] #desk .group:not(:has(button, select, input[type="checkbox"])) {
-        display: none;
-      }
-      /* Two buttons do not fit side by side across 34px. */
-      :root[data-rail="icons"] #rail .row,
-      :root[data-desk="icons"] #desk .row { flex-direction: column; align-items: flex-start; gap: 6px; }
-      /* Width and padding only, never display: [hidden] on a button is a rule
-         of the same specificity and would lose to one set here. */
-      :root[data-rail="icons"] #rail button,
-      :root[data-desk="icons"] #desk button {
-        width: 34px; padding: 5px 0; text-align: center; flex: none; align-self: flex-start;
-      }
-      /* The word goes to nothing and the glyph is drawn in its place. ::before
-         inherits the 0, so its own size has to be absolute -- em and % resolve
-         against 0 and draw nothing. Only buttons carrying a data-icon: the two
-         theme switches already *are* their glyph (applyUiTheme writes it as
-         their text) and would be blanked by this. */
-      :root[data-rail="icons"] #rail button[data-icon],
-      :root[data-desk="icons"] #desk button[data-icon] { font-size: 0; }
-      :root[data-rail="icons"] #rail button[data-icon]::before,
-      :root[data-desk="icons"] #desk button[data-icon]::before {
-        content: attr(data-icon);
-        font-size: 15px; font-weight: 600; line-height: 1.3; display: inline-block;
-      }
-      /* A select the width of its own arrow, still a real select: font-size: 0
-         hides the chosen option's text and leaves the arrow, which the browser
-         draws at a fixed size. It also collapses the control's height, hence
-         the explicit one, and it is inherited by the popup, hence the size put
-         back on the options. `color: transparent` is not the alternative it
-         looks like -- the arrow is painted in the element's own colour. */
-      :root[data-rail="icons"] #rail select,
-      :root[data-desk="icons"] #desk select {
-        width: 34px; max-width: 34px; height: 27px; padding: 4px 0; font-size: 0;
-      }
-      :root[data-rail="icons"] #rail select option,
-      :root[data-desk="icons"] #desk select option { font-size: 13px; }
-      /* A scrollbar would eat 8 of the 46, and the icons fit without one. */
-      :root[data-rail="icons"] #rail, :root[data-desk="icons"] #desk { scrollbar-width: none; }
-      :root[data-rail="icons"] #rail::-webkit-scrollbar,
-      :root[data-desk="icons"] #desk::-webkit-scrollbar { width: 0; }
-      /* Two switches, the same glyph, and collapsed there is no "Interface" or
-         "Notation" beside them to say which is which. The notation's is the
-         one with the note on it. */
-      :root[data-rail="icons"] #tab-theme { position: relative; }
-      :root[data-rail="icons"] #tab-theme::after {
-        content: "\266A"; position: absolute; right: 2px; bottom: 0;
-        font-size: 9px; line-height: 1; color: var(--muted);
+        padding: 0 var(--margin) 10px;
+        display: flex; flex-direction: column;
       }
 
       /* --- the header ----------------------------------------------------- */
-      /* Which song, and the chrome. It spans all three columns so the rails
-         fold under it rather than beside it. */
-      #nav {
-        grid-column: 1 / -1;
-        display: flex; align-items: center; gap: 12px;
-        padding: 7px 11px;
-        background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+      /* Full (Lamp-01): the video on the left; title, where, pass and tempo to
+         its right; the controls row along the bottom at 279. */
+      #head {
+        position: relative; flex: none;
+        margin-top: 24px; height: 331px;
+        display: grid;
+        grid-template-columns: 588px 452px minmax(0, 1fr) auto;
+        grid-template-rows: auto minmax(0, 1fr) var(--target);
+        grid-template-areas:
+          'video title title tempo'
+          'video where pass  tempo'
+          'video ctl   ctl   ctl';
+        column-gap: 40px;
       }
-      #nav h1 { margin: 0; }
-      #nav-pages { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
-      #nav-song select { width: auto; min-width: 160px; max-width: 340px; }
-      /* The chrome: the two rails and zen. Always glyphs, because there is no
-         wide state here for them to spell a word in. `data-open` is what a
-         toggle shows while its rail is open and `data-icon` what it shows once
-         the rail is folded, so the glyph stays a function of the state. */
-      #nav-chrome { display: flex; align-items: center; gap: 6px; }
-      #nav-chrome button { width: 34px; padding: 5px 0; text-align: center; font-size: 0; }
-      #nav-chrome button::before {
-        content: attr(data-open);
-        font-size: 15px; font-weight: 600; line-height: 1.3; display: inline-block;
-      }
-      :root[data-rail="icons"] #rail-toggle::before,
-      :root[data-desk="icons"] #desk-toggle::before { content: attr(data-icon); }
-
-      /* --- the stage ----------------------------------------------------- */
-      /* The picture on top, the notation under it, neither on top of the
-         other. The Lines control sets how many rows of notation there are and
-         the picture takes what is left; Fill turns that round. */
-      #stage {
-        display: flex; flex-direction: column; gap: 10px;
-        flex: 1; min-height: 0;
-      }
-      /* The picture is a region, not a panel: no background of its own, and
-         the video sized to its own shape inside it. A fixed box with the video
-         letterboxed in it would be black bars either side at every setting,
-         and most of the frame on Fill. width/height: auto against max-*: 100%
-         is the scale-to-fit a replaced element does for itself, aspect ratio
-         kept, and margin: auto centres what comes out. */
-      #picture { flex: 1 1 auto; min-height: 0; display: flex; }
+      #picture { grid-area: video; min-width: 0; }
       #video {
-        margin: auto; width: auto; height: auto; max-width: 100%; max-height: 100%;
-        object-fit: contain; border-radius: 8px; background: #000; cursor: pointer;
+        display: block; width: 588px; height: 331px; border-radius: 6px;
+        box-shadow: 0 0 0 1px var(--raise-2);
+        /* contain, not the frame's cover: a 4:3 video would lose its sides,
+           which is where a drummer usually is. 16:9 fills it either way. */
+        object-fit: contain; background: #000; cursor: pointer;
       }
-      /* Fill: the notation takes what is left and the picture keeps its third
-         of the screen. min-height: 0 is load-bearing on both -- a flex child's
-         default min-height: auto refuses to shrink below its content, and the
-         split would overflow the stage instead of dividing it. */
-      #stage.fill #picture { flex: 0 0 var(--fill-picture); }
-      #stage.fill #tabs { flex: 1 1 auto; min-height: 0; }
-      /* No picture bound to the timeline: the notation is the stage. */
-      #stage.no-video #picture { display: none; }
-
-      /* The notation pane: solid, themed on its own, and a sibling of the
-         picture rather than a panel over it. */
-      #tabs {
-        display: flex; flex-direction: column;
-        flex: 0 1 auto; min-height: 0; padding: 0 8px;
-        background: var(--tab-bg); border: 1px solid var(--tab-border);
-        border-radius: 8px;
+      /* "Song 2 — Blur" (song.toml's [song]), and " · paused" while browsing. */
+      #title {
+        grid-area: title; min-width: 0;
+        font-size: 36px; line-height: 1; color: var(--muted);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        /* Clear of the Songs and Settings icons in the corner. */
+        padding-right: 140px;
       }
-      /* The notation window: N lines of the score (score-window.ts sets the
-         height), scrolled a whole line at a time so the line being played is
-         the top one. It wraps alphaTab's element rather than being it: the
-         element keeps its full height and the box clips it. */
-      /* The 260px only ever applies before the first measure(): with
-         `height: auto` a clipping box is as tall as the whole engraved score,
-         and the notation would swallow the stage on load. score-window.ts
-         overrides it with an inline height a moment later. `0 1 auto` rather
-         than `0 0 auto` so a window too short for four lines clips the bottom
-         row instead of pushing the picture off the top. */
-      #score-box { flex: 0 1 auto; min-height: 0; height: 260px; overflow: hidden; }
-      #score-box.fit { flex: 1 1 auto; height: auto; }
-      /* min-height: the line is often empty now that it only speaks when there
-         is something to say, and a line that came and went would move the
-         stage under the notation each time. */
-      #status {
-        margin: 8px 2px 0; color: var(--muted); font-size: 12px; line-height: 1.4;
-        min-height: 1.4em;
+      #song-title b { font-weight: 700; color: var(--text); }
+      #where { grid-area: where; min-width: 0; margin-top: 12px; margin-left: -4px; }
+      #section-name {
+        font-size: var(--type-section); font-weight: 700; line-height: 1;
+        letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      /* Stepped down by main.ts (fitSection) when the name is longer than its
+         space: 120, then 88, then 64, never below. */
+      #section-name[data-step='1'] { font-size: 88px; }
+      #section-name[data-step='2'] { font-size: var(--type-glance); }
+      #bar-of {
+        margin-top: 14px; font-size: var(--type-glance); font-weight: 700; line-height: 1;
+        white-space: nowrap;
+      }
+      #bar-of .of { font-size: var(--type-read); font-weight: 400; color: var(--muted); margin-left: 12px; }
+      #pass { grid-area: pass; min-width: 0; margin-top: 36px; color: var(--faint); }
+      #pass[data-on] { color: var(--accent); }
+      #pass-main {
+        display: flex; align-items: center; gap: 16px;
+        font-size: var(--type-glance); font-weight: 700; line-height: 1; white-space: nowrap;
+      }
+      #pass-main svg { flex: none; width: 56px; height: 56px; }
+      #pass-sub {
+        margin-top: 22px; font-size: var(--type-read); line-height: 1.2; color: var(--muted);
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
-      #status.err { color: var(--fail); }
-      /* Under the Kit fader, and only when there is something to say: an
-         unbaked bank, or a drum the chart asks for that it cannot play. The
-         fader is otherwise a control that silently does nothing. */
-      #kit-note {
-        margin: 5px 2px 0; color: var(--fail); font-size: 11px; line-height: 1.35;
+      #pass[data-on] #pass-sub { color: var(--accent); }
+      #tempo {
+        grid-area: tempo; margin-top: 16px; text-align: right;
+        display: flex; flex-direction: column; align-items: flex-end;
       }
-      #kit-note code { font-size: 11px; }
-      /* The sticking letters (sticking.ts): one per beat the hands play,
-         placed under the staff from alphaTab's own bounds. The overlay is
-         inside alphaTab's element so it scrolls with the score; each letter is
-         centred on the beat it belongs to. It is ink on the page, so it takes
-         the pane's theme and not the chrome's. */
+      #tempo-pct {
+        font-size: var(--type-tempo); font-weight: 600; line-height: 1; letter-spacing: -0.03em;
+      }
+      #tempo-pct .unit { font-size: 96px; font-weight: 500; color: var(--muted); margin-left: 6px; }
+      #tempo-bpm { margin-top: 8px; font-size: 36px; line-height: 1; color: var(--muted); white-space: nowrap; }
+      #tempo-bpm b { color: var(--text); }
+      #corner { position: absolute; right: 0; top: -4px; display: flex; gap: 12px; }
+      #corner button {
+        width: 48px; height: 48px; padding: 0; border: 0; border-radius: 10px;
+        background: transparent; color: var(--faint);
+        display: flex; align-items: center; justify-content: center;
+      }
+      #corner button:hover, #corner button[aria-expanded='true'] { color: var(--text); background: var(--raise); }
+
+      /* The controls row: 76 tall, everything in it a pill. */
+      #controls { grid-area: ctl; min-width: 0; display: flex; align-items: center; gap: 16px; }
+      .pill {
+        box-sizing: border-box; height: var(--target); flex: none;
+        padding: 0 30px; border-radius: var(--radius-pill);
+        border: 1px solid var(--line); background: var(--raise); color: var(--text);
+        font-size: var(--type-read); font-weight: 700; line-height: 1;
+        display: flex; align-items: center; justify-content: center; gap: 14px;
+        white-space: nowrap;
+      }
+      .pill svg { flex: none; width: 34px; height: 34px; }
+      .pill:hover:not(:disabled) { border-color: var(--faint); }
+      .pill.quiet { color: var(--muted); }
+      .pill[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-wash); color: var(--accent); }
+      /* Video hidden: the switch still there, dashed, the picture crossed out. */
+      .pill.off { border-style: dashed; border-color: var(--line-dashed); background: transparent; color: var(--faint); }
+      /* The Loop pill with the picker open: marked as open, not as on. */
+      #loop[aria-expanded='true'] { border-color: var(--text); }
+      #play {
+        width: var(--target); padding: 0;
+        border-color: var(--accent); background: var(--accent); color: var(--on-accent);
+      }
+      #play .i-pause, #play[data-state='pause'] .i-play { display: none; }
+      #play[data-state='pause'] .i-pause { display: block; }
+      /* Shown is the ordinary state, so the Video pill is the quiet one then:
+         only hidden is marked (dashed, below). */
+      #video-btn[aria-pressed='true'] { border-color: var(--line); background: var(--raise); color: var(--muted); }
+      #video-btn .i-off, #video-btn.off .i-on { display: none; }
+      #video-btn.off .i-off { display: block; }
+      /* The mix glyph: four levels, drawn rather than drawn from a font. */
+      .levels { display: flex; gap: 6px; align-items: flex-end; height: 34px; }
+      .levels i { display: block; width: 8px; border-radius: 2px; background: currentColor; }
+      /* With the loop on the Ramp pill joins the row (Lamp-04), and the row
+         runs out of width: the pills close up a little. */
+      #controls:has(#ramp-btn:not([hidden])) { gap: 12px; }
+      #controls:has(#ramp-btn:not([hidden])) > .pill:not(#play) { padding: 0 24px; }
+      .spacer { flex: 1; }
+      #tempo-steps { display: flex; gap: 10px; }
+      #tempo-steps .pill { min-width: 104px; padding: 0 22px; }
+      #tempo-steps [data-step='0'] { color: var(--muted); }
+
+      /* --- the count-in (Lamp-05) ------------------------------------------
+         While a count-in clicks, where you are gives way to what it leads
+         into and 1 2 3 4 at 160: counted (faint), sounding (brass), to come
+         (dim). It takes the pass block's room too, and the picture dims. */
+      #count { display: none; }
+      #app[data-counting] #count {
+        grid-row: 2; grid-column: 2 / 4; min-width: 0; margin-top: 16px;
+        display: flex; flex-direction: column;
+      }
+      #app[data-counting] :is(#where, #pass, #browse) { visibility: hidden; }
+      #app[data-counting] #video { opacity: 0.45; }
+      #count-says {
+        font-size: var(--type-read); line-height: 1; color: var(--muted);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      #count-says b { font-weight: 700; color: var(--text); }
+      #count-beats {
+        margin: 2px 0 0 -6px; display: flex; align-items: baseline; gap: 64px;
+        font-size: var(--type-countin); font-weight: 700; line-height: 1;
+      }
+      #count-beats [data-beat='done'] { color: var(--faint); }
+      #count-beats [data-beat='now'] { color: var(--accent); }
+      #count-beats [data-beat='to-come'] { color: var(--line-dashed); }
+
+      /* --- browsing while paused (Lamp-06) --------------------------------
+         The paper turned away from the cursor: the bars on show in the pass
+         block's place, Back to bar N in the controls, a dashed edge round the
+         paper, the picture dimmed. */
+      #browse { grid-area: pass; min-width: 0; margin-top: 36px; color: var(--muted); }
+      /* Out-ranking the compact band's own #pass rule. */
+      #app[data-browsing][data-head] #pass { display: none; }
+      #browse-main {
+        display: flex; align-items: center; gap: 16px;
+        font-size: var(--type-glance); font-weight: 700; line-height: 1; white-space: nowrap;
+      }
+      #browse-main svg { flex: none; width: 56px; height: 56px; }
+      /* Lamp-06 lets this line run on under the tempo's BPM line. */
+      #browse-sub { margin-top: 22px; font-size: var(--type-read); line-height: 1.2; white-space: nowrap; }
+      /* Lamp-06's row: Play, Back, Loop, the steps. Ramp, Mix and Video wait. */
+      #app[data-browsing][data-head='full'] :is(#ramp-btn, #mix-btn, #video-btn) { display: none; }
+      #app[data-browsing] #video { opacity: 0.6; }
+      #back-btn { border: 2px solid var(--text); background: transparent; color: var(--text); }
+      #back-btn kbd { font-size: 24px; font-weight: 600; padding: 4px 8px; }
+      #app[data-browsing] #tabs::after {
+        content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none;
+        border: 3px dashed var(--muted); border-radius: 6px;
+      }
+
+      /* --- the ramp's ladder (Lamp-04) ------------------------------------
+         In the tempo pills' place while the ramp is on: climbed (a wash), now
+         (filled, wider), next (dashed), to come (outlined). */
+      #ladder { display: flex; gap: 8px; align-items: center; }
+      .rung {
+        box-sizing: border-box; height: var(--target); min-width: 92px; padding: 0 16px;
+        border-radius: var(--radius-pill); border: 1px solid var(--line); color: var(--faint);
+        font-size: 32px; font-weight: 700; line-height: 1;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .rung[data-state='done'] { border-color: var(--line-dashed); background: rgb(227 169 78 / 0.12); color: var(--muted); }
+      :root[data-theme='light'] .rung[data-state='done'] { background: var(--accent-wash); }
+      .rung[data-state='now'] { min-width: 108px; border-color: var(--accent); background: var(--accent); color: var(--on-accent); font-size: 34px; }
+      .rung[data-state='next'] { border: 2px dashed var(--accent); color: var(--accent); }
+      /* With the ladder in the row it runs out of width: the switches close
+         up as they do for the Ramp pill. */
+      #controls:has(#ladder:not([hidden])) > .pill:not(#play) { padding: 0 22px; }
+      /* Lamp-04's row: Play, Loop, Ramp, Mix and the ladder. The Video pill
+         waits (V still works). */
+      #app[data-head='full'] #controls:has(#ladder:not([hidden])) > #video-btn { display: none; }
+
+      /* Compact (Lamp-02/03): no picture, so the header folds to a band of
+         two lines on the left, the controls and the tempo pills in the
+         middle, the tempo readout on the right -- and the paper gets a third
+         line. The loop's pass, which has no place in the frames, is one line
+         over the controls. */
+      #app[data-head='compact'] #head {
+        margin-top: 14px; height: auto;
+        grid-template-columns: fit-content(640px) minmax(0, 1fr) auto;
+        grid-template-rows: auto auto;
+        grid-template-areas:
+          'title pass  tempo'
+          'where ctl   tempo';
+        column-gap: 44px;
+      }
+      #app[data-head='compact'] #picture { display: none; }
+      #app[data-head='compact'] #title { font-size: 32px; padding-right: 0; contain: inline-size; }
+      #app[data-head='compact'] #where {
+        margin: 10px 0 0; display: flex; align-items: baseline; gap: 28px; min-width: 0;
+      }
+      #app[data-head='compact'] #section-name {
+        font-size: var(--type-glance); letter-spacing: 0; flex: 0 1 auto; min-width: 0;
+      }
+      #app[data-head='compact'] #bar-of { margin: 0; flex: none; }
+      #app[data-head='compact'] #bar-of .of { font-size: 30px; margin-left: 10px; }
+      #app[data-head='compact'] #pass { margin: 0; display: flex; align-items: center; gap: 16px; min-width: 0; }
+      #app[data-head='compact'] #pass:not([data-on]) { visibility: hidden; }
+      #app[data-head='compact'] #pass-main { font-size: 28px; gap: 10px; }
+      #app[data-head='compact'] #pass-main svg { width: 28px; height: 28px; }
+      #app[data-head='compact'] #pass-sub { margin: 0; font-size: 28px; }
+      #app[data-head='compact'] #controls { align-self: end; gap: 12px; }
+      #app[data-head='compact'] #controls > .pill:not(#play) { padding: 0 22px; }
+      /* The compact band has no room for five words and five tempo pills:
+         with the Ramp pill in it, the switches go to their icons alone (the
+         word stays for the tooltip and the screen reader). */
+      #app[data-head='compact'] #controls:has(#ramp-btn:not([hidden])) > .pill:not(#play, #back-btn) {
+        width: var(--target); padding: 0;
+      }
+      #app[data-head='compact'] #controls:has(#ramp-btn:not([hidden])) .label {
+        position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
+      }
+      /* The count-in, compact: what it leads into on the pass's line, the
+         numbers in the place of where you are. */
+      #app[data-head='compact'][data-counting] #count { display: contents; }
+      #app[data-head='compact'] #count-says { grid-area: pass; align-self: center; font-size: 28px; padding-right: 124px; }
+      #app[data-head='compact'] #count-beats {
+        grid-area: where; align-self: end; margin: 0; gap: 34px; font-size: 76px;
+      }
+      #app[data-head='compact'] #browse { margin: 0; display: flex; align-items: center; gap: 16px; padding-right: 124px; }
+      #app[data-head='compact'] #browse[hidden] { display: none; }
+      #app[data-head='compact'] #browse-main { font-size: 28px; gap: 10px; }
+      #app[data-head='compact'] #browse-main svg { width: 28px; height: 28px; }
+      #app[data-head='compact'] #browse-sub { margin: 0; font-size: 28px; overflow: hidden; text-overflow: ellipsis; }
+      /* No room for the switches' words beside the Back pill or the ladder. */
+      #app[data-head='compact'] #controls:is(:has(#back-btn:not([hidden])), :has(#ladder:not([hidden]))) > .pill:not(#play, #back-btn) {
+        width: var(--target); padding: 0;
+      }
+      #app[data-head='compact'] #controls:is(:has(#back-btn:not([hidden])), :has(#ladder:not([hidden]))) .label {
+        position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
+      }
+      #app[data-head='compact'] #back-btn kbd { display: none; }
+      #app[data-head='compact'] .rung { min-width: 84px; padding: 0 12px; font-size: 30px; }
+      #app[data-head='compact'] .rung[data-state='now'] { min-width: 100px; }
+      #app[data-head='compact'] #tempo { margin-top: 0; flex-direction: column-reverse; justify-content: flex-end; }
+      #app[data-head='compact'] #tempo-pct { margin-top: 6px; font-size: 80px; letter-spacing: -0.02em; }
+      #app[data-head='compact'] #tempo-pct .unit { font-size: 48px; margin-left: 4px; }
+      #app[data-head='compact'] #tempo-bpm { margin: 0; font-size: 28px; }
+      /* The corner icons sit over the tempo's BPM line in this band; in the
+         compact header (no frame draws them there) at the right of the top
+         row, just before the BPM line. */
+      #app[data-head='compact'] #corner { position: static; grid-area: pass; justify-self: end; align-self: start; margin: -10px 0 -10px; }
+      #app[data-head='compact'] #pass { padding-right: 124px; box-sizing: border-box; }
+
+      /* --- the song map (songmap.ts, design/lamp/LampMap) ------------------- */
+      /* 80 tall: a 32 px tier for the names that do not fit their blocks, the
+         44 px strip of blocks under it. Picking, it grows to 164 and a line
+         under it -- laid over the top of the paper, which neither moves nor
+         changes size. */
+      #map { flex: none; position: relative; z-index: 6; height: 80px; margin-top: 17px; }
+      /* Lamp-03: the map at 130 and the paper at 220, 870 tall. */
+      #app[data-head='compact'] #map { margin-top: 2px; }
+      #app[data-head='compact'] #tabs { margin-top: 10px; }
+      .map-body { position: absolute; left: 0; right: 0; top: 0; height: 80px; touch-action: none; }
+      #map[data-picking] .map-body { height: 164px; background: var(--bg); cursor: col-resize; }
+      .map-block {
+        position: absolute; top: 36px; height: 44px; box-sizing: border-box;
+        margin: 0; padding: 0 0 0 12px; border: 0; border-right: 3px solid var(--bg); border-radius: 0;
+        background: var(--map-verse); color: var(--map-label);
+        font: 400 32px/1 var(--font); text-align: left; white-space: nowrap; overflow: hidden;
+      }
+      #map[data-picking] .map-block { height: 88px; cursor: inherit; }
+      .map-block[data-kind='chorus'] { background: var(--map-chorus); }
+      .map-block[data-kind='fill'] { background: var(--map-fill); }
+      .map-block.in-loop { background: var(--map-loop); color: var(--map-loop-text); }
+      .map-block.now { color: var(--text); }
+      .map-block:focus-visible { outline: 3px solid var(--text); outline-offset: -3px; }
+      .map-tier {
+        position: absolute; top: 0; font-size: 32px; line-height: 1; white-space: nowrap;
+        color: var(--map-tier); pointer-events: none;
+      }
+      .map-tier.in-loop { color: var(--map-loop-text); }
+      .map-tier.now { color: var(--text); }
+      .map-tick { position: absolute; width: 2px; background: var(--map-tick); pointer-events: none; }
+      .map-num { position: absolute; font-size: 24px; line-height: 1; color: var(--map-tier); pointer-events: none; }
+      .map-loop {
+        position: absolute; top: 31px; box-sizing: border-box; pointer-events: none;
+        border: 3px solid var(--accent); border-radius: 4px;
+      }
+      /* The bars the paper shows while it is browsed (Lamp-06). */
+      .map-view {
+        position: absolute; top: 31px; box-sizing: border-box; pointer-events: none;
+        border: 3px dashed var(--muted); border-radius: 4px;
+      }
+      /* A handle is a 14 px bar on a wider target: it is grabbed with a mouse
+         from the throne. */
+      .map-handle {
+        position: absolute; top: 24px; width: 40px; margin-left: -20px; padding: 0;
+        border: 0; background: transparent; cursor: ew-resize;
+      }
+      .map-handle::before {
+        content: ''; position: absolute; left: 13px; top: 0; bottom: 0; width: 14px;
+        border-radius: 4px; background: var(--accent);
+      }
+      .map-handle:focus-visible { outline: none; }
+      .map-handle:focus-visible::before { outline: 3px solid var(--text); outline-offset: 2px; }
+      .map-head {
+        position: absolute; top: 26px; width: 4px; margin-left: -2px;
+        border-radius: 2px; background: var(--text); pointer-events: none;
+      }
+      .map-line { display: none; }
+      #map[data-picking] .map-line {
+        position: absolute; left: 0; right: 0; top: 164px;
+        display: flex; align-items: center; gap: 24px;
+        padding: 10px 0 14px; background: var(--bg);
+        box-shadow: 0 24px 40px -20px rgb(0 0 0 / 0.6);
+        font-size: 32px; line-height: 1.2; white-space: nowrap;
+      }
+      .map-says { font-weight: 700; color: var(--accent); }
+      .map-hint { color: var(--muted); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+      .map-line .spacer { flex: 1; }
+      .map-line .pill { height: 56px; padding: 0 26px; font-size: 28px; }
+
+      /* --- the paper -------------------------------------------------------- */
+      #tabs {
+        position: relative;
+        flex: 1 1 auto; min-height: 0; margin-top: 14px;
+        background: var(--tab-paper); border-radius: 6px;
+        box-shadow: 0 30px 80px rgb(0 0 0 / 0.45);
+        overflow: hidden;
+        /* alphaTab's cursors carry a big z-index of their own; kept inside the
+           paper, so the song map's picker lays over them too. */
+        isolation: isolate;
+      }
+      :root[data-theme='light'] #tabs { box-shadow: 0 0 0 1px var(--line), 0 20px 50px rgb(60 40 10 / 0.18); }
+      /* The notation window: N lines of the score (score-window.ts sets the
+         height), scrolled a whole line at a time so the line being played is
+         the top one. The 260px only applies before the first measure. */
+      #score-box { height: 260px; max-height: 100%; overflow: hidden; }
       #score { position: relative; }
-      /* --tab-zoom is the notation's zoom (main.ts sets it on #score): these
-         letters are drawn by us rather than engraved by alphaTab, so they are
-         the one thing the zoom does not grow on its own. */
+      /* The sticking letters (sticking.ts), the one thing on the paper we draw
+         and alphaTab does not: --tab-zoom (main.ts) grows them with the notes.
+         25 px at the default size, the spec's --type-sticking. */
       .sticking span {
         position: absolute; transform: translateX(-50%);
-        font: 600 calc(11px * var(--tab-zoom, 1))/1 ui-monospace, "Cascadia Mono", Consolas, monospace;
-        color: var(--tab-muted); pointer-events: none; white-space: nowrap;
+        font: 700 calc(11px * var(--tab-zoom, 1))/1 var(--font);
+        color: var(--tab-sticking); pointer-events: none; white-space: nowrap;
       }
-      /* Extra notes have nowhere on the staff to be coloured -- nothing was
-         written where you played -- so they get a lane of their own under the
-         bar, placed from alphaTab's bounds the way the sticking letters are. */
+      /* Extra notes have nowhere on the staff to be coloured, so they get a
+         lane of their own under the bar, in the wrong-note colour. */
       .extras span {
         position: absolute; transform: translateX(-50%);
-        font: 700 calc(12px * var(--tab-zoom, 1))/1 ui-monospace, "Cascadia Mono", Consolas, monospace;
-        color: var(--tab-accent); pointer-events: none; white-space: nowrap;
+        font: 700 calc(12px * var(--tab-zoom, 1))/1 var(--font);
+        color: var(--verdict-wrong); pointer-events: none; white-space: nowrap;
       }
-      /* The loop over the notation (loop.ts): a tint across its bars while it
-         is on, one block per line, with a line at each true end. Ink on the
-         page, so it takes the notation's theme; it lets clicks through, so a
-         click on a note under it still seeks. */
-      .loop-band span {
-        position: absolute; box-sizing: border-box; pointer-events: none;
-        background: var(--tab-loop);
+      /* The page's layers on the paper (layers.ts): the section names in the
+         lane above the line they start in, the loop's brass bracket, and the
+         current bar's wash -- ours, in place of alphaTab's bar cursor, which
+         covers the whole line, label lane and all. */
+      .tab-labels span {
+        position: absolute; white-space: nowrap; pointer-events: none;
+        font: 700 calc(14px * var(--tab-zoom, 1))/1 var(--font); color: var(--tab-label);
       }
-      .loop-band span.start { border-left: 2px solid var(--tab-loop-edge); }
-      .loop-band span.end { border-right: 2px solid var(--tab-loop-edge); }
-      /* alphaTab creates the cursor elements but leaves them unstyled. */
-      .at-cursor-bar { background: var(--tab-cursor-bar); }
-      .at-cursor-beat { background: var(--tab-cursor-beat); width: 3px; }
-      .at-highlight * { fill: var(--tab-accent); stroke: var(--tab-accent); }
+      .tab-bracket span { position: absolute; background: var(--tab-loop); pointer-events: none; }
+      .tab-wash { position: absolute; background: var(--tab-current); pointer-events: none; }
+      .at-cursor-bar { display: none; }
+      .at-cursor-beat { background: var(--tab-cursor); width: 4px; }
+      .at-highlight * { fill: var(--tab-cursor); stroke: var(--tab-cursor); }
 
-      /* --- the keyboard legend ------------------------------------------- */
-      .keys { margin-top: auto; padding-bottom: 2px; color: var(--muted); font-size: 12px; }
-      .keys summary { cursor: pointer; }
-      .keys p { margin: 7px 0 0; line-height: 1.8; }
-      .keys kbd {
-        font: inherit; padding: 0 5px; border: 1px solid var(--border); border-radius: 4px;
-        background: var(--panel); color: var(--fg);
+      /* --- the status line ------------------------------------------------- */
+      /* Plain words only, and only when there is something to say: one small
+         line at the right of the header's top row -- beside the title with the
+         video, where the pass sits without it -- clear of the song map's tier
+         of names. The whole of it is in the tooltip. */
+      #status {
+        grid-area: title; justify-self: end; align-self: start; min-width: 0; max-width: 48%;
+        margin: 8px 0 0; color: var(--muted); font-size: var(--type-caption); line-height: 30px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
+      #app[data-head='full'] #head:has(#status:not(:empty)) #title { max-width: 52%; }
+      #app[data-head='compact'] #status { grid-area: pass; align-self: center; margin: 0 124px 0 0; max-width: 50%; }
+      #app[data-head='compact'] #head:has(#status:not(:empty)) #pass { max-width: 48%; }
+      #status:empty { display: none; }
+      #status.err { color: var(--danger); }
 
-      /* --- zen ------------------------------------------------------------ */
-      /* The picture and the notation, and the browser's own fullscreen under
-         them. The grid is collapsed to a single track rather than just having
-         its rails hidden: with display: none the asides stop being grid items
-         and <main> would place itself in the 232px first column. */
-      :root[data-zen] #app {
-        grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
-        gap: 0; padding: 0;
+      /* --- the Mix panel (Lamp-08, 08b) ---------------------------------------
+         Laid over the header's right side, 960 wide at the right margin (left
+         1194 at 2194), never moving the paper. M, the Mix pill, Done and Esc. */
+      #mix-panel {
+        position: fixed; z-index: 12; top: 20px; right: var(--margin);
+        width: 960px; box-sizing: border-box; padding: 24px 32px 26px;
+        border-radius: 14px; background: var(--raise);
+        box-shadow: inset 0 0 0 1px var(--line-strong), 0 40px 90px rgb(0 0 0 / 0.6);
       }
-      :root[data-zen] :is(#nav, #rail, #desk) { display: none; }
-      :root[data-zen] #stage { gap: 0; }
-      /* Edge to edge: a rounded corner against the side of the screen reads as
-         a gap rather than as a detail. */
-      :root[data-zen] #tabs { border-radius: 0; border-width: 1px 0 0; }
-      :root[data-zen] #video { border-radius: 0; }
-      /* Chrome paints a black backdrop behind the fullscreen element, and the
-         page's own background is what covers it. */
+      :root[data-theme='light'] #mix-panel { box-shadow: inset 0 0 0 1px var(--line-strong), 0 30px 70px rgb(60 40 10 / 0.25); }
+      #mix-panel > header { display: flex; align-items: center; justify-content: space-between; }
+      #mix-panel h2 { margin: 0; font-size: var(--type-title); font-weight: 700; line-height: 1; }
+      /* A key, shown on the control it works. */
+      kbd {
+        font: 400 22px/1 var(--font); color: var(--faint);
+        border: 1px solid var(--line-dashed); border-radius: 6px; padding: 3px 8px;
+      }
+      .done {
+        box-sizing: border-box; height: 64px; padding: 0 26px; border-radius: 32px;
+        border: 1px solid var(--line-strong); background: var(--raise-2); color: var(--text);
+        font-size: 30px; font-weight: 700; line-height: 1;
+        display: flex; align-items: center; gap: 12px;
+      }
+      .done.primary { padding: 0 30px; border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+      .mix-rows { margin-top: 22px; display: flex; flex-direction: column; gap: 14px; }
+      .mix-row {
+        display: grid; grid-template-columns: 290px 200px minmax(0, 1fr) 80px; gap: 20px;
+        align-items: center; padding: 14px 0; border-top: 1px solid var(--line);
+      }
+      .mix-row:last-of-type { padding-bottom: 0; }
+      .mix-name { font-size: 40px; font-weight: 700; line-height: 1; }
+      .mix-desc { margin-top: 8px; font-size: 24px; line-height: 1.2; color: var(--muted); }
+      .mute {
+        box-sizing: border-box; height: var(--target); border-radius: var(--radius-pill);
+        border: 1px solid var(--line-strong); background: var(--raise-2); color: var(--text);
+        font-size: 32px; font-weight: 700; line-height: 1;
+        display: flex; align-items: center; justify-content: center; gap: 12px;
+      }
+      .mute[aria-pressed='true'] { border-color: var(--accent); background: rgb(227 169 78 / 0.18); color: var(--accent); }
+      :root[data-theme='light'] .mute[aria-pressed='true'] { background: var(--accent-wash); }
+      .mute[aria-pressed='true'] kbd { color: var(--muted); border-color: var(--accent-line); }
+      .mix-row input[type='range'] { width: 100%; margin: 0; accent-color: var(--accent); }
+      .mix-row output { font-size: 30px; text-align: right; color: var(--muted); }
+      /* Muted, or with nothing to play: the level is still there, set aside. */
+      .mix-row:is([data-muted], [data-silent]) input[type='range'] { accent-color: var(--faint); opacity: 0.5; }
+      .mix-row:is([data-muted], [data-silent]) output { color: var(--faint); }
+      .mix-msg {
+        margin: 0 0 0 310px; padding: 14px 18px; border-radius: 10px;
+        background: var(--raise-2); font-size: 32px; line-height: 1.3;
+      }
+      #stems-note { margin-left: 0; }
+      .mix-msg code { font: 400 28px/1 'Cascadia Mono', Consolas, monospace; color: var(--accent); }
+      #mix-btn[aria-expanded='true'] { border-color: var(--text); color: var(--text); }
+
+      /* --- the library (Lamp-09) ------------------------------------------------
+         The home page: a row a song, 200 tall, picture, names and facts,
+         where you left off, Resume. The one played last outlined in brass. */
+      #library {
+        position: fixed; inset: 0; z-index: 15; box-sizing: border-box;
+        overflow-y: auto; padding: 44px 60px 80px; background: var(--bg);
+      }
+      #library > header { display: flex; align-items: center; justify-content: space-between; }
+      #library h1 { margin: 0; font-size: 56px; font-weight: 700; line-height: 1; }
+      #lib-settings {
+        width: 56px; height: 56px; padding: 0; border: 0; border-radius: 10px;
+        background: transparent; color: var(--faint);
+        display: flex; align-items: center; justify-content: center;
+      }
+      #lib-settings:hover { color: var(--text); background: var(--raise); }
+      #lib-list { margin-top: 40px; display: flex; flex-direction: column; gap: 18px; }
+      .lib-row {
+        display: grid; grid-template-columns: 320px minmax(0, 1fr) minmax(560px, auto); gap: 36px; align-items: center;
+        height: 200px; box-sizing: border-box; padding: 10px 28px 10px 10px;
+        border-radius: 14px; background: var(--raise); color: var(--text); text-decoration: none;
+      }
+      .lib-row[data-last] { box-shadow: inset 0 0 0 2px var(--accent); }
+      .lib-row:hover { background: var(--raise-2); }
+      /* The row the arrow keys are on. */
+      .lib-row:focus { outline: 3px solid var(--text); outline-offset: 4px; }
+      .lib-pic { width: 320px; height: 180px; border-radius: 8px; background: #000; overflow: hidden; }
+      .lib-pic canvas { display: block; width: 100%; height: 100%; }
+      .lib-pic.none {
+        background: var(--raise-2); color: var(--faint);
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+        font-size: 24px;
+      }
+      .lib-name { font-size: 46px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .lib-artist { color: var(--muted); }
+      .lib-name b { font-weight: 700; }
+      .lib-facts { margin-top: 16px; font-size: 30px; line-height: 1; color: var(--muted); }
+      .lib-end { display: flex; align-items: center; justify-content: flex-end; gap: 24px; }
+      .lib-left { text-align: right; }
+      .lib-left .cap { font-size: 26px; line-height: 1; color: var(--muted); }
+      .lib-left .said { margin-top: 10px; font-size: 34px; font-weight: 700; line-height: 1; white-space: nowrap; }
+      .lib-row[data-last] .lib-left .said { color: var(--accent); }
+      .lib-left.never { font-size: 30px; color: var(--muted); }
+      .lib-go {
+        box-sizing: border-box; height: var(--target); padding: 0 30px; border-radius: var(--radius-pill);
+        border: 1px solid var(--line-strong); background: var(--raise-2); color: var(--text);
+        font-size: 32px; font-weight: 700; display: flex; align-items: center;
+      }
+      .lib-row[data-last] .lib-go { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+      .lib-keys { position: fixed; left: 60px; bottom: 30px; margin: 0; font-size: 24px; color: var(--faint); }
+
+      /* --- Settings (Lamp-10) ---------------------------------------------------
+         Between songs, so it may cover the whole player; playing or not, it
+         only covers it. Desktop sizes: 26 px labels. The gear, Done and Esc. */
+      #settings {
+        position: fixed; inset: 0; z-index: 20; box-sizing: border-box;
+        overflow-y: auto; overscroll-behavior: contain;
+        padding: 36px 60px 48px; background: var(--bg);
+        font-size: var(--type-label); line-height: 1.3;
+      }
+      #settings > header { display: flex; align-items: center; justify-content: space-between; }
+      #settings h1 { margin: 0; font-size: 52px; font-weight: 700; line-height: 1; }
+      .set-cols {
+        margin-top: 30px; display: grid; grid-template-columns: 640px 640px minmax(0, 674px);
+        column-gap: 60px; align-items: start;
+      }
+      .set-col { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+      .set-col.kit { gap: 12px; }
+      .set-col h2 { margin: 0; font-size: 32px; font-weight: 700; line-height: 1; }
+      .set-col h2 ~ h2 { margin-top: 14px; }
+      .set-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+      .set-row .says { color: var(--muted); }
+      .set-col input[type='range'] { display: block; width: 100%; margin: 6px 0 0; accent-color: var(--accent); }
+      .set-col .cap { font-size: var(--type-caption); color: var(--muted); }
+      .set-col .tight { margin-top: -12px; }
+      .set-col label { display: flex; align-items: center; gap: 14px; }
+      .set-col label.top { align-items: flex-start; color: var(--muted); }
+      .set-col label.top input { margin-top: 2px; }
+      .set-col input[type='checkbox'] { flex: none; width: 26px; height: 26px; margin: 0; accent-color: var(--accent); }
+      .set-col input[type='number'], .set-col select {
+        box-sizing: border-box; height: 48px; padding: 0 10px; border-radius: 8px;
+        border: 1px solid var(--line); background: var(--raise); color: var(--text);
+      }
+      .set-col input[type='number'] { width: 84px; font-weight: 700; }
+      .set-col input[type='number'].short { width: 64px; }
+      .set-col select { padding: 0 12px; font-size: 24px; max-width: 400px; }
+      .stepper { display: flex; align-items: center; gap: 10px; }
+      .stepper button {
+        width: 52px; height: 52px; padding: 0; border-radius: 10px;
+        border: 1px solid var(--line); background: var(--raise); color: var(--text);
+        font-size: 28px; font-weight: 700; line-height: 1;
+      }
+      .stepper output { width: 52px; text-align: center; font-size: 34px; font-weight: 700; }
+      /* Two or three choices side by side, the chosen one lit. */
+      .seg { display: flex; border: 1px solid var(--line); border-radius: 12px; padding: 4px; gap: 4px; }
+      .seg button {
+        height: 52px; padding: 0 22px; border: 0; border-radius: 8px;
+        background: transparent; color: var(--muted); font-size: 26px; font-weight: 700; line-height: 1;
+      }
+      .seg.narrow button { padding: 0 18px; }
+      .seg button[aria-pressed='true'] { background: var(--raise-2); color: var(--accent); }
+      .nums { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+      /* The three pairings of interface and paper, drawn. */
+      .pairs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+      .pairs button { padding: 0; border: 0; background: none; text-align: left; color: var(--muted); font-size: 22px; }
+      .pairs button[aria-pressed='true'] { color: var(--text); }
+      .pairs .pic {
+        display: block; position: relative; height: 96px; border-radius: 8px;
+        box-shadow: inset 0 0 0 1px var(--line);
+      }
+      .pairs button[aria-pressed='true'] .pic { box-shadow: inset 0 0 0 2px var(--accent); }
+      .pairs .pic i { position: absolute; left: 12px; right: 12px; bottom: 10px; height: 46px; border-radius: 4px; }
+      .pairs .name { display: block; margin-top: 6px; }
+      #kit-state { display: flex; align-items: center; gap: 12px; }
+      #kit-state::before {
+        content: ''; flex: none; width: 14px; height: 14px; border-radius: 7px; background: var(--faint);
+      }
+      #kit-state[data-state='on']::before { background: var(--ok); }
+      #kit-state[data-state='err']::before { background: var(--danger); }
+      .btn {
+        box-sizing: border-box; height: 56px; padding: 0 24px; border-radius: 28px; flex: none;
+        border: 1px solid var(--line-strong); background: var(--raise-2); color: var(--text);
+        font-size: 26px; font-weight: 700; line-height: 1;
+      }
+      #calibration { color: var(--muted); }
+      .keys { margin: 0; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 2px 18px; font-size: 24px; line-height: 1.2; }
+      .keys dt { font-weight: 700; }
+      .keys dd { margin: 0; }
+
+      /* --- the kit layer (Lamp-12, practice.ts) ------------------------------
+         Only while a kit is connected (#app[data-kit]): the chip in the
+         corner, the Record pill in the controls row, and after a recorded
+         pass or song (#app[data-reading]) the reading card. Without a kit
+         none of it is on the page. */
+      #kit-chip {
+        display: flex; align-items: center; gap: 10px; margin-right: 12px;
+        font-size: var(--type-label); line-height: 1; color: var(--muted); white-space: nowrap;
+      }
+      #kit-chip .dot { flex: none; width: 14px; height: 14px; border-radius: 7px; background: var(--ok); }
+      #corner { align-items: center; }
+      /* Room for the chip beside the icons. */
+      #app[data-head='full'][data-kit] #title { padding-right: 200px; }
+      #app[data-head='full'][data-kit] #status { margin-right: 90px; }
+      #app[data-head='compact'][data-kit] :is(#pass, #browse) { padding-right: 470px; }
+      #app[data-head='compact'][data-kit] #status { margin-right: 470px; }
+      #app[data-head='compact'][data-kit] #count-says { padding-right: 470px; }
+
+      /* Record: a dot, and the word. On, it is filled like Play and the dot
+         beats, so it reads as recording from the throne. */
+      .rec-dot { flex: none; width: 22px; height: 22px; border-radius: 11px; background: var(--accent); }
+      #record[aria-pressed='true'] { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+      #record[aria-pressed='true'] .rec-dot { background: var(--on-accent); animation: rec-beat 1s ease-in-out infinite; }
+      @keyframes rec-beat { 50% { opacity: 0.35; } }
+      @media (prefers-reduced-motion: reduce) { #record[aria-pressed='true'] .rec-dot { animation: none; } }
+      /* With Record in the row the full header runs out of width: the Video
+         pill steps aside (V still works) while the loop is on or a take is
+         recording, as it does for the ladder. */
+      #app[data-head='full'][data-kit] #controls:is(:has(#ramp-btn:not([hidden])), :has(#record[aria-pressed='true'])) > #video-btn { display: none; }
+      #app[data-head='full'][data-kit] #controls:has(#ladder:not([hidden])) > #mix-btn { display: none; }
+      /* The compact band has no room for the words at all: every switch is
+         its icon (the word stays for the tooltip and the screen reader). */
+      #app[data-head='compact'][data-kit] #controls > .pill:not(#play, #back-btn) { width: var(--target); padding: 0; }
+      #app[data-head='compact'][data-kit] #controls .label {
+        position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
+      }
+      #app[data-head='compact'][data-kit] #tempo-steps .pill { min-width: 96px; padding: 0 16px; }
+      /* The whole song recording, said on the pass's line (with the loop on
+         it says the pass). */
+      #app[data-head='compact'][data-recording] #pass { visibility: visible; color: var(--accent); }
+      #app[data-head='compact'][data-recording] #pass:not([data-on]) #pass-main { display: none; }
+      #app[data-head='compact'][data-recording] #pass-sub { color: var(--accent); }
+
+      /* The pass beside the bar, for when the card has the pass block's room. */
+      #bar-pass { display: none; }
+      #app[data-head='full'][data-reading] #bar-pass:not(:empty) { display: inline; margin-left: 36px; color: var(--accent); }
+
+      /* The card (Lamp-12): 690 x 300 in the frame, at 1098 / 74. Here it is
+         the third column, pulled 22 px under the where column's end as the
+         frame has it, as wide as the 160 px tempo leaves. */
+      #reading {
+        grid-area: read; position: relative; z-index: 7; min-width: 0;
+        align-self: start; margin: 12px 0 0 -22px; height: 290px;
+        box-sizing: border-box; padding: 14px 22px;
+        border-radius: var(--radius-panel); background: var(--raise);
+        box-shadow: inset 0 0 0 1px var(--line);
+        --strip-played: color-mix(in srgb, var(--verdict-played) 68%, white);
+      }
+      :root[data-theme='light'] #reading { --strip-played: var(--verdict-played); }
+      .rd-head { display: flex; align-items: center; gap: 18px; height: 28px; }
+      .rd-title { flex: 1; min-width: 0; font-size: 28px; line-height: 1; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .rd-rec { display: flex; align-items: center; gap: 10px; font-size: var(--type-label); font-weight: 700; color: var(--accent); }
+      .rd-dot { width: 14px; height: 14px; border-radius: 7px; background: var(--accent); animation: rec-beat 1s ease-in-out infinite; }
+      .rd-close {
+        flex: none; width: 48px; height: 48px; margin: -10px -10px -10px 0; padding: 0;
+        border: 0; border-radius: 10px; background: transparent; color: var(--faint);
+        display: flex; align-items: center; justify-content: center;
+      }
+      .rd-close svg { width: 28px; height: 28px; }
+      .rd-close:hover { color: var(--text); background: var(--raise-2); }
+      .rd-dials { margin-top: 10px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+      .rd-dial { display: flex; flex-direction: column; min-width: 0; }
+      .rd-label { font-size: 24px; line-height: 1; color: var(--muted); }
+      .rd-big { margin-top: 4px; font-size: 60px; font-weight: 700; line-height: 1; white-space: nowrap; overflow: hidden; }
+      .rd-big[data-small] { font-size: 44px; line-height: 60px; }
+      .rd-sub { margin-top: 6px; font-size: 24px; line-height: 1; color: var(--muted); white-space: nowrap; }
+      /* Where you sit: a centre mark, the needle; ahead left, behind right. */
+      .rd-needle { position: relative; display: block; margin-top: 10px; height: 20px; }
+      .rd-needle::before { content: ''; position: absolute; left: 0; right: 0; top: 9px; height: 2px; background: var(--line-dashed); }
+      .rd-needle::after { content: ''; position: absolute; left: 50%; top: 2px; width: 2px; height: 16px; background: var(--faint); }
+      .rd-needle i { position: absolute; z-index: 1; top: 0; width: 6px; height: 20px; margin-left: -3px; border-radius: 3px; background: var(--text); }
+      .rd-ends { margin-top: 4px; display: flex; justify-content: space-between; font-size: 20px; line-height: 1; color: var(--faint); }
+      /* One block a bar, in the noteheads' played and missed. */
+      .rd-strip { margin-top: 12px; display: grid; grid-template-columns: repeat(var(--bars, 8), minmax(0, 1fr)); gap: 6px; }
+      .rd-bar {
+        box-sizing: border-box; height: 48px; min-width: 0; padding: 0; border-radius: 6px;
+        border: 1px solid var(--line); background: transparent; color: var(--text);
+        font: 700 26px/1 var(--font); overflow: hidden;
+      }
+      .rd-bar[data-verdict='played'] { border-color: var(--strip-played); background: color-mix(in srgb, var(--strip-played) 22%, transparent); }
+      .rd-bar[data-verdict='missed'] { border: 2px solid var(--verdict-missed); background: color-mix(in srgb, var(--verdict-missed) 30%, transparent); }
+      .rd-bar[data-verdict='none'] { color: var(--faint); }
+      .rd-bar:hover { outline: 2px solid var(--text); outline-offset: 1px; }
+      /* A whole song: the blocks close up, without their numbers. */
+      .rd-strip[data-dense] { gap: 2px; }
+      .rd-strip[data-dense] .rd-bar { font-size: 0; border-radius: 2px; border-width: 1px; }
+      .rd-again { margin: 10px 0 0; font-size: 32px; font-weight: 700; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+      /* The full header with the card up: it takes the pass block's room and
+         the right of the controls row, the tempo goes to its 160 form with
+         the BPM alone, and the row keeps Play, Back, Loop, Record and Mix as
+         round icons (Lamp-12 draws Play, Loop, Mix). R, V and the tempo keys
+         still work. */
+      #app[data-head='full'][data-reading] #head {
+        grid-template-areas:
+          'video title title tempo'
+          'video where read  tempo'
+          'video ctl   read  tempo';
+      }
+      #app[data-head='full'][data-reading] :is(#pass, #browse) { display: none; }
+      #app[data-head='full'][data-reading] #where { margin-right: 22px; }
+      #app[data-head='full'][data-reading] #bar-of .of { display: none; }
+      #app[data-head='full'][data-reading] #tempo { margin-top: 40px; }
+      #app[data-head='full'][data-reading] #tempo-pct { font-size: var(--type-countin); }
+      #app[data-head='full'][data-reading] #tempo-pct .unit { font-size: 88px; }
+      #app[data-head='full'][data-reading] #tempo-bpm { font-size: var(--type-read); }
+      #app[data-reading] #tempo-bpm .then { display: none; }
+      #app[data-head='full'][data-reading] #controls { gap: 12px; }
+      #app[data-head='full'][data-reading] #controls > :is(#ramp-btn, #video-btn, .spacer, #tempo-steps, #ladder) { display: none; }
+      #app[data-head='full'][data-reading] #controls > .pill { width: var(--target); padding: 0; }
+      #app[data-head='full'][data-reading] #controls :is(.label, #back-bar, kbd) {
+        position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
+      }
+      #app[data-head='full'][data-reading][data-counting] #count { grid-column: 2; }
+      #app[data-head='full'][data-reading] #count-says { font-size: var(--type-label); }
+      #app[data-head='full'][data-reading] #count-beats { gap: 24px; }
+
+      /* The compact band has no 300 px to spare (no frame draws it): the card
+         is one row in the song map's slot, 80 tall, and the map comes back
+         when it goes -- or while the loop picker has the slot. */
+      #app[data-head='compact'] #reading {
+        grid-area: auto; position: absolute; top: calc(100% + 2px); left: 0; right: 0; height: 80px; margin: 0;
+        padding: 0 8px 0 22px;
+        display: grid; align-items: center; column-gap: 36px;
+        grid-template-columns: minmax(0, 300px) auto minmax(0, 1fr) auto;
+        grid-template-areas: 'head dials strip again';
+      }
+      #app[data-head='compact'][data-reading] #map:not([data-picking]) { visibility: hidden; }
+      #app[data-head='compact']:has(#map[data-picking]) #reading { display: none; }
+      #app[data-head='compact'] .rd-head { grid-area: head; height: auto; flex-wrap: wrap; row-gap: 6px; }
+      #app[data-head='compact'] .rd-title { flex-basis: 100%; font-size: var(--type-label); }
+      #app[data-head='compact'] .rd-rec { font-size: 22px; }
+      #app[data-head='compact'] .rd-close { position: absolute; right: 16px; top: 16px; margin: 0; }
+      #app[data-head='compact'] #reading:has(.rd-close:not([hidden])) { padding-right: 76px; }
+      #app[data-head='compact'] .rd-dials { grid-area: dials; margin: 0; display: flex; gap: 32px; }
+      #app[data-head='compact'] .rd-dial {
+        display: grid; column-gap: 12px; align-items: baseline;
+        grid-template-areas: 'label label' 'big sub';
+      }
+      #app[data-head='compact'] .rd-label { grid-area: label; font-size: 20px; }
+      #app[data-head='compact'] .rd-big { grid-area: big; font-size: 44px; }
+      #app[data-head='compact'] .rd-big[data-small] { font-size: 44px; line-height: 1; }
+      #app[data-head='compact'] .rd-sub { grid-area: sub; margin: 0; font-size: 22px; }
+      #app[data-head='compact'] .rd-dial:first-child .rd-sub { display: none; }
+      #app[data-head='compact'] .rd-needle { grid-area: sub; align-self: center; width: 110px; margin: 0; }
+      #app[data-head='compact'] .rd-ends { display: none; }
+      #app[data-head='compact'] .rd-strip { grid-area: strip; margin: 0; }
+      #app[data-head='compact'] .rd-bar { height: 44px; }
+      #app[data-head='compact'] .rd-again { grid-area: again; margin: 0; font-size: 30px; max-width: 520px; }
+
+      /* Settings' Kit: the last few hits, newest first, for checking what a
+         pad sends against kit.toml [input.note]. */
+      #monitor { display: flex; flex-wrap: wrap; gap: 6px; font-size: var(--type-caption); }
+      #monitor span {
+        padding: 2px 9px; border-radius: 6px; white-space: nowrap;
+        background: var(--raise); border: 1px solid var(--line); color: var(--muted);
+      }
+      #monitor span b { color: var(--text); }
+      #monitor span.unmapped, #monitor span.unmapped b { border-color: var(--danger); color: var(--danger); }
+
+      /* --- zen (Lamp-11) ------------------------------------------------------
+         The picture and the paper, nothing else, on a darker ground: the
+         picture centred at 718x404 when there is one (not hidden by V), the
+         paper under it at the width it always has; without a picture the
+         paper takes the screen. */
+      :root[data-zen] { --bg: var(--zen-bg); }
+      :root[data-zen] :is(#title, #where, #pass, #count, #browse, #tempo, #controls, #corner, #map, #reading, #mix-panel, #settings) { display: none !important; }
+      :root[data-zen] #head { display: flex; justify-content: center; height: 404px; margin-top: 24px; }
+      :root[data-zen] #video { width: 718px; height: 404px; box-shadow: none; }
+      :root[data-zen] #app #tabs { margin-top: 24px; box-shadow: 0 30px 80px rgb(0 0 0 / 0.5); }
+      /* Folded away rather than display: none, since the status line lives in
+         it and an error is the one thing zen keeps. */
+      :root[data-zen] #app[data-head='compact'] #head { height: 0; margin: 0; }
+      :root[data-zen] #status:not(.err) { display: none; }
+      /* An error is the one thing zen keeps (a refused fullscreen is how you
+         find the way out), at the foot of the paper since the map is gone. */
+      :root[data-zen] #status.err {
+        position: fixed; z-index: 7; top: auto; bottom: 22px; left: 56px; right: auto; max-width: none;
+        padding: 4px 14px; border-radius: var(--radius-panel); background: var(--raise);
+      }
       :root:fullscreen { background: var(--bg); }
-      /* Zen hides the reading, not the alarms. An error is the one thing you
-         cannot act on if you cannot see it -- including "the browser refused
-         fullscreen", which is what makes a zen that never got fullscreen
-         something you can find your way out of. */
-      :root[data-zen] #status { display: none; }
-      :root[data-zen] #status.err { display: block; margin: 0; padding: 6px 10px; }
-      /* The way out for the mouse: a corner that is not there until you go
-         looking for it. A real button, so it is the way out for Tab as well.
-         It lives outside #app so it never becomes a grid item, and opacity is
-         safe to animate where a width would not be -- it resizes nothing. */
       #zen-exit { display: none; }
       :root[data-zen] #zen-exit {
         display: block; position: fixed; top: 0; right: 0; z-index: 2;
-        width: 44px; height: 44px; padding: 0; border-radius: 0 0 0 8px;
+        width: 64px; height: 64px; padding: 0; border: 0; border-radius: 0 0 0 12px;
+        background: var(--raise); color: var(--text); font-size: 30px;
         opacity: 0; transition: opacity 120ms;
       }
       :root[data-zen] #zen-exit:is(:hover, :focus-visible) { opacity: 1; }
-
-      /* --- practice mode ------------------------------------------------- */
-      #record[data-armed="1"] { border-color: var(--fail); color: var(--fail); font-weight: 600; }
-      /* The monitor: the last few hits as they arrive, newest first. It is the
-         fastest way to find out what a pad actually sends, so an unmapped note
-         is the thing it shows loudest. */
-      #monitor {
-        display: flex; flex-wrap: wrap; gap: 5px; margin: 2px 0 0;
-        font: 11px/1.6 ui-monospace, "Cascadia Mono", Consolas, monospace;
-      }
-      #monitor[hidden] { display: none; }
-      #monitor span {
-        padding: 1px 7px; border-radius: 4px; white-space: nowrap;
-        background: var(--panel); border: 1px solid var(--border); color: var(--muted);
-      }
-      #monitor span b { color: var(--fg); font-weight: 600; }
-      #monitor span.unmapped { border-color: var(--fail); color: var(--fail); }
-      #monitor span.unmapped b { color: var(--fail); }
-      /* The passes of a loop Record is marking, as they happen: one chip per
-         pass, newest last, coloured against the same line the dials use. The
-         one question a sitting asks is whether it got better, and a row of
-         numbers answers it where a single reading cannot. */
-      #passes { display: flex; flex-wrap: wrap; gap: 4px; }
-      #passes[hidden] { display: none; }
-      #passes .pass {
-        padding: 1px 6px; border-radius: 4px; cursor: pointer;
-        font: 11px/1.6 ui-monospace, "Cascadia Mono", Consolas, monospace;
-        border: 1px solid var(--border); background: var(--panel); color: var(--muted);
-      }
-      #passes .pass.good { border-color: var(--pass); color: var(--pass); }
-      #passes .pass.bad { border-color: var(--fail); color: var(--fail); }
-      /* Stopped part way: kept, because it happened, and drawn as unfinished. */
-      #passes .pass.part { border-style: dashed; }
-      #passes .pass.at { outline: 2px solid var(--fg); outline-offset: 1px; color: var(--fg); }
-      /* The reading names itself, so the heading cannot outlive the panel it
-         names: both go with the same `hidden` flag. The monitor needs no
-         heading -- it sits inside the group whose switch made it. */
-      #report::before {
-        display: block; margin: 0 0 8px;
-        font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
-        text-transform: uppercase; color: var(--muted);
-        content: "The reading";
-      }
-      /* The reading after a take (practice.ts drawReport): three dials, a map
-         of the bars, then the numbers folded away. Each dial answers exactly
-         one question and they are never blended into a score -- consistently
-         late is the audio path or the song's feel, randomly late is the
-         playing, and averaging them sends you to practise the wrong thing
-         (practice-plan Q7). */
-      #report {
-        padding: 9px 11px 11px; font-size: 12px;
-        background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-      }
-      #report .dials { display: flex; gap: 22px; flex-wrap: wrap; }
-      .dial { display: flex; flex-direction: column; gap: 1px; min-width: 104px; cursor: help; }
-      .dial .label {
-        font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted);
-      }
-      .dial .big {
-        font-size: 21px; line-height: 1.2; font-weight: 600; font-variant-numeric: tabular-nums;
-      }
-      .dial .sub { color: var(--muted); }
-      .dial.good .big { color: var(--pass); }
-      .dial.ok .big { color: var(--warn); }
-      .dial.bad .big { color: var(--fail); }
-      /* The Feel needle: rushing to the left, dragging to the right, and the
-         centre mark is where the record's own drummer sits -- not where the
-         written grid is (reference.ts). A position reads at a glance; the
-         signed number underneath is for when you want it. */
-      .dial .needle {
-        position: relative; display: block; height: 4px; margin: 5px 0 3px;
-        border-radius: 2px; background: var(--border);
-      }
-      .dial .needle::before {
-        content: ""; position: absolute; left: 50%; top: -2px;
-        width: 1px; height: 8px; background: var(--muted);
-      }
-      .dial .needle i {
-        position: absolute; top: -3px; width: 3px; height: 10px;
-        border-radius: 2px; transform: translateX(-50%); background: var(--muted);
-      }
-      .dial.good .needle i { background: var(--pass); }
-      .dial.ok .needle i { background: var(--warn); }
-      .dial.bad .needle i { background: var(--fail); }
-      /* The bar strip: one block per bar of the take, coloured by whether the
-         notes landed -- the same question the noteheads answer. A bad bar is
-         filled rather than outlined so it is the thing you see first. Click a
-         block to put the cursor on that bar. */
-      #report .strip { display: flex; flex-wrap: wrap; gap: 3px; margin: 13px 0 0; }
-      #report .bar {
-        min-width: 27px; padding: 2px 3px; font: inherit; font-size: 11px;
-        font-variant-numeric: tabular-nums; text-align: center; border-radius: 4px;
-        border: 1px solid var(--border); background: var(--panel);
-        color: var(--muted); cursor: pointer;
-      }
-      #report .bar.good { border-color: var(--pass); color: var(--pass); }
-      #report .bar.ok { border-color: var(--warn); color: var(--warn); }
-      #report .bar.bad { border-color: var(--fail); background: var(--fail); color: var(--panel); }
-      #report .bar.none { opacity: 0.4; }
-      #report .again { margin: 11px 0 0; font-weight: 600; }
-      #report details { margin: 10px 0 0; }
-      #report summary { cursor: pointer; color: var(--muted); }
-      #report table {
-        border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 7px 0 0;
-      }
-      #report th, #report td { padding: 1px 12px 1px 0; text-align: left; font-weight: normal; }
-      #report th { color: var(--muted); }
-      #report td.num { text-align: right; padding-right: 18px; }
-      #report .note { margin: 7px 0 0; color: var(--muted); }
     </style>
   </head>
   <body>
-    <div id="app">
-      <!-- The header: the song picker, and the chrome on the right, which
-           folds either rail down to icons or takes the whole window. -->
-      <header id="nav">
-        <h1>drums-tabs</h1>
-        <nav id="nav-pages">
-          <label id="nav-song">
-            <span>Songs</span>
-            <select id="song" title="Song" aria-label="Song"></select>
-          </label>
-        </nav>
-        <div id="nav-chrome">
-          <!-- Open it says «, folded the CSS swaps in data-icon's ». The
-               glyph is a function of the state and the state is an attribute
-               on the root, so there is nothing for the script to keep up. -->
-          <button
-            id="rail-toggle"
-            data-open="«"
-            data-icon="»"
-            aria-controls="rail"
-            aria-expanded="true"
-            aria-label="The controls"
-          ></button>
-          <button
-            id="desk-toggle"
-            data-open="»"
-            data-icon="«"
-            aria-controls="desk"
-            aria-expanded="true"
-            aria-label="Practice mode"
-          ></button>
-          <button id="zen" data-open="⤢" title="The picture and the notation only (Z)" aria-label="Zen mode"></button>
+    <!-- The master clock: audio/mix.wav, the timeline the beat map, the stems
+         and the notation all refer to. Everything else on the page follows it.
+         No controls: the transport is alphaTab's, and the mixer holds this
+         element's own sound at 0 whenever the stems are playing. -->
+    <audio id="mix" preload="auto"></audio>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-loop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 3l3 3-3 3" /><path d="M4 11V9a3 3 0 0 1 3-3h13" /><path d="M7 21l-3-3 3-3" /><path d="M20 13v2a3 3 0 0 1-3 3H4" />
+      </symbol>
+    </svg>
+    <div id="app" data-head="full">
+      <header id="head">
+        <div id="picture"><video id="video" playsinline preload="auto"></video></div>
+        <div id="title"><span id="song-title"></span><span id="title-state"></span></div>
+        <div id="where" aria-live="off">
+          <div id="section-name"></div>
+          <div id="bar-of"><span id="bar-now">bar 1</span><span class="of" id="bar-total"></span><span id="bar-pass"></span></div>
         </div>
-      </header>
-      <!-- The left rail: everything you set. Grouped by what it is for, and
-           narrow enough that the stage keeps the width. -->
-      <aside id="rail">
-        <div class="group">
-          <h2>Transport</h2>
-          <div class="row">
-            <button id="play" class="grow" data-icon="▶" title="Play or pause" aria-label="Play or pause" disabled>
-              Play
-            </button>
-            <button id="stop" data-icon="⏹" title="Stop and rewind" aria-label="Stop and rewind" disabled>
-              Stop
-            </button>
+        <div id="pass">
+          <div id="pass-main"><svg aria-hidden="true"><use href="#i-loop" /></svg><span id="loop-pass">loop off</span></div>
+          <div id="pass-sub">playing the whole song</div>
+        </div>
+        <!-- Lamp-05: a count-in in place of where you are (main.ts showCount). -->
+        <div id="count" aria-live="off">
+          <div id="count-says"></div>
+          <div id="count-beats" role="img"></div>
+        </div>
+        <!-- Lamp-06: the paper turned away from the cursor while paused (paintBrowse). -->
+        <div id="browse" hidden>
+          <div id="browse-main">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg><span id="browse-bars"></span>
           </div>
-          <div class="fader">
-            <span>Tempo</span>
-            <output id="speed-out">100%</output>
-            <input id="speed" type="range" min="25" max="125" value="100" step="5" />
-          </div>
+          <div id="browse-sub"></div>
+        </div>
+        <div id="tempo">
+          <div id="tempo-pct"><span id="tempo-num">100</span><span class="unit">%</span></div>
+          <div id="tempo-bpm"></div>
+        </div>
+        <div id="corner">
+          <!-- Lamp-12: the kit, while one is connected; nothing at all without (practice.ts paintKit). -->
+          <div id="kit-chip" hidden><span class="dot" aria-hidden="true"></span><span id="kit-chip-says">Kit connected</span></div>
+          <button id="songs-btn" aria-label="Songs" title="Songs">
+            <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
+          </button>
+          <button id="settings-btn" aria-label="Settings" title="Settings" aria-controls="settings" aria-expanded="false">
+            <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.2" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" /></svg>
+          </button>
+        </div>
+        <p id="status" role="status">Loading alphaTab&hellip;</p>
+        <div id="controls">
+          <button id="play" class="pill" title="Play or pause (Space)" aria-label="Play" disabled>
+            <svg class="i-play" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l12.5-7.5z" /></svg>
+            <svg class="i-pause" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1" /><rect x="14" y="4.5" width="4" height="15" rx="1" /></svg>
+            <span class="sr" id="play-word">Play</span>
+          </button>
+          <button id="back-btn" class="pill" hidden>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L4 12l7 7" /><path d="M4 12h16" /></svg><span id="back-bar">Back</span><kbd>Home</kbd>
+          </button>
+          <button id="loop" class="pill" aria-pressed="false" aria-expanded="false" aria-controls="map" title="Pick a loop on the song map (L: loop the section you are in, or turn the loop off)">
+            <svg aria-hidden="true"><use href="#i-loop" /></svg><span class="label">Loop</span>
+          </button>
+          <button id="ramp-btn" class="pill" aria-pressed="false" title="Ramp the tempo between passes (R)" hidden>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h5v-5h5v-5h5V5h3" /></svg><span class="label">Ramp</span>
+          </button>
+          <!-- Only while a kit is connected (practice.ts): the whole song, or
+               every pass of the loop, marked. Pressed again it stops. -->
+          <button id="record" class="pill" aria-pressed="false" hidden disabled>
+            <span class="rec-dot" aria-hidden="true"></span><span class="label" id="record-word">Record</span>
+          </button>
+          <button id="mix-btn" class="pill quiet" aria-controls="mix-panel" aria-expanded="false" title="The mix (M)">
+            <span class="levels" aria-hidden="true"><i style="height: 26px"></i><i style="height: 34px; opacity: 0.6"></i><i style="height: 20px"></i><i style="height: 4px; opacity: 0.5"></i></span><span class="label">Mix</span>
+          </button>
+          <button id="video-btn" class="pill quiet" aria-pressed="true" title="Video shown or hidden (V)">
+            <svg class="i-on" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M10 9.5v5l4.5-2.5z" fill="currentColor" /></svg>
+            <svg class="i-off" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M4 20L20 4" /></svg><span class="label">Video</span>
+          </button>
+          <div class="spacer"></div>
           <!-- Steps rather than a drag: slower to learn a part, then back up a
                notch at a time, and 100% the way home. The same as [ ] (5),
-               Shift+[ ] (10) and \. -->
-          <div class="row" id="tempo-steps">
-            <button data-step="-10" title="10% slower (Shift+[)" aria-label="10% slower">&minus;10</button>
-            <button data-step="-5" title="5% slower ([)" aria-label="5% slower">&minus;5</button>
-            <button data-step="0" title="The record's own tempo (\)" aria-label="Back to 100%">100%</button>
-            <button data-step="5" title="5% faster (])" aria-label="5% faster">+5</button>
-            <button data-step="10" title="10% faster (Shift+])" aria-label="10% faster">+10</button>
+               { } (10) and \. -->
+          <div id="tempo-steps">
+            <button class="pill" data-step="-10" title="10% slower ({)" aria-label="10% slower">&minus;10</button>
+            <button class="pill" data-step="-5" title="5% slower ([)" aria-label="5% slower">&minus;5</button>
+            <button class="pill" data-step="0" title="The record's own tempo (\)" aria-label="Back to 100%">100%</button>
+            <button class="pill" data-step="5" title="5% faster (])" aria-label="5% faster">+5</button>
+            <button class="pill" data-step="10" title="10% faster (})" aria-label="10% faster">+10</button>
           </div>
-          <label title="Play from a pause gives a bar of click first, from the start of the bar the cursor is in">
-            <input id="count-in" type="checkbox" checked />
-            <span>Count in from a pause</span>
-          </label>
+          <!-- Lamp-04: the ramp's rungs in place of the steps while it is on. -->
+          <div id="ladder" role="img" hidden></div>
         </div>
-        <!-- The loop (loop.ts): a section, or any run of bars, round and round
-             on the record's own clock. With it on, Play plays the loop and
-             Record marks every pass. -->
-        <div class="group" id="loop-group">
+        <!-- Lamp-12: the reading after a recorded pass or song, in the pass
+             block's place (practice.ts builds its insides). -->
+        <section id="reading" hidden></section>
+      </header>
+      <!-- The song map (songmap.ts builds it). -->
+      <div id="map" role="group" aria-label="Song map"></div>
+      <div id="tabs"><div id="score-box"><div id="score"></div></div></div>
+    </div>
+
+    <!-- The Mix (Lamp-08): what you hear is the two stems, the click and the
+         kit, not the video's own soundtrack (that is the full mix). Each row
+         is a channel: its name, a mute with its key, a level. Built, not
+         written, in main.ts: `#fader-${f}`, `#mute-${f}` and friends. -->
+    <section id="mix-panel" aria-label="Mix" hidden>
+      <header>
+        <h2>Mix</h2>
+        <button id="mix-done" class="done" title="Close the mix (M, or Esc)">Done<kbd>M</kbd></button>
+      </header>
+      <div class="mix-rows">
+        <div class="mix-row" id="row-nodrums">
+          <div><div class="mix-name" id="name-nodrums">Band</div><div class="mix-desc" id="desc-nodrums">the record without its drums</div></div>
+          <button class="mute" id="mute-nodrums" aria-pressed="false"><span>On</span><kbd>1</kbd></button>
+          <input id="fader-nodrums" type="range" min="0" max="100" value="100" aria-label="Band level" />
+          <output id="fader-nodrums-out">100%</output>
+        </div>
+        <!-- The stems that would not load, and what that means for the rows. -->
+        <p class="mix-msg" id="stems-note" hidden></p>
+        <div class="mix-row" id="row-drums">
+          <div><div class="mix-name">Drums</div><div class="mix-desc">the record's own drummer</div></div>
+          <button class="mute" id="mute-drums" aria-pressed="false"><span>On</span><kbd>2</kbd></button>
+          <input id="fader-drums" type="range" min="0" max="100" value="100" aria-label="Drums level" />
+          <output id="fader-drums-out">100%</output>
+        </div>
+        <div class="mix-row" id="row-click">
+          <div><div class="mix-name">Click</div><div class="mix-desc">follows the drummer's beats</div></div>
+          <button class="mute" id="mute-click" aria-pressed="false"><span>On</span><kbd>3</kbd></button>
+          <input id="fader-click" type="range" min="0" max="100" value="60" aria-label="Click level" />
+          <output id="fader-click-out">60%</output>
+        </div>
+        <!-- The written notes, sounded (kit.ts), from the bank `drums
+             kit-bake` renders out of a drum plugin. -->
+        <div class="mix-row" id="row-kit">
+          <div><div class="mix-name">Kit</div><div class="mix-desc">the notation on drum samples</div></div>
+          <button class="mute" id="mute-kit" aria-pressed="false"><span>On</span><kbd>4</kbd></button>
+          <input id="fader-kit" type="range" min="0" max="100" value="80" aria-label="Kit level" />
+          <output id="fader-kit-out">80%</output>
+        </div>
+        <p class="mix-msg" id="kit-note" hidden></p>
+      </div>
+    </section>
+
+    <!-- The library (Lamp-09, library.ts): the home page. -->
+    <section id="library" aria-label="Songs" hidden>
+      <header>
+        <h1>Songs</h1>
+        <button id="lib-settings" aria-label="Settings" title="Settings">
+          <svg aria-hidden="true" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.2" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" /></svg>
+        </button>
+      </header>
+      <nav id="lib-list" aria-label="Songs"></nav>
+      <p class="lib-keys">&uarr; &darr; choose &middot; Enter opens &middot; the outlined song is the one you played last</p>
+    </section>
+
+    <!-- Settings (Lamp-10): set once for this monitor and this habit, between
+         songs. -->
+    <div id="settings" role="dialog" aria-label="Settings" hidden>
+      <header>
+        <h1>Settings</h1>
+        <button id="settings-done" class="done primary" title="Back to the song (Esc)">Done</button>
+      </header>
+      <div class="set-cols">
+        <!-- How the score is engraved, remembered. -->
+        <section class="set-col" aria-label="Notation">
+          <h2>Notation</h2>
+          <div>
+            <div class="set-row"><label for="zoom">Size</label><span class="says"><output id="zoom-out"></output> between staff lines</span></div>
+            <input id="zoom" type="range" min="0" max="8" value="5" step="1" />
+          </div>
+          <div class="set-row">
+            <span>Bars a line</span>
+            <div class="stepper">
+              <button id="bars-less" aria-label="Fewer bars a line">&minus;</button>
+              <output id="bars-out">4</output>
+              <button id="bars-more" aria-label="More bars a line">+</button>
+            </div>
+          </div>
+          <div class="cap tight">Four is the default. A busy part reads better at three, with bigger gaps between the notes.</div>
+          <div>
+            <div class="set-row"><label for="spacing">Note spacing</label><output id="spacing-out" class="says"></output></div>
+            <input id="spacing" type="range" min="30" max="200" value="100" step="10" />
+          </div>
+          <div>
+            <div class="set-row"><label for="gap">Gap between lines</label><output id="gap-out" class="says"></output></div>
+            <input id="gap" type="range" min="0" max="80" value="12" step="4" />
+          </div>
+          <label><input id="sticking" type="checkbox" checked />Sticking: R and L under the notes</label>
+          <div class="cap">Set once for this monitor. Each change re-draws the whole notation, which is why these live here and not on the player. + and &minus; change the size from the player too, and 0 puts all four back.</div>
+
+        </section>
+
+        <section class="set-col" aria-label="Look and loop">
+          <h2>Look</h2>
+          <div class="set-row">
+            <span>Interface</span>
+            <div class="seg" id="theme"><button data-value="dark">Dark</button><button data-value="light">Light</button></div>
+          </div>
+          <div class="set-row">
+            <span>Notation paper</span>
+            <div class="seg" id="tab-theme"><button data-value="light">Light</button><button data-value="dark">Dark</button></div>
+          </div>
+          <div class="pairs" id="pairs">
+            <button data-ui="dark" data-paper="light"><span class="pic" style="background: #14110d"><i style="background: #ece2cc"></i></span><span class="name">dark · light</span></button>
+            <button data-ui="dark" data-paper="dark"><span class="pic" style="background: #14110d"><i style="background: #1d1914; box-shadow: inset 0 0 0 1px #3a3128"></i></span><span class="name">dark · dark</span></button>
+            <button data-ui="light" data-paper="light"><span class="pic" style="background: #efe8db"><i style="background: #ece2cc; box-shadow: 0 4px 10px rgb(60 40 10 / 0.25)"></i></span><span class="name">light · light</span></button>
+          </div>
+
           <h2>Loop</h2>
-          <!-- Every [[section]] of the song, with its bars: names repeat. -->
-          <select id="loop-section" title="A section to loop" aria-label="Section to loop"></select>
-          <!-- Any run of bars: a fill and the bar before it, two sections in a row. -->
-          <div class="nums" id="loop-bars">
-            <span>Bars</span>
-            <input id="loop-from" type="number" min="1" step="1" aria-label="First bar of the loop" />
-            <span>to</span>
-            <input id="loop-to" type="number" min="1" step="1" aria-label="Last bar of the loop" />
+          <div class="set-row">
+            <span>Between passes</span>
+            <div class="seg narrow" id="loop-between"><button data-value="straight">Straight back</button><button data-value="click">A bar of click</button></div>
           </div>
-          <div class="row">
-            <button
-              id="loop"
-              data-icon="↻"
-              aria-pressed="false"
-              title="Loop on or off (L)"
-              aria-label="Loop on or off"
-            >
-              Loop off
-            </button>
-            <output id="loop-pass" class="grow"></output>
-          </div>
-          <label title="Between passes, a bar of click to come back in on; off, it jumps straight back">
-            <input id="loop-rest" type="checkbox" checked />
-            <span>A bar of click between passes</span>
-          </label>
-          <label title="Raise the tempo between passes, the way you would by hand">
-            <input id="ramp" type="checkbox" />
-            <span>Ramp the tempo</span>
-          </label>
-          <div class="nums" id="ramp-range">
-            <span>from</span>
-            <input id="ramp-from" type="number" min="25" max="125" step="5" value="70" aria-label="Ramp from, percent" />
-            <span>% to</span>
-            <input id="ramp-to" type="number" min="25" max="125" step="5" value="100" aria-label="Ramp up to, percent" />
+          <div>Count-in, one bar of click:</div>
+          <label class="tight"><input id="count-in-loop" type="checkbox" checked />before the first pass of a loop</label>
+          <label class="tight"><input id="count-in" type="checkbox" checked />when playing on from a pause</label>
+          <div class="nums">
+            <span>Ramp: start at</span>
+            <input id="ramp-from" type="number" min="25" max="125" step="5" value="70" aria-label="Ramp start, percent" />
+            <span>%, up</span>
+            <input id="ramp-step" class="short" type="number" min="5" max="50" step="5" value="5" aria-label="Ramp step, percent" />
+            <span>% every</span>
+            <input id="ramp-every" class="short" type="number" min="1" max="20" step="1" value="2" aria-label="Passes per step" />
+            <span>passes, stop at</span>
+            <input id="ramp-to" type="number" min="25" max="125" step="5" value="100" aria-label="Ramp stop, percent" />
             <span>%</span>
           </div>
-          <div class="nums" id="ramp-steps">
-            <span>+</span>
-            <input id="ramp-step" type="number" min="5" max="50" step="5" value="5" aria-label="Ramp step, percent" />
-            <span>% every</span>
-            <input id="ramp-every" type="number" min="1" max="20" step="1" value="2" aria-label="Passes per step" />
+          <label class="top"><input id="ramp-gate" type="checkbox" />step up only after a pass with at least 90% of the notes (with the kit)</label>
+        </section>
+
+        <section class="set-col kit" aria-label="Kit and keys">
+          <h2>Kit</h2>
+          <div class="set-row">
+            <div id="kit-state" data-state="off"><span>No kit connected</span></div>
+            <button id="midi-enable" class="btn" title="Let the page read your kit">Connect</button>
           </div>
-          <!-- Needs Record: only a marked pass has a mark. A loop nobody is
-               marking steps on every pass. -->
-          <label title="Only passes Record marks at 90% or better count towards the next step">
-            <input id="ramp-gate" type="checkbox" />
-            <span>Only on a pass of 90%+</span>
-          </label>
-          <output id="ramp-state"></output>
-        </div>
-        <!-- The mixer: what you hear is the two stems, the click and the kit,
-             not the video's own soundtrack (that is the full mix). -->
-        <div class="group">
-          <h2>Mix</h2>
-          <div class="fader">
-            <span>No drums</span>
-            <output id="fader-nodrums-out">100%</output>
-            <input id="fader-nodrums" type="range" min="0" max="100" value="100" />
+          <div class="set-row">
+            <label for="midi-port">Input</label>
+            <select id="midi-port" disabled><option>Connect the kit first</option></select>
           </div>
-          <div class="fader">
-            <span>Drums</span>
-            <output id="fader-drums-out">100%</output>
-            <input id="fader-drums" type="range" min="0" max="100" value="100" />
+          <output id="calibration"></output>
+          <div class="set-row" style="justify-content: flex-start">
+            <button id="calibrate" class="btn" disabled title="Play steady quarters to the click">Calibrate</button>
+            <span class="cap">tap along to a click for about 25 seconds</span>
           </div>
-          <div class="fader">
-            <span>Click</span>
-            <output id="fader-click-out">0%</output>
-            <input id="fader-click" type="range" min="0" max="100" value="0" />
-          </div>
-          <!-- The written notes, sounded (kit.ts), from the bank
-               `drums kit-bake` renders out of a drum plugin. Over a record it
-               is a comparison you ask for -- what is written against what was
-               played, which is how a mis-transcribed bar gives itself up --
-               and it is also how you play a song's part yourself: drop Drums
-               to nothing, bring this up, and the chart plays over No drums. -->
-          <div class="fader">
-            <span>Kit</span>
-            <output id="fader-kit-out">0%</output>
-            <input id="fader-kit" type="range" min="0" max="100" value="0" />
-          </div>
-          <p id="kit-note" hidden></p>
-        </div>
-        <div class="group">
-          <h2>Notation</h2>
-          <label>
-            <span>Lines</span>
-            <select id="lines" class="grow" title="How many lines of notation" aria-label="Lines of notation">
-              <option>1</option>
-              <option selected>2</option>
-              <option>3</option>
-              <option>4</option>
-              <!-- The notation takes the stage and the picture keeps a third
-                   of the screen: the default with no video. -->
-              <option value="fit">Fill</option>
-            </select>
-          </label>
-          <!-- Which hand plays what, from sticking.lock.json (`drums sticking`). -->
-          <label title="R and L under the notation">
-            <input id="sticking" type="checkbox" checked />
-            <span>Sticking</span>
-          </label>
-        </div>
-        <!-- How the score is engraved, as opposed to how much of it you see
-             (that is Lines, above). Four numbers that are only ever set once,
-             against the screen you read from, and then remembered -- so they
-             are faders you nudge and look at rather than keys you press. The
-             defaults are what the page has always looked like. -->
-        <div class="group">
-          <h2>Layout</h2>
-          <div class="fader">
-            <span>Size</span>
-            <output id="zoom-out">100%</output>
-            <!-- A rung on the ladder in main.ts, not a percentage: the useful
-                 sizes are not evenly spaced. +/- move this too. -->
-            <input
-              id="zoom"
-              type="range"
-              min="0"
-              max="7"
-              value="3"
-              step="1"
-              title="How big the notes are"
-              aria-label="How big the notes are"
-            />
-          </div>
-          <div class="fader">
-            <span>Bars a line</span>
-            <output id="bars-out">4</output>
-            <!-- The row is stretched to the width it is given whatever is on
-                 it, so this is really how much width one bar gets: fewer bars
-                 is more room between the notes. -->
-            <input
-              id="bars"
-              type="range"
-              min="1"
-              max="8"
-              value="4"
-              step="1"
-              title="How many bars go on one line"
-              aria-label="How many bars go on one line"
-            />
-          </div>
-          <div class="fader">
-            <span>Note spacing</span>
-            <output id="spacing-out">100%</output>
-            <!-- alphaTab's stretchForce: how hard the springs between the
-                 notes push. Down, a bar of sixteenths packs tight and the
-                 long notes keep the slack; up, everything breathes evenly. -->
-            <input
-              id="spacing"
-              type="range"
-              min="30"
-              max="200"
-              value="100"
-              step="10"
-              title="How far apart the notes sit inside a bar"
-              aria-label="How far apart the notes sit inside a bar"
-            />
-          </div>
-          <div class="fader">
-            <span>Line gap</span>
-            <output id="gap-out">20px</output>
-            <!-- Air between one row of notation and the next. It comes out of
-                 the window's height, so wider rows mean a taller box for the
-                 same number of Lines. -->
-            <input
-              id="gap"
-              type="range"
-              min="0"
-              max="48"
-              value="20"
-              step="4"
-              title="Air between one line of notation and the next"
-              aria-label="Air between one line of notation and the next"
-            />
-          </div>
-        </div>
-        <div class="group">
-          <h2>Theme</h2>
-          <div class="row">
-            <span class="name">Interface</span>
-            <button id="theme" title="Switch theme" aria-label="Switch the interface theme"></button>
-          </div>
-          <!-- The notation is themed apart from the chrome: a dark room wants a
-               dark page and, usually, a light score on it. -->
-          <div class="row">
-            <span class="name">Notation</span>
-            <button
-              id="tab-theme"
-              title="Switch the notation's theme"
-              aria-label="Switch the notation's theme"
-            ></button>
-          </div>
-        </div>
-        <details class="keys">
-          <summary>Keys</summary>
-          <p>
-            <kbd>Space</kbd> play/pause &middot; <kbd>&larr;</kbd><kbd>&rarr;</kbd> a bar &middot;
-            <kbd>&uarr;</kbd><kbd>&darr;</kbd> a line &middot; <kbd>Home</kbd> stop &middot;
-            <kbd>[</kbd><kbd>]</kbd> tempo &plusmn;5 (with <kbd>Shift</kbd> &plusmn;10) &middot;
-            <kbd>\</kbd> tempo 100% &middot; <kbd>L</kbd> loop on/off &middot; <kbd>+</kbd><kbd>&minus;</kbd> size
-            (<kbd>0</kbd> resets Layout) &middot;
-            <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> mute a fader &middot; <kbd>Z</kbd> zen (<kbd>Esc</kbd> leaves) &middot; click the score to seek
-            &middot; wheel over the notation to browse.
-          </p>
-        </details>
-      </aside>
-      <main>
-        <!-- The master clock: audio/mix.wav, the timeline the beat map, the
-             stems and the notation all refer to. Everything else on the page
-             follows it. No controls: the transport is alphaTab's, and the mixer
-             holds this element's own sound at 0 whenever the stems are playing. -->
-        <audio id="mix" preload="auto"></audio>
-        <div id="stage">
-          <div id="picture"><video id="video" playsinline preload="auto"></video></div>
-          <div id="tabs"><div id="score-box"><div id="score"></div></div></div>
-        </div>
-        <p id="status">Loading alphaTab&hellip;</p>
-      </main>
-      <!-- The right rail: practice mode, end to end -- what you play, measured
-           against what is written, with each thing next to the button that
-           produced it. Dev-mode only: writing a take needs the dev server
-           (plugins/practice.ts). The reading's heatmap half is not here, it is
-           on the notation itself (heatmap.ts). -->
-      <aside id="desk">
-        <div class="group">
-          <h2>MIDI</h2>
-          <button id="midi-enable" data-icon="♪" title="Let the page read your kit" aria-label="Enable MIDI">
-            Enable MIDI
-          </button>
-          <label>
-            <span>Input</span>
-            <select id="midi-port" class="grow" title="MIDI input" aria-label="MIDI input" disabled></select>
-          </label>
-          <div class="row">
-            <button
-              id="calibrate"
-              data-icon="◎"
-              disabled
-              title="Play steady quarters to the click"
-              aria-label="Calibrate"
-            >
-              Calibrate
-            </button>
-            <output id="calibration" class="grow">uncalibrated</output>
-          </div>
-          <div class="row">
-            <button id="record" data-icon="⏺" title="Record a take" aria-label="Record a take" disabled>
-              Record
-            </button>
-            <output id="take-target" class="grow"></output>
-          </div>
-          <!-- One chip per pass of a loop Record is marking (practice.ts
-               drawPasses): the sitting at a glance. -->
-          <div id="passes" hidden></div>
-          <label title="The last few hits, as they arrive">
-            <input id="monitor-on" type="checkbox" />
-            <span>Monitor</span>
-          </label>
-          <!-- The last few hits as they arrive, newest first. It is the fastest
-               way to find out what a pad actually sends, so it belongs under
-               the switch that turns it on. -->
+          <label class="cap"><input id="monitor-on" type="checkbox" />Show the last few hits, to check what each pad sends</label>
           <div id="monitor" hidden></div>
-        </div>
-        <div id="report" hidden></div>
-      </aside>
+
+          <h2>Keys</h2>
+          <dl class="keys">
+            <dt>Space</dt><dd>play / pause (from a pause: a bar of count-in)</dd>
+            <dt>&larr; &rarr;</dt><dd>a bar back / on</dd>
+            <dt>&uarr; &darr;</dt><dd>a line back / on</dd>
+            <dt>Home</dt><dd>back to where play stopped; again: the top</dd>
+            <dt>[ ]</dt><dd>tempo &minus;5% / +5%</dd>
+            <dt>{ }</dt><dd>tempo &minus;10% / +10%</dd>
+            <dt>\</dt><dd>tempo back to 100%</dd>
+            <dt>L</dt><dd>loop on / off; with no loop, loops the section you're in</dd>
+            <dt>R</dt><dd>ramp on / off</dd>
+            <dt>M</dt><dd>mix open / closed</dd>
+            <dt>V</dt><dd>video shown / hidden</dd>
+            <dt>1 2 3 4</dt><dd>mute band, drums, click, kit</dd>
+            <dt>+ &minus;</dt><dd>notation size</dd>
+            <dt>0</dt><dd>reset the notation layout</dd>
+            <dt>Z &middot; Esc</dt><dd>zen on &middot; off; Esc also closes what is open</dd>
+          </dl>
+        </section>
+      </div>
     </div>
-    <!-- Outside #app: in zen the grid is one column, and a grid item here
-         would be a second row under the stage. -->
-    <button id="zen-exit" title="Leave zen (Z, or Esc)" aria-label="Leave zen mode">⇲</button>
+    <button id="zen-exit" title="Leave zen (Z, or Esc)" aria-label="Leave zen mode">&#x21F2;</button>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

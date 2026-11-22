@@ -1,0 +1,142 @@
+# Come As You Are - Nirvana
+# read from the drum-score video https://www.youtube.com/watch?v=qxlvvZV229Q (channel 알려드럼)
+# 4/4, quarter = 121 (marked on the first line), 105 bars, no repeat signs
+#
+# Grid: sixteen columns a bar, 1 e & a 2 e & a 3 e & a 4 e & a.
+#   x  cymbal hit (CR, RD, closed HH)     o  drum hit, or open hi-hat on the HH row
+#   O  accented drum hit                  f  flam (grace note before the hit)
+#   .  nothing
+# A "<" after a pattern name in the bar list means a crescendo hairpin over that bar.
+#
+# Key for this channel (confirmed by the user 2026-11-22): triangle above the staff
+# = ride, circled x = crash, x above the staff = hi-hat with "o" over it = open,
+# top space = high tom, second line = mid tom, third space = snare,
+# second space = floor tom, bottom space = kick.
+#
+# This file is the source of tab.mid: edit it and run the score-video-tab
+# skill's to_midi.py with --first-bar 4 --write (score bar 4 = song bar 1).
+#
+# Where it departs from the score, both the user's call (2026-11-22):
+#  - C2 has a kick on the "&" of 1. The score leaves it out; the record plays
+#    it in every one of those bars, and the user hears it too.
+#  - S1, S2, E1 and E2 ("crash eighths" and the outro) are on the second crash.
+#    The score has one crash symbol; which crash is the drummer's choice.
+
+pattern P4      pickup: three toms down
+  HT  . . . . . . . . . . o . . . . .
+  MT  . . . . . . . . . . . . o . . .
+  FT  . . . . . . . . . . . . . . o .
+
+pattern V1      ride groove, crash on 1
+  CR  x . . . . . . . . . . . . . . .
+  RD  . . x . x . x . x . x . x . x .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . . . . . o . o . . . o .
+
+pattern V2      ride groove, kick on the "&" of 1 and of 2
+  RD  x . x . x . x . x . x . x . x .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o . . . o . . . o . . . o .
+
+pattern V3      ride groove
+  RD  x . x . x . x . x . x . x . x .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . . . . . o . o . . . o .
+
+pattern V4      ride groove, extra snare on the "a" of 2
+  RD  x . x . x . x . x . x . x . x .
+  SD  . . . . o . . o . . . . o . . .
+  BD  o . . . . . . . o . o . . . o .
+
+pattern V5      ride groove, crash on 1 and 2
+  CR  x . . . x . . . . . . . . . . .
+  RD  . . x . . . x . x . x . x . x .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . . . . . o . o . . . o .
+
+pattern C1      chorus: crash quarters
+  CR  x . . . x . . . x . . . x . . .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . . . . . o . o . . . . .
+
+pattern C2      chorus: accented snare sixteenths
+  CR  x . . . . . . . . . . . . . . .
+  SD  . . . . O o o o O o o o O o o o
+  BD  o . o . o . . . o . . . o . . .   # the "&" of 1 is the record's, not the score's
+
+pattern F1      fill into the next verse
+  CR  x . . . . . . . . . . . . . . .
+  SD  . . . o o o o o . . . . f . . .
+  HT  . . . . . . . . o o . . . . . .
+  FT  . . . . . . . . . . o . . . . .
+  BD  o . . . . . . . . . . o . . o .
+
+pattern F2      flams on the beat, kick on the "&"
+  SD  f . . . f . . . f . . . f . . .
+  BD  . . o . . . o . . . o . . . o .
+
+pattern M1      open hi-hat groove
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . o . o . o . o . o . o . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o . . . . . o . o . . . . .
+
+pattern M2      open hi-hat groove, snare on 4, "&", "a"
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . o . o . o . o . o . o . . .
+  SD  . . . . o . . . . . . . o . o o
+  BD  o . o . . . . . o . o . . . . .
+
+pattern M3      open hi-hat groove, crash on 4
+  CR  x . . . . . . . . . . . x . . .
+  HH  . . o . o . o . o . o . . . . .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o . . . . . o . o . . . o .
+
+pattern S1      crash eighths, extra snare on the "a" of 2
+  CR2 x . x . x . x . x . x . x . x .
+  SD  . . . . o . . o . . . . o . . .
+  BD  o . . . . . . . o . o . . . o .
+
+pattern S2      crash eighths
+  CR2 x . x . x . x . x . x . x . x .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o . . . o . . . o . . . o .
+
+pattern E1      last groove bar, snare on 3 and its "&"
+  CR2 x . x . x . x . x . . . x . x .
+  SD  . . . . o . . . o . o . . . . .
+  BD  o . o . . . o . . . . . o . o .
+
+pattern E2      last hit
+  CR2 x . . . . . . . . . . . . . . .
+  BD  o . . . . . . . . . . . . . . .
+
+# One line per line of the score, four bars each (the last has five).
+bars
+  1    rest rest rest P4
+  5    V1 V2 V3 V2
+  9    V1 V2 V3 V2
+  13   V3 V2 V4 V2
+  17   V1 V2 V3 V2
+  21   V5 V2 V4< V2<
+  25   C1 C2 C1 C2
+  29   C1 C2 C1 F1
+  33   V1 V2 V3 V2
+  37   V3 V2 V3< V2<
+  41   C1 C2 C1 C2
+  45   C1 C2 C1 F2
+  49   M1 M2 M1 M2
+  53   M1 M2 M1 M3
+  57   S1 S2 S1 S2
+  61   S1 S2 S1 S2
+  65   S1 S2 S1 S2
+  69   S1 S2 S1 S2
+  73   S1 S2 S1 S2
+  77   C1 C2 C1 C2
+  81   C1 C2 C1 F2
+  85   M1 M2 M1 M2
+  89   M1 M2 M1 M2
+  93   M1 M2 M1 M3
+  97   S1 S2 S1 S2
+  101  S1 S2 S1 E1 E2

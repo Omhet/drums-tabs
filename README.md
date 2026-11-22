@@ -50,6 +50,8 @@ songs/<slug>/
   analysis/raw.beats        what the beat tracker heard, before repair
   grid.lock.json            the real time of every beat the drummer played
   tab.mid                   your notation: constant-tempo MIDI, bar 1 = song bar 1
+  reading.txt               (songs read off a drum-score video) the chart as read,
+                            which tab.mid is generated from
   sticking.lock.json        which hand plays what, and the hi-hat foot
   reference.lock.json       how far behind the chart the record itself plays
   takes/<when>-<what>-<pct>.json  every attempt you have recorded, and its grade
@@ -121,6 +123,12 @@ the two things worth keeping.
    Every save of the set (Ctrl+S) rewrites `songs/<slug>/tab.mid` from the
    arrangement clips on that track and reloads the player. A `tab.mid` exported
    by hand from any DAW works the same, without the `[author]` section.
+
+   **Or read it off a drum-score video**: give Claude a link to a drum cover
+   whose score scrolls under the drummer, and the `score-video-tab` skill
+   (`.claude/skills/score-video-tab/`) does the rest -- the record through the
+   steps above, the score read bar by bar into `reading.txt`, `tab.mid` from
+   that. Such a song has no `[author]`; edit `reading.txt` instead.
 
    A set written the other way round -- against the record from the top of the
    track, so its first bars are the intro -- says so with `bar_offset`:
@@ -1647,6 +1655,23 @@ added kick sits within 14 ms of a kick on the record; `drums reference` now
 matches 427/427 kicks and 331/331 snares, the record still +7.3 ms behind the
 chart. `tab.mid` was edited in place -- there is no Live set to write it from --
 and `song.toml` says what changed from the score.
+
+**The drum-score flow as a skill (2026-11-22).** The experiment's scripts
+left the scratchpad for `.claude/skills/score-video-tab/`, so the next video
+from the same channel is one link away. The skill is the steps, the reading
+format, and one file per YouTube channel holding its drum key and strip
+geometry, because a key belongs to a channel, not to drum notation. The reading
+moved into the song as `reading.txt`, which `tab.mid` is generated from; the
+user's two changes to Come As You Are are in it as patterns with comments, and
+regenerating gave a byte-identical `tab.mid`. Claude stops for two things only:
+a channel with no file yet (its key is confirmed before any reading), and the
+places where the record and the score disagree. One thing learned:
+
+- **A two-bar groove makes the wrong alignment look nearly right.** With the
+  reading two bars off, 94.9% of Come As You Are's kicks and snares still land
+  on a hit, against 100% at the right offset. The check now asks for a clear
+  winner near 100% rather than a ten-point lead, which the right answer did
+  not have.
 
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections

@@ -17,17 +17,18 @@ meter = ""
 tempo_multiplier = ""
 downbeat_rotation = -1
 
-# No [author]: this tab.mid was not written in Ableton. Claude read it off the
-# drum score in https://www.youtube.com/watch?v=qxlvvZV229Q (2026-11-22), and
-# the record's own drum hits placed it: the score's bar 4 (the tom pickup) is
-# this song's bar 1, the three bars before it are the count-in. To edit it in
-# Ableton, drag tab.mid onto a drum rack at 1|1|1 over stems/straight-nodrums.wav
-# and add an [author] section pointing at the set.
+# No [author]: this tab.mid was not written in Ableton. It is generated from
+# reading.txt, which Claude read off the drum score in
+# https://www.youtube.com/watch?v=qxlvvZV229Q (2026-11-22), and the record's own
+# drum hits placed it: the score's bar 4 (the tom pickup) is this song's bar 1,
+# the three bars before it are the count-in. To change a note, edit reading.txt
+# and run the score-video-tab skill's to_midi.py with --first-bar 4 --write.
 #
-# Two changes from the score, both the user's call (2026-11-22): the crash in
-# "crash eighths" and "outro" is the second crash (key 57), and the chorus bars
-# of snare sixteenths (23, 25, 27, 39, 41, 43, 75, 77, 79) have a kick on the
-# "&" of 1 that the score leaves out and the record plays.
+# Two changes from the score, both the user's call (2026-11-22) and both marked
+# in reading.txt: the crash in "crash eighths" and "outro" is the second crash
+# (key 57), and the chorus bars of snare sixteenths (23, 25, 27, 39, 41, 43, 75,
+# 77, 79) have a kick on the "&" of 1 that the score leaves out and the record
+# plays.
 
 # MIDI key -> instrument: General MIDI drum keys.
 [midi_map]

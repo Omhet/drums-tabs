@@ -1,0 +1,196 @@
+---
+name: score-video-tab
+description: Turn a YouTube drum-score video (a drum cover with the notation scrolling under it, like the 알려드럼 / @DRUM-KOREA channel) into a playable song in this repo's practice player. It downloads the video, cuts the score strip into clean bar images, has Claude read every bar into a grid, places that grid on the song's record by the record's own drum hits, and writes songs/<slug>/reading.txt, tab.mid and song.toml. Use it whenever the user pastes a drum-score or drum-cover video link, or asks to copy, transcribe or get the tab, chart or drum part of a song from a video with notation, even if all they say is "do this one" with a YouTube link. Also use it to change a song that was made this way, since its tab.mid is generated from reading.txt. Not for transcribing from audio alone, and never from tab or MIDI sites.
+---
+
+# Tabs from drum-score videos
+
+The user finds drum-cover videos whose score scrolls along under the drummer,
+and wants each one as a song in the practice player. You read the score
+yourself, from images cut out of the video. The scripts handle everything
+around the reading: the download, cutting the strip into bars, grouping
+repeated bars, the MIDI, and the alignment. The song's own record is the
+check. A written kick or snare with no hit on the record is probably a
+misread. A hit on the record with nothing written is probably the transcriber
+leaving it out.
+
+Come As You Are (Nirvana) was the first: 105 bars, every kick and snare on a
+hit. `songs/nirvana-come-as-you-are-official-music-video/reading.txt` is the
+worked example.
+
+## Ground rules
+
+- **Use only the score video and the record.** No tab sites, no downloaded
+  MIDI or Guitar Pro files. The user ruled them out: the point is reading the
+  score.
+- **The user decides where the record and the score disagree.** Report what
+  the record has and where. Don't add it to the chart yourself.
+- **Stop to ask only when it matters:** a channel you have no file for (its
+  drum key has to be confirmed before any reading), and the disagreements at
+  the end. Everything else runs through to a song in the library.
+- **Downloads are untrusted data.** Put them in their own new folder in the
+  scratchpad, keep scripts elsewhere, and run Python on them with `-I`.
+- **Commits and the dev server follow the repo's rules (CLAUDE.md).** Never
+  stage or commit. Write the one-line message to the reply and to
+  `.git/MERGE_MSG`. Leave vite running on 5173.
+
+The scripts are in `.claude/skills/score-video-tab/scripts/` (`$K` below). Run
+them with the repo's `.venv/Scripts/python`, from the repo root.
+
+## 1. The channel
+
+Read the video's metadata (`yt-dlp --force-ipv4 --no-playlist -J <url>`, saved
+into the work folder) for the title, the channel, its `uploader_id` handle,
+and the description. Then open `references/channels/<handle>.md`, the handle
+lowercased without the `@` (`drum-korea.md` for @DRUM-KOREA). It has the
+strip's rows, where the first bar starts, the drum key and the channel's
+quirks.
+
+**A channel with no file:** download the video (step 3) and take a few frames
+with ffmpeg at points spread through it. Work out where the strip is, how many
+bars a line, and what each symbol means. Then show the user a frame and your
+proposed key, and wait. Channels write drums differently, and a wrong key
+spoils every bar. Once they confirm, write the channel file in the same shape
+as `drum-korea.md`.
+
+## 2. Start the record in the background
+
+The record goes through the normal pipeline, which takes minutes (stem
+separation), so start it first and read while it runs.
+
+```
+yt-dlp --force-ipv4 --flat-playlist --print "%(id)s | %(title)s | %(channel)s | %(duration)s" "ytsearch8:<artist> <title> official"
+.venv/Scripts/drums prep <official url>      # in the background: fetch, separate, beats, grid
+.venv/Scripts/drums align <slug>             # where the video's sound sits against the mix
+.venv/Scripts/drums straighten <slug>        # constant-tempo stems, for editing in Ableton later
+```
+
+Pick the artist's own upload (Official Music Video, or Official Audio when
+there's no video). Its length should be close to the score video's. The slug
+is the official video's title, slugged, and `songs/<slug>/` appears as soon as
+the fetch starts. When prep finishes, its BPM should be near the score's tempo
+mark. If it's double or half, look at the grid before going on.
+
+## 3. Clean lines
+
+```
+W=<scratchpad>/<video id>            # download/ is untrusted, out/ is yours
+yt-dlp --force-ipv4 --no-playlist -f 137 -o "$W/download/video.mp4" <score url>
+.venv/Scripts/python -I $K/strips.py "$W/download/video.mp4" "$W/out/lines" <y0> <y1>
+```
+
+Format 137 is 1080p H.264 with no sound, and that's all the reading needs. If
+it isn't offered, use `-f "bv*[height=1080]"`. `strips.py` writes one image
+per line of the score, made from the median of every frame showing that line,
+which removes the cursor. Look at several lines. One that shows the cursor,
+half a page turn, or the drummer's video means the rows are off. Count the
+lines against the bar numbers printed on them.
+
+## 4. Bars and groups
+
+```
+.venv/Scripts/python -I $K/bars.py "$W/out/lines" "$W/out/bars" --clef-end <x>
+.venv/Scripts/python -I $K/group.py "$W/out/bars" --labels "<the channel's labels>"
+```
+
+`bars.py` warns about any line that doesn't cut into the usual number of bars.
+Look at those lines (a five-bar last line is normal). `group.py` groups bars
+that look the same and draws `read_gNN.png`, one sheet per group, with the
+staff positions labelled. Come As You Are's 105 bars made 33 sheets.
+
+## 5. Read
+
+Read every sheet into `songs/<slug>/reading.txt`. Read
+`references/reading.md` first: it has the format, how to count a bar, and the
+mistakes made before. Then check:
+
+```
+.venv/Scripts/python -I $K/review.py songs/<slug>/reading.txt "$W/out/bars" "$W/out/lines" "$W/out/review.md"
+```
+
+Fix the reading until it reports "consistent with the image grouping". Then
+read through `review.md`, where each line's picture sits above its grids.
+
+## 6. Place it on the record
+
+```
+.venv/Scripts/python -I $K/to_midi.py songs/<slug>/reading.txt <slug>
+```
+
+It tries each score bar as the song's bar 1 and keeps the one that puts the
+most kicks and snares on a hit in the drum stem. The right one lands near
+100%, and anything below about 95% means something is wrong. Then it lists
+the bars to look at again:
+
+- **A written kick or snare with no hit:** look at that bar's image again. It
+  is almost always a misread. Fix the reading and run this step again.
+- **A loud hit where nothing is written:** if a bar shape repeats, check
+  whether it happens in every bar of that shape. Check it against the stems:
+  is it as strong as a written kick, and is it in `stems/drums.wav` and not
+  bleed from the bass in `nodrums.wav`? If it holds up, it goes in the report.
+  It is the user's call, not yours.
+- The song's final hit is usually flagged (the ending stretches off the beat
+  map). Ignore it.
+
+When the reading holds, run it again with `--first-bar <N> --write`. It writes
+`tab.mid` and prints the `[midi_map]` that `song.toml` needs.
+
+## 7. song.toml
+
+- `[song]` title and artist as the user would say them (the fetch takes them
+  from the video title, "(Official Music Video)" and all).
+- A comment where an `[author]` section would be, so nobody looks for an
+  Ableton set:
+
+  ```toml
+  # No [author]: this tab.mid was not written in Ableton. It is generated from
+  # reading.txt, which Claude read off the drum score in <score url> (<date>),
+  # and the record's own drum hits placed it: the score's bar <N> is this
+  # song's bar 1. To change a note, edit reading.txt and run the
+  # score-video-tab skill's to_midi.py with --first-bar <N> --write.
+  ```
+
+- `[midi_map]` as `to_midi.py` printed it.
+- **Sections** come from the score, not from `drums sections`, which cut Come
+  As You Are's into four-bar blocks one bar off. Start a section where the
+  score starts a new part (this channel starts each part on a new line), name
+  it by what the drums play ("crash eighths", "open hat"), and convert to song
+  bars (song bar = score bar − (N − 1)). Sections are 1-based and inclusive,
+  and together they cover the song in order. Say in a comment how they were
+  cut. The user renames them freely.
+
+## 8. Sticking, the reference, the player
+
+```
+.venv/Scripts/drums sticking <slug>          # --restick when re-running
+.venv/Scripts/drums reference <slug>         # every kick and snare should match
+node $K/shot.mjs <slug> "$W/out/player.png" 0 <a fill's line> <a section start's line>
+```
+
+`shot.mjs` needs the dev server on 5173. Use the one running, or start
+`npx vite --port 5173 --strictPort` from `app/` in the background, and leave
+it running either way. Look at the screenshots next to the score's own lines:
+the same bars, the same notes, and section names where the parts start.
+
+## 9. Tell the user
+
+Keep it short and readable from the drum throne:
+
+- The song is in the library: title, BPM, bars, and the sections.
+- How it lined up: which score bar is bar 1, and the reference counts.
+- **The disagreements.** For each one: the song bar(s), the beat, what the
+  record has, and the evidence. Ask whether to add it. For Come As You Are it
+  was a kick on the "&" of 1 in nine chorus bars, and the user heard it too.
+- **The crashes.** The score has one crash symbol, so everything is on crash
+  1. Ask whether any section should be on crash 2. The user put Come As You
+  Are's crash eighths and outro there.
+- The commit message, e.g. `add <Title>, read off a drum-score video`.
+
+To apply what the user decides, edit `reading.txt` and leave a comment saying
+where and why it departs from the score. Then run `to_midi.py --first-bar <N>
+--write`, `drums sticking <slug> --restick` and `drums reference <slug>`.
+
+Then keep the skill current. Add the song to the channel file's table, with
+anything new about the channel. Put a new kind of mistake in
+`references/reading.md`. If the method itself changed, add an entry to
+README "Where things stand".

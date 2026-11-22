@@ -491,15 +491,17 @@ lock. Explicitly last.
 **Small and unscheduled, but wanted** has become part B in §0: the user values
 playing along with the notation at different tempos above everything else.
 
-**Tabs from drum-score videos** (an experiment, started 2026-11-22, its code
-not in the repo yet). Claude reads the notation strip of a YouTube drum-score
-video into a grid per bar; the record's audio only checks the reading. Come As
-You Are went first: all 105 bars read, from 18 distinct bar patterns, and the
-song is in the library with every written kick and snare on a hit in the
-record (README "Where things stand"), plus the kick on the "&" of 1 that the
-record has in the chorus and the score does not. Open: whether the
-experiment's scripts come into `pipeline/`. Two things the score shows that the reading does
-not use yet:
+**Tabs from drum-score videos** (started 2026-11-22; a project skill since the
+same day, `.claude/skills/score-video-tab/`). Claude reads the notation strip
+of a YouTube drum-score video into a grid per bar, `songs/<slug>/reading.txt`,
+which `tab.mid` is generated from; the record's audio only checks the reading.
+Come As You Are went first: all 105 bars read, from 18 distinct bar patterns,
+and the song is in the library with every written kick and snare on a hit in
+the record (README "Where things stand"), plus the kick on the "&" of 1 that
+the record has in the chorus and the score does not. The skill holds the
+scripts, the reading format and one file per channel with its drum key; the
+next video from 알려드럼 is its first real test. Two things the score shows
+that the reading does not use yet:
 - **Dynamics.** Crescendo hairpins (Come As You Are bars 23-24 and 39-40) and
   accents (the chorus's snare sixteenths; the reading already marks them) could
   become note velocities in `tab.mid`, which the kit plays through its velocity

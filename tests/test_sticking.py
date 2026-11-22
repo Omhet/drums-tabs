@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 from pipeline import sticking as sticking_mod
-from pipeline.chart import Hit
+from pipeline.chart import SLOTS_PER_BEAT, Hit
 from pipeline.kit import Instrument, Kit, Weights
 from pipeline.paths import Song
 from pipeline.sticking import HatChange, Stroke, Sticking, Unplayable, assign_hands, hat_track
@@ -150,26 +150,31 @@ def test_the_lead_can_be_the_left_hand():
 # --- the hi-hat foot -------------------------------------------------------------
 
 
+#: A sixteenth, in slots.
+X = SLOTS_PER_BEAT // 4
+
+
 def hits(*pairs: tuple[int, str]) -> list[tuple[Hit, str]]:
-    return [(Hit(slot=slot, note=0, velocity=100), name) for slot, name in pairs]
+    """Hits at the given sixteenths."""
+    return [(Hit(slot=at * X, note=0, velocity=100), name) for at, name in pairs]
 
 
 def test_the_foot_lifts_for_an_open_hat_and_drops_after():
     changes, problems = hat_track(hits((0, "hihat_closed"), (4, "hihat_open"), (8, "hihat_closed")), 4)
     assert problems == []
-    assert changes == [HatChange(bar=1, slot=3, open=True), HatChange(bar=1, slot=8, open=False)]
+    assert changes == [HatChange(bar=1, slot=3 * X, open=True), HatChange(bar=1, slot=8 * X, open=False)]
 
 
 def test_the_lift_never_lands_on_the_hit_before_it():
     # An open hat straight after a closed one cannot lift a sixteenth early:
     # the foot would be up for the closed note.
     changes, _ = hat_track(hits((3, "hihat_closed"), (4, "hihat_open")), 4)
-    assert changes == [HatChange(bar=1, slot=4, open=True)]
+    assert changes == [HatChange(bar=1, slot=4 * X, open=True)]
 
 
 def test_a_chick_closes_the_hat():
     changes, _ = hat_track(hits((0, "hihat_open"), (8, "hihat_pedal")), 4)
-    assert changes[-1] == HatChange(bar=1, slot=8, open=False)
+    assert changes[-1] == HatChange(bar=1, slot=8 * X, open=False)
 
 
 def test_open_and_pedalled_at_once_is_a_chart_error():

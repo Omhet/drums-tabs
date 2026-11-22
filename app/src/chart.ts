@@ -6,7 +6,7 @@
 // turns these hits into notation; the scorer measures what you played against
 // them.
 //
-// **Two timelines, never mixed up.** `slot` is *straight* time -- sixteenths
+// **Two timelines, never mixed up.** `slot` is *straight* time -- 32nd notes
 // counted from the start of bar 1, at the constant tempo the notation is
 // written at. `tMs` is *mix* time -- the real millisecond in mix.wav the note
 // falls on, which is what a hit can be compared to. `grid.lock.json` is the
@@ -17,8 +17,12 @@ import { parseMidi } from 'midi-file';
 import type { StickingLock } from './sticking';
 import type { Grid } from './syncpoints';
 
-/** The notation's grid: four slots to the beat. */
-export const SLOTS_PER_BEAT = 4;
+/**
+ * The notation's grid: eight slots to the beat, so a slot is a 32nd note. A
+ * chart is mostly sixteenths (every other slot); the 32nds are for double
+ * kicks and drags, which a sixteenth grid rounded onto the beat next door.
+ */
+export const SLOTS_PER_BEAT = 8;
 
 /** The four limbs, plus the one the sticking cannot name. */
 export type Limb = 'right_hand' | 'left_hand' | 'right_foot' | 'left_foot' | 'hands';
@@ -32,7 +36,7 @@ const FOOT: Record<string, Limb> = { kick: 'right_foot', hihat_pedal: 'left_foot
 
 /** One note in the chart, on the notation's own grid. */
 export interface ChartHit {
-  /** Sixteenths from the start of bar 1. */
+  /** 32nds from the start of bar 1. */
   slot: number;
   /**
    * The MIDI key as laid out on the drum rack -- a song's `[midi_map]`.
@@ -48,9 +52,9 @@ export interface ChartHit {
 export interface ExpectedNote {
   /** 1-based, the way bar numbers are printed. */
   bar: number;
-  /** Sixteenths from the start of *this bar*. */
+  /** 32nds from the start of *this bar*. */
   inBar: number;
-  /** Sixteenths from the start of bar 1: the chart-wide address. */
+  /** 32nds from the start of bar 1: the chart-wide address. */
   slot: number;
   instrument: string;
   velocity: number;

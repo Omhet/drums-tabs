@@ -11,9 +11,10 @@
 // overlay is rebuilt from the new bounds), and needs no change to the alphaTex
 // the notation is generated from.
 import type * as alphaTab from '@coderline/alphatab';
+import { SLOTS_PER_BEAT } from './chart';
 
-/** alphaTab counts 960 ticks to a quarter note, so a sixteenth is 240. */
-const TICKS_PER_SLOT = 240;
+/** alphaTab counts 960 ticks to a quarter note. */
+const TICKS_PER_SLOT = 960 / SLOTS_PER_BEAT;
 /** The hands are voice 0 (stems up); voice 1 is the feet, which need no letter. */
 const HANDS_VOICE = 0;
 /** How far under the bar's notation the letters sit, in px. */
@@ -21,7 +22,7 @@ const GAP_PX = 1;
 /** How tall a letter is at scale 1, in px: `.sticking span`'s font size (index.html). */
 const LETTER_PX = 11;
 
-/** One entry per note in the chart. Bars are 1-based; slots are sixteenths. */
+/** One entry per note in the chart. Bars are 1-based; slots are 32nds into the bar. */
 export interface StickingStroke {
   bar: number;
   slot: number;

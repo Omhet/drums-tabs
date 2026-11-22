@@ -5,6 +5,7 @@
 # Grid: sixteen columns a bar, 1 e & a 2 e & a 3 e & a 4 e & a.
 #   x  cymbal hit (CR, RD, closed HH)     o  drum hit, or open hi-hat on the HH row
 #   O  accented drum hit                  f  flam (grace note before the hit)
+#   d  double: the hit and another a 32nd after it
 #   .  nothing
 # A "<" after a pattern name in the bar list means a crescendo hairpin over that bar.
 #
@@ -20,11 +21,14 @@
 # an open hi-hat throughout; the few closed ones are read as printed.
 #
 # Where it departs from the score:
-#  - Double kicks. The score writes a 32nd-note pair of kicks on the "a" of a
-#    beat in G4, G5, F4 and F8 (bars 16, 34, 31, 59). The grid holds sixteenths,
-#    so only the first of the pair is here; the second, a 32nd later, is not.
 #  - The last crash (bar 75) has a choke mark (a fist) over it. The grid has no
 #    choke, so it is a plain crash.
+#  - The user's call (2026-11-22), from what the record plays:
+#    - F6 and F7 (bars 43 and 51) have the kick on the "&" of 2. The score
+#      writes it on the "e" of 2; the record plays the "&".
+#    - Bar 9 is G8, not G3: no kick on the "e" of 4, where the record has
+#      none. Bar 33 keeps it (the record plays it there), so review.py reports
+#      bars 9 and 33 as alike in the score and read apart. That is this.
 
 pattern G1      open-hat groove: kick 1, "a" of 1, "e" of 2, 3, "a" of 3, "e" of 4
   HH  o . o . o . o . o . o . o . o .
@@ -43,16 +47,22 @@ pattern G3      open-hat groove, crash on 4
   SD  . . . . o . . . . . . . o . . .
   BD  o . . o . o . . o . . o . o . .
 
+pattern G8      open-hat groove, crash on 4, no kick after it
+  CR  . . . . . . . . . . . . x . . .
+  HH  o . o . o . o . o . o . . . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . o . o . . o . . o . . . .   # the score has the "e" of 4 too; the record does not
+
 pattern G4      open-hat groove, double kick on the "a" of 4
   HH  o . o . o . o . o . o . o . o .
   SD  . . . . o . . . . . . . o . . .
-  BD  o . . o . o . . o . . o . o . o   # the "a" of 4 is a 32nd pair in the score
+  BD  o . . o . o . . o . . o . o . d   # a 32nd-note pair on the "a" of 4
 
 pattern G5      crash on 1, double kick on the "a" of 4
   CR  x . . . . . . . . . . . . . . .
   HH  . . o . o . o . o . x . o . o .   # the "&" of 3 is printed without the "0"
   SD  . . . . o . . . . . . . o . . .
-  BD  o . . o . o . . o . . o . o . o   # the "a" of 4 is a 32nd pair in the score
+  BD  o . . o . o . . o . . o . o . d   # a 32nd-note pair on the "a" of 4
 
 pattern G6      open-hat groove, kick on the "&" of 1 and of 3
   HH  o . o . o . o . o . o . o . o .
@@ -84,7 +94,7 @@ pattern F3      snare on the "e" of 3, snare sixteenths on 4
 pattern F4      double kick on the "a" of 3, snare flam on 4
   HH  o . o . o . o . o . o . . . . .
   SD  . . . . o . . . . . . . f . . .
-  BD  o . . o . o . . o . . o . . . .   # the "a" of 3 is a 32nd pair in the score
+  BD  o . . o . o . . o . . d . . . .   # a 32nd-note pair on the "a" of 3
 
 pattern F5      groove, flam into the toms on 4
   HH  o . o . o . o . o . o . . . . .
@@ -98,21 +108,21 @@ pattern F6      closed hat, snare and kick sixteenths into the toms
   HT  . . . . . . . . . . . . . o . .
   MT  . . . . . . . . . . . . . . o o
   SD  . . . . o . . . . o o o o . . .
-  BD  o . . o . o . . o . o . o . o .
+  BD  o . . o . . o . o . o . o . o .   # the "&" of 2 is the record's; the score has the "e"
 
 pattern F7      snare sixteenths from the "e" of 3 into the toms
   HH  o . o . o . o . o . . . . . . .
   HT  . . . . . . . . . . . . . o . .
   MT  . . . . . . . . . . . . . . o o
   SD  . . . . o . . . . o o o o . . .
-  BD  o . . o . o . . o . . . . . . .
+  BD  o . . o . . o . o . . . . . . .   # the "&" of 2 is the record's; the score has the "e"
 
 pattern F8      closed hat, tom flams on 3 and 4, double kick
   HH  x . x . x . x . . . x . . . . .
   HT  . . . . . . . . f . . . f o . .   # both flams' grace notes are on the snare
   MT  . . . . . . . . . . . . . . o o
   SD  . . . . o . . . . . . . . . . .
-  BD  o . . o . o . o . o . o . . . .   # the "a" of 3 is a 32nd pair in the score
+  BD  o . . o . o . o . o . d . . . .   # a 32nd-note pair on the "a" of 3
 
 pattern F9      kick on the "&" of 3, flam into the toms on 4
   HH  o . o . o . o . o . o . . . . .
@@ -173,7 +183,7 @@ pattern E7      last bar: snare and toms over kick eighths, crash on the "&" of 
 
 bars
   1    rest rest rest rest rest     # the spoken count, no drums
-  6    G2 G1 G1 G3
+  6    G2 G1 G1 G8
   10   G2 G1 G1 G2
   14   G1 G1 G4 F1
   18   G2 G1 G2 G1

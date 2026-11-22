@@ -67,8 +67,7 @@ first or the second crash is the drummer's choice (see SKILL.md).
   main note's cell. The grace note can sit on another drum: Sonne's tom flams
   have it on the snare. Still `f` on the tom, with a comment.
 - **32nd notes**: a third beam. Sonne ends four bars with a 32nd-note kick
-  pair on the "a" (sticking `KK`). The grid holds sixteenths, so the pair is
-  one kick on the "a", with a comment.
+  pair on the "a" (sticking `KK`): a `d` on that cell.
 - **Choke**: a fist over a cymbal (Sonne's last crash). The grid has no choke;
   a plain crash, with a comment.
 - **Dotted notes** turn up in fills: a dotted eighth lasts three sixteenths.
@@ -90,4 +89,4 @@ first or the second crash is the drummer's choice (see SKILL.md).
 | song | video | score bar = song bar 1 | notes |
 |------|-------|------------------------|-------|
 | Nirvana, Come As You Are | `qxlvvZV229Q` | 4 | 105 score bars, 18 patterns; the score leaves out the kick on the "&" of 1 in the chorus's snare-sixteenth bars |
-| Rammstein, Sonne | `1A00CVLGM7Q` | 1 | 75 score bars, 27 patterns, open hat throughout; the beat grid had to be moved half a beat (`tempo_multiplier = "offbeat"`); 32nd-note double kicks kept as one kick |
+| Rammstein, Sonne | `1A00CVLGM7Q` | 1 | 75 score bars, 27 patterns, open hat throughout; the beat grid had to be moved half a beat (`tempo_multiplier = "offbeat"`); 32nd-note double kicks as `d`; the record moves the fill kick to the "&" of 2 in bars 43 and 51 and has none on the "e" of 4 in bar 9 (both taken) |

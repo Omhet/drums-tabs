@@ -12,7 +12,7 @@ that a chorus you played two different ways is one section. That is what the
 renaming is for.
 
 How it decides, in one paragraph. Every bar is reduced to a fingerprint -- what
-is hit, on which sixteenth, exactly as the notation quantises it, so that two
+is hit, on which slot, exactly as the notation quantises it, so that two
 bars match when they *look* the same on the page. Any block of bars that occurs
 twice (a "repeat") offers a boundary at each of its four ends: where it starts
 and where it stops, in both places. Boundaries in the middle of a stretch of
@@ -42,7 +42,7 @@ MIN_REPEAT_BARS = 2
 #: the shortest thing worth calling a section and practising on its own.
 MIN_SECTION_BARS = 4
 
-#: A bar, as it is drawn: (sixteenth from the start of the bar, MIDI key).
+#: A bar, as it is drawn: (32nd from the start of the bar, MIDI key).
 Fingerprint = tuple[tuple[int, int], ...]
 
 

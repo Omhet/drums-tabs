@@ -7,8 +7,11 @@
    best offset is the alignment: the audio decides it. --first-bar pins it.
 3. List the bars to look at again: written kicks and snares with no hit near
    them, and strong hits on the record where nothing at all is written.
-4. With --write, write songs/<slug>/tab.mid (sixteenths from bar 1, General
-   MIDI drum keys) and print the [midi_map] song.toml needs for it.
+4. With --write, write songs/<slug>/tab.mid (on the chart's grid of 32nds from
+   bar 1, General MIDI drum keys) and print the [midi_map] song.toml needs.
+
+The reading is in sixteenths; a `d` cell is a double, the cell's hit and
+another a 32nd after it (the score's 32nd-note kick pairs).
 
 usage (any directory): python <this> <reading.txt> <slug> [--first-bar N] [--write]
 """
@@ -25,6 +28,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from pipeline import grid as grid_mod, onsets, paths  # noqa: E402
+from pipeline.chart import SLOTS_PER_BEAT  # noqa: E402
 from pipeline.reference import BANDS, slot_to_seconds  # noqa: E402
 from review import parse  # noqa: E402
 
@@ -35,7 +39,11 @@ KEYS = {
     "CR": (49, "crash"), "CR2": (57, "crash2"), "RD": (51, "ride"),
     "HT": (50, "tom_high"), "MT": (47, "tom_mid"), "FT": (43, "tom_floor"),
 }
-VELOCITY = {"x": 96, "o": 96, "O": 120, "X": 120, "f": 110, "g": 40}
+#: A cell is a sixteenth: this many slots of the chart's grid.
+CELL = SLOTS_PER_BEAT // 4
+#: Slots in a 4/4 bar.
+BAR = 16 * CELL
+VELOCITY = {"x": 96, "o": 96, "O": 120, "X": 120, "f": 110, "g": 40, "d": 96}
 
 
 def score_bars(reading: Path) -> tuple[dict, list[str]]:
@@ -49,7 +57,10 @@ def score_bars(reading: Path) -> tuple[dict, list[str]]:
 
 
 def notes_for(patterns: dict, seq: list[str], first_bar: int) -> list[tuple[int, str, int]]:
-    """(slot from song bar 1, row name, velocity), with score bar `first_bar` as song bar 1."""
+    """(slot from song bar 1, row name, velocity), with score bar `first_bar` as song bar 1.
+
+    Slots are the chart's (32nds); a `d` cell is two notes, a 32nd apart.
+    """
     out = []
     for i, name in enumerate(seq):
         song_bar = i + 1 - (first_bar - 1)
@@ -58,7 +69,10 @@ def notes_for(patterns: dict, seq: list[str], first_bar: int) -> list[tuple[int,
                 if c == ".":
                     continue
                 key = "HHo" if row == "HH" and c == "o" else row
-                out.append(((song_bar - 1) * 16 + k, key, VELOCITY[c]))
+                at = (song_bar - 1) * BAR + k * CELL
+                out.append((at, key, VELOCITY[c]))
+                if c == "d":
+                    out.append((at + CELL // 2, key, VELOCITY[c]))
     return out
 
 
@@ -92,7 +106,9 @@ def check(grid, notes, found, window_ms: float) -> dict:
 
 
 def beat_name(k: int) -> str:
-    return f"{k // 4 + 1}{['', 'e', '&', 'a'][k % 4]}"
+    """A slot in the bar, counted: "1", "2e", "3&", "4a", or "4a+" for the 32nd after."""
+    cell, rest = divmod(k, CELL)
+    return f"{cell // 4 + 1}{['', 'e', '&', 'a'][cell % 4]}{'+' if rest else ''}"
 
 
 def main() -> None:
@@ -136,22 +152,22 @@ def main() -> None:
     flagged: dict[int, list[str]] = {}
     for inst, (_, _, missing) in check(grid, notes, found, 60).items():
         for s in missing:
-            flagged.setdefault(s // 16 + first, []).append(f"written {inst} on {beat_name(s % 16)}, no hit")
+            flagged.setdefault(s // BAR + first, []).append(f"written {inst} on {beat_name(s % BAR)}, no hit")
     # Strong hits where nothing at all is written. Only "nothing at all": a
     # crash or the kick rings in the snare band and the snare's body in the
     # kick band, so a hit on a written cymbal is not evidence of a snare.
     every = np.array(sorted({slot_to_seconds(grid, s) for s, _, _ in notes if s >= 0}))
     first_t = slot_to_seconds(grid, 0)
-    last_t = slot_to_seconds(grid, (len(seq) - first + 1) * 16)
+    last_t = slot_to_seconds(grid, (len(seq) - first + 1) * BAR)
     for inst in ("kick", "snare"):
         at, strength = found[inst]
         strong = at[(strength > np.percentile(strength, 50)) & (at > first_t - 0.1) & (at < last_t)]
         for t in strong:
             if np.min(np.abs(every - t)) * 1000 > 60:
                 pos = (grid_mod.beat_position(grid, np.array([t]))[0] - grid.bar_one_beat) * 4
-                slot = int(round(pos))
-                flagged.setdefault(slot // 16 + first, []).append(
-                    f"loud {inst}-range hit near {beat_name(slot % 16)}, nothing written")
+                slot = int(round(pos)) * CELL
+                flagged.setdefault(slot // BAR + first, []).append(
+                    f"loud {inst}-range hit near {beat_name(slot % BAR)}, nothing written")
     print(f"\nbars to look at again ({len(flagged)} of {len(seq)}):")
     for bar in sorted(flagged):
         name = seq[bar - 1] if 0 < bar <= len(seq) else "-"
@@ -168,7 +184,7 @@ def main() -> None:
 
 def write_midi(path: Path, notes, grid) -> None:
     ppq = 480
-    step = ppq // 4
+    step = ppq // SLOTS_PER_BEAT
     mid = mido.MidiFile(ticks_per_beat=ppq)
     tr = mido.MidiTrack()
     mid.tracks.append(tr)

@@ -3,7 +3,7 @@
 Everything that analyses the chart -- sections, sticking, and whatever comes
 after -- starts here, so that they all see the same hits in the same places as
 the player does. The player's converter (``app/src/midi-tab.ts``) lays every
-hit on a **sixteenth counted from bar 1**; this mirrors that exactly, because a
+hit on a **32nd counted from bar 1**; this mirrors that exactly, because a
 tool that disagreed with the page about where a note is would be analysing a
 chart nobody can see.
 """
@@ -18,15 +18,17 @@ import mido
 
 from pipeline.proc import StageError
 
-#: The notation's grid: four slots to the beat.
-SLOTS_PER_BEAT = 4
+#: The notation's grid: eight slots to the beat, so a slot is a 32nd note. A
+#: chart is mostly sixteenths (every other slot); the 32nds are for double kicks
+#: and drags, which a sixteenth grid rounded onto the beat next door.
+SLOTS_PER_BEAT = 8
 
 
 @dataclass(frozen=True)
 class Hit:
     """One note in the chart."""
 
-    #: Sixteenths from the start of bar 1.
+    #: 32nds from the start of bar 1.
     slot: int
     #: MIDI key, as laid out on the drum rack (``[midi_map]`` names them).
     note: int

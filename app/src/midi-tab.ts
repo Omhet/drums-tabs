@@ -89,13 +89,16 @@ function piece(pos: number, n: number): number {
   return size;
 }
 
-const DURATION: Record<number, string> = { 16: '1', 8: '2', 4: '4', 2: '8', 1: '16' };
+/** A length in slots -> alphaTex's note value: a beat is a quarter, '4'. */
+const DURATION: Record<number, string> = Object.fromEntries(
+  [1, 2, 4, 8, 16, 32].map((value) => [(SLOTS_PER_BEAT * 4) / value, String(value)])
+);
 
 function durationToken(size: number, slotsPerBar: number): string {
   // 4/4 is the only meter where a whole bar is one token; elsewhere a bar-long
   // rest is spelled as beats.
-  if (size === slotsPerBar && slotsPerBar !== 16) return '4';
-  return DURATION[size] ?? '16';
+  if (size === slotsPerBar && slotsPerBar !== 4 * SLOTS_PER_BEAT) return '4';
+  return DURATION[size] ?? String(SLOTS_PER_BEAT * 4);
 }
 
 interface VoiceRender {

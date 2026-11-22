@@ -1,7 +1,7 @@
 """Is the chart early, or is the drummer late?
 
 A take is scored against the chart placed on the beat map. But the chart is
-*written* -- quantised to a sixteenth grid -- and the record it was written from
+*written* -- quantised to a grid -- and the record it was written from
 is played by a person, who sits wherever the music wants them to sit. If that is
 behind the grid, then playing along with the record, copying the feel that is
 actually in your ears, reads as systematically late. The number is then a
@@ -77,7 +77,7 @@ class Offsets:
 
 
 def slot_to_seconds(grid: Grid, slot: int) -> float | None:
-    """Where a sixteenth from bar 1 falls in the mix.
+    """Where a slot (a 32nd from bar 1) falls in the mix.
 
     The same interpolation the player does (``app/src/chart.ts``), because a
     diagnostic that placed the notes differently from the thing being diagnosed

@@ -360,7 +360,7 @@ def reference(
 ) -> None:
     """How far behind the chart's grid the record's own drummer actually plays.
 
-    A take is marked against the chart, which is written on a sixteenth grid.
+    A take is marked against the chart, which is written on a grid.
     The record is played by a person, who sits wherever the music wants them to.
     If that is behind the grid, a perfectly faithful take -- one that copies the
     feel in your ears -- is marked late by the difference, and no practice will
@@ -477,15 +477,17 @@ def _print_sticking(solved: sticking_mod.Sticking, bars: str) -> None:
     except ValueError as exc:
         raise typer.BadParameter(f"--bars wants something like 15-18, got {bars!r}") from exc
     console.print()
-    per_bar = solved.beats_per_bar * 4
+    per_bar = solved.beats_per_bar * chart_mod.SLOTS_PER_BEAT
     for bar in range(low, high + 1):
         letters = [""] * per_bar
         for stroke in solved.strokes:
             if stroke.bar != bar or stroke.limb not in kit_mod.HANDS:
                 continue
-            # Two hands on one sixteenth is a two-letter cell, e.g. "RL".
+            # Two hands on one slot is a two-letter cell, e.g. "RL".
             letters[stroke.slot] += "R" if stroke.limb == "right_hand" else "L"
-        console.print(f"  [dim]{bar:3d}[/dim]  " + " ".join((c or ".").ljust(2) for c in letters))
+        # A cell a sixteenth, unless the bar's hands play a 32nd.
+        step = 2 if not any(letters[1::2]) else 1
+        console.print(f"  [dim]{bar:3d}[/dim]  " + " ".join((c or ".").ljust(2) for c in letters[::step]))
 
 
 @app.command()

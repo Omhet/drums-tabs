@@ -96,7 +96,7 @@ def main() -> None:
     rel = os.path.relpath(lines_dir, out.parent).replace(os.sep, "/")
     md = [f"# {title(reading)}: the reading, line by line", "",
           "Each picture is one line of the score; the grids under it are the same bars, in order.",
-          "`x` cymbal, `o` drum or open hi-hat, `O` accent, `f` flam, `g` ghost, `.` nothing; "
+          "`x` cymbal, `o` drum or open hi-hat, `O` accent, `f` flam, `g` ghost, `d` double (and a 32nd after), `.` nothing; "
           "a `<` after a name is a crescendo.", ""]
     for first, names in lines:
         img_line = meta["bars"][first - 1]["line"]

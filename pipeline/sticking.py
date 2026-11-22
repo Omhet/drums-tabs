@@ -279,7 +279,7 @@ def hat_track(
         if "hihat_open" in here:
             # Early enough to be open when the stick lands, but never before
             # the hit that came before it.
-            lift = slot - 1
+            lift = slot - SLOTS_PER_BEAT // 4  # a sixteenth
             previous = [s for s in at_slot if s < slot]
             if previous and max(previous) >= lift:
                 lift = slot
@@ -326,7 +326,7 @@ def solve(song: Song, kit: Kit, tempo_bpm: float, beats_per_bar: int) -> Stickin
             Stroke(bar + 1, position, instrument, foot, hit.velocity)
         )
 
-    # Everything struck at the same sixteenth is one moment, and needs one hand
+    # Everything struck at the same slot is one moment, and needs one hand
     # each: that is where "two notes at once means two limbs" comes from.
     events: list[tuple[float, list[str]]] = []
     at_event: list[list[Hit]] = []
@@ -345,7 +345,7 @@ def solve(song: Song, kit: Kit, tempo_bpm: float, beats_per_bar: int) -> Stickin
         where = ""
         if 0 <= exc.event < len(at_event):
             bar, position = divmod(at_event[exc.event][0].slot, slots_per_bar)
-            where = f"bar {bar + 1}, sixteenth {position + 1}: "
+            where = f"bar {bar + 1}, beat {position // SLOTS_PER_BEAT + 1}: "
         raise Unplayable(
             f"{where}{exc}. Either the chart asks for something nobody can play, "
             f"or [hands] max_speed_cm_s in kit.toml is set too low."
@@ -394,7 +394,7 @@ def save(song: Song, sticking: Sticking) -> None:
     }
     # One stroke per line, which is a third of the bytes of pretty-printed JSON
     # and the format you want when you are changing an R to an L by hand. `bar`
-    # is 1-based as written on the page; `slot` is sixteenths into that bar.
+    # is 1-based as written on the page; `slot` is 32nds into that bar.
     strokes = [
         json.dumps(
             {

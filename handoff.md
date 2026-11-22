@@ -515,6 +515,12 @@ that the reading does not use yet:
   a drummer would not guess -- the fills, a hand crossing over. Learning which
   spots those are is the work; the scores that print R/L/K are examples of
   where a transcriber thought it was needed.
+- **Cymbal chokes.** The user wants these later (2026-11-22). Sonne's score
+  ends on a crash with a fist over it (심벌뮤트, cymbal mute): grab the cymbal
+  right after the hit. The chart has no way to say it, so `reading.txt` has a
+  plain crash and a comment. It needs a mark in the reading, a way to carry it
+  in `tab.mid` (General MIDI has no choke key; a module sends it as aftertouch
+  on the cymbal), and a symbol on the staff.
 
 **The avatar's input already exists.** `Kit.onNote` (`app/src/kit.ts`) fires per
 note as it is booked, carrying instrument, limb, velocity and the AudioContext

@@ -33,8 +33,9 @@ bars
   The rows are `CR CR2 RD HH HT MT SD XS FT BD HP` (XS is cross-stick, HP the
   hi-hat pedal). Leave out a row that has nothing in it.
 - **Cells:** `x` is a cymbal or closed hat, `o` a drum hit (on the HH row, an
-  open hat), `O` or `X` an accent, `f` a flam, `g` a ghost note, `.` nothing.
-  They become velocities 96, 120, 110 and 40.
+  open hat), `O` or `X` an accent, `f` a flam, `g` a ghost note, `d` a double
+  (the hit and another a 32nd after it), `.` nothing. They become velocities
+  96, 120, 110, 40 and 96 (both of a double's notes).
 - **The bar list** has one row per line of the score: the score bar number the
   line starts on, then one pattern name per bar, in order. A `<` after a name
   marks a crescendo over that bar; for now it is only a note. `rest` is a bar
@@ -53,9 +54,8 @@ staff positions are labelled with the channel's instruments down the left.
 1. **Count the rhythm from the beams and flags, not the spacing.** One beam is
    an eighth (two cells), two beams a sixteenth (one cell), a dot adds half
    again. Walk the bar beat by beat and check that each beat adds up to four
-   cells. Three beams are a 32nd, half a cell: the grid cannot hold it, so
-   keep the first of the pair on its cell and say so in a comment (Sonne's
-   double kicks).
+   cells. Three beams are a 32nd, half a cell. A 32nd pair (Sonne's double
+   kicks) is a `d` on the first one's cell.
 2. **Then the pitch of every notehead on each stem:** which line or space,
    and what shape. Use the channel's key, which belongs to that channel only.
 3. **Then the marks:** accents, flams (a small grace note before the hit),

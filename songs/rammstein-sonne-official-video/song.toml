@@ -27,9 +27,11 @@ downbeat_rotation = -1
 # bars are the spoken count, with no drums. To change a note, edit reading.txt
 # and run the score-video-tab skill's to_midi.py with --first-bar 1 --write.
 #
-# Two things the grid cannot hold, both marked in reading.txt: the score's
-# 32nd-note double kicks (bars 16, 31, 34, 59) keep only their first kick, and
-# the choke on the last crash is a plain crash.
+# Two changes from the score, both the user's call (2026-11-22) and marked in
+# reading.txt: the fill kick in bars 43 and 51 is on the "&" of 2 (the score
+# has the "e"; the record plays the "&"), and bar 9 has no kick on the "e" of 4
+# (the record has none). The choke on the last crash is a plain crash until
+# the chart can show one.
 
 # MIDI key -> instrument: General MIDI drum keys.
 [midi_map]

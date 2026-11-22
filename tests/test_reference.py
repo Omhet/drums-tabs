@@ -12,6 +12,7 @@ import numpy as np
 
 from pipeline.grid import Grid, GridScore
 from pipeline.paths import Song
+from pipeline.chart import SLOTS_PER_BEAT as S
 from pipeline.reference import Offsets, load, path_for, save, slot_to_seconds, summarise
 
 
@@ -35,41 +36,42 @@ def test_slot_zero_is_the_first_beat_of_bar_one():
     assert slot_to_seconds(grid, 0) == 1.0
 
 
-def test_a_whole_beat_is_four_slots():
+def test_a_whole_beat_is_slots_per_beat_slots():
     grid = make_grid(STEADY)
-    assert slot_to_seconds(grid, 4) == 0.5
-    assert slot_to_seconds(grid, 8) == 1.0
+    assert slot_to_seconds(grid, S) == 0.5
+    assert slot_to_seconds(grid, 2 * S) == 1.0
 
 
 def test_a_slot_between_beats_is_placed_proportionally():
     grid = make_grid(STEADY)
-    # Two slots is half a beat, so half way between beat 0 and beat 1.
-    assert slot_to_seconds(grid, 2) == 0.25
-    assert slot_to_seconds(grid, 1) == 0.125
+    # Half a beat's slots is half way between beat 0 and beat 1.
+    assert slot_to_seconds(grid, S // 2) == 0.25
+    assert slot_to_seconds(grid, S // 4) == 0.125
+    assert slot_to_seconds(grid, S // 8) == 0.0625  # a 32nd
 
 
 def test_an_uneven_beat_stretches_the_slots_inside_it():
     # The drummer slowed down: the second beat is twice as long as the first.
     beats = np.array([0.0, 0.5, 1.5, 2.0])
     grid = make_grid(beats)
-    assert slot_to_seconds(grid, 4) == 0.5
+    assert slot_to_seconds(grid, S) == 0.5
     # Half way through the long beat is 0.5 s into it, not 0.25.
-    assert slot_to_seconds(grid, 6) == 1.0
+    assert slot_to_seconds(grid, S + S // 2) == 1.0
 
 
 def test_past_the_beat_map_it_carries_on_at_the_last_tempo():
     beats = np.array([0.0, 0.5, 1.0])
     grid = make_grid(beats)
-    # Slot 8 is the last measured beat; beyond it the last interval continues
-    # rather than the note being dropped.
-    assert slot_to_seconds(grid, 8) == 1.0
-    assert slot_to_seconds(grid, 12) == 1.5
-    assert slot_to_seconds(grid, 14) == 1.75
+    # Two beats in is the last measured beat; beyond it the last interval
+    # continues rather than the note being dropped.
+    assert slot_to_seconds(grid, 2 * S) == 1.0
+    assert slot_to_seconds(grid, 3 * S) == 1.5
+    assert slot_to_seconds(grid, 3 * S + S // 2) == 1.75
 
 
 def test_before_bar_one_there_is_nothing_to_place_against():
     grid = make_grid(STEADY, bar_one=0)
-    assert slot_to_seconds(grid, -4) is None
+    assert slot_to_seconds(grid, -S) is None
 
 
 def test_a_beat_map_too_short_to_interpolate_places_nothing():

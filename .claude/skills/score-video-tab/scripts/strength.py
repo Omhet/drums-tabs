@@ -4,9 +4,9 @@ to_midi.py counts a written note as on a hit when any onset is within 90 ms.
 On a dense drum stem (Sonne's had guitar bleed on nearly every sixteenth) that
 passes notes the record does not play. This prints, per bar, the band's onset
 strength at each sixteenth (+-60 ms) on a 0-9 scale where 5 is the median of
-the written notes, with the written ones in brackets, and the same for
-nodrums.wav underneath to tell bass bleed from a drum. A written note at 0-1
-is not on the record; an unwritten cell as strong as the written ones around
+the written notes, with the written ones in brackets ({n} for a double, a `d`
+cell), and the same for nodrums.wav underneath to tell bass bleed from a drum.
+A written note at 0-1 is not on the record; an unwritten cell as strong as the written ones around
 it is a hit the score leaves out.
 
 usage (any directory): python -I <this> <reading.txt> <slug> <first_bar> <kick|snare> <bar_from> <bar_to>
@@ -23,7 +23,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from pipeline import grid as grid_mod, onsets, paths  # noqa: E402
 from pipeline.reference import BANDS  # noqa: E402
-from to_midi import notes_for, score_bars  # noqa: E402
+from pipeline.chart import SLOTS_PER_BEAT  # noqa: E402
+from to_midi import BAR, CELL, notes_for, score_bars  # noqa: E402
 
 WINDOW = 0.06
 
@@ -45,10 +46,10 @@ def main() -> None:
             y, sr, *BANDS[inst], spectrum=spectrum)
 
     def at(times, env, slot: int) -> float:
-        beat = grid.bar_one_beat + slot // 4
+        beat = grid.bar_one_beat + slot // SLOTS_PER_BEAT
         if beat < 0 or beat + 1 >= len(beats):
             return 0.0
-        t = beats[beat] + (slot % 4) / 4 * (beats[beat + 1] - beats[beat])
+        t = beats[beat] + (slot % SLOTS_PER_BEAT) / SLOTS_PER_BEAT * (beats[beat + 1] - beats[beat])
         m = (times > t - WINDOW) & (times < t + WINDOW)
         return float(env[m].max()) if m.any() else 0.0
 
@@ -57,13 +58,17 @@ def main() -> None:
     ref = np.median([at(*drums, s) for s in written if s >= 0])
     print(f"{inst}: 5 = the median written {inst}; [n] = written there")
     for bar in range(b0, b1 + 1):
-        base = (bar - first) * 16
+        base = (bar - first) * BAR
         for label, env, mark in ((f"{bar:3d} {seq[bar - 1] if 0 < bar <= len(seq) else '-':<4} drums  ", drums, True),
                                  ("         nodrums", bleed, False)):
             cells = []
             for k in range(16):
-                v = str(min(9, int(round(5 * at(*env, base + k) / ref))))
-                cells.append(f"[{v}]" if mark and base + k in written else f" {v} ")
+                slot = base + k * CELL
+                v = str(min(9, int(round(5 * at(*env, slot) / ref))))
+                if mark and slot in written:
+                    cells.append(f"{{{v}}}" if slot + CELL // 2 in written else f"[{v}]")
+                else:
+                    cells.append(f" {v} ")
                 if k % 4 == 3:
                     cells.append("|")
             print(f"{label} {''.join(cells)}")

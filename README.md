@@ -165,7 +165,7 @@ the two things worth keeping.
    `--bars 15-22` prints them in the terminal.
 
    `drums reference <slug>` answers a question that only comes up once you are
-   being marked: the chart is written on a sixteenth grid, the record is played
+   being marked: the chart is written on a grid of 32nds, the record is played
    by a person, and if that person sits behind the grid then copying the feel
    you hear is scored as playing late. It finds the nearest onset in the drum
    stem for every written kick and snare and reports the gap. On the original of
@@ -402,7 +402,7 @@ reused as it stands -- both songs point `[author]` at the same Live set, and
 99.7% of the chart's 305 kick and snare hits land within 60 ms of an onset in
 the original's drum stem, against 97.4% for the cover it was written to -- and
 `drums sections` (`pipeline/sections.py`) proposes the sections. It reads one
-fingerprint per bar out of `tab.mid` on the same sixteenth grid the notation is
+fingerprint per bar out of `tab.mid` on the same grid of 32nds the notation is
 drawn on, cuts at the ends of every repeated block, throws away cuts that fall
 inside a stretch of identical bars (a groove repeated twelve times offers a
 boundary at every offset and none of them is where a section starts), merges a
@@ -1675,8 +1675,10 @@ places where the record and the score disagree. One thing learned:
 
 **Sonne, the skill's second song (2026-11-22).** Rammstein's Sonne from the
 same channel: 75 bars, the score's bar 1 is the song's bar 1 (five bars of the
-spoken count, then drums), 424/424 kicks and 158/158 snares on the record. The
-reading took no new ideas; the record did. Three things learned:
+spoken count, then drums), 427/427 kicks and 158/158 snares on the record. Two
+places where the record and the score disagree went the record's way, the
+user's call: the fill kick in bars 43 and 51 is on the "&" of 2, and bar 9 has
+no kick on the "e" of 4. Three things learned:
 
 - **A beat grid can be right in tempo and half a beat out.** `beat_this` put
   every beat on the "&" under a guitar that chugs eighths: 75 BPM, as marked,
@@ -1692,9 +1694,16 @@ reading took no new ideas; the record did. Three things learned:
   "on a hit within 90 ms" passed notes the record does not play. The
   disagreements came from comparing onset strength per sixteenth against the
   written kicks around it instead.
-- **The grid holds sixteenths, and the score writes 32nds.** Four bars end in
-  a 32nd-note double kick; only the first kick of each pair is in the chart,
-  and `reading.txt` says so where it happens.
+- **The chart's grid is now 32nds.** Four of Sonne's bars end in a 32nd-note
+  double kick, and the chart could only hold sixteenths: a second kick a 32nd
+  after the first had nowhere to go. `SLOTS_PER_BEAT` went from 4 to 8 in
+  `app/src/chart.ts` and `pipeline/chart.py` together, and everything that
+  counts slots follows it (the notation's note values, the sticking letters,
+  the heat map, the hi-hat foot's lift, which stays a sixteenth early). Every
+  chart on disk sits exactly on sixteenths, so none of them changed; the
+  sticking locks had their slots doubled rather than solved again, which keeps
+  any letter changed by hand. The reading writes a double as a `d` cell (the
+  hit and another a 32nd after), so its rows stay sixteen cells.
 
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections

@@ -9,6 +9,7 @@
 // error does not.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { SLOTS_PER_BEAT } from '../src/chart.ts';
 import { grade } from '../src/grade.ts';
 
 /** Written notes every `gapMs` apart, cycling through `instruments`. */
@@ -18,8 +19,8 @@ function chart(instruments, gapMs, count, startMs = 0) {
     const instrument = instruments[i % instruments.length];
     notes.push({
       bar: Math.floor(i / 4) + 1,
-      inBar: (i % 4) * 4,
-      slot: i * 4,
+      inBar: (i % 4) * SLOTS_PER_BEAT,
+      slot: i * SLOTS_PER_BEAT,
       instrument,
       velocity: 100,
       tMs: startMs + i * gapMs,

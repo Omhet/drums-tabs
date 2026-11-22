@@ -1,6 +1,6 @@
 // The floor a take is measured from.
 //
-// The chart is written on a sixteenth grid. The record it was written from was
+// The chart is written on a grid of 32nds. The record it was written from was
 // played by a person, who sits wherever the music wants them to -- and if that
 // is behind the grid, then copying the feel that is actually in your ears is
 // marked late by the difference, every time, forever. `drums reference`

@@ -25,8 +25,8 @@ import type { ExtraVerdict, GradeResult, NoteVerdict } from './grade';
 import type { Grid } from './syncpoints';
 import { tokenRgb, type Rgb } from './tokens';
 
-/** alphaTab counts 960 ticks to a quarter note, so a sixteenth is 240. */
-const TICKS_PER_SLOT = 240;
+/** alphaTab counts 960 ticks to a quarter note. */
+const TICKS_PER_SLOT = 960 / SLOTS_PER_BEAT;
 /**
  * How far under the bar the extras lane sits, in px.
  *

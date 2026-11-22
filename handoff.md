@@ -491,6 +491,20 @@ lock. Explicitly last.
 **Small and unscheduled, but wanted** has become part B in §0: the user values
 playing along with the notation at different tempos above everything else.
 
+**Tabs from drum-score videos** (an experiment, started 2026-11-22, its code
+not in the repo yet). Claude reads the notation strip of a YouTube drum-score
+video into a grid per bar; the record's audio only checks the reading. Come As
+You Are went first: all 105 bars read, from 18 distinct bar patterns. Next comes
+checkpoint 3: turn the reading into `tab.mid` and check it against the record's
+drum hits. Two things the score shows that the reading does not use yet:
+- **Dynamics.** Crescendo hairpins (Come As You Are bars 23-24 and 39-40) and
+  accents (the chorus's snare sixteenths; the reading already marks them) could
+  become note velocities in `tab.mid`, which the kit plays through its velocity
+  layers.
+- **The printed sticking.** Some channels print R/L/K under the fills. That is
+  the transcriber's own sticking: it could check what `drums sticking` works
+  out in `sticking.lock.json`, or decide those notes outright.
+
 **The avatar's input already exists.** `Kit.onNote` (`app/src/kit.ts`) fires per
 note as it is booked, carrying instrument, limb, velocity and the AudioContext
 time it will sound at — which is exactly what avatar-plan B1 asks for, and it is

@@ -1609,8 +1609,8 @@ and named by what the drums play. Five things learned:
 - **The record finds what the transcriber left out.** In every chorus bar of
   accented snare sixteenths the drum stem has a low hit on the "&" of 1, as
   strong as a written kick, with nothing in the no-drums stem there, and the
-  score has nothing there. It is flagged, not added: that is the drummer's
-  call.
+  score has nothing there. It was flagged, not added: that is the drummer's
+  call (the user heard it too, and it went in -- below).
 - **The sticking solver's repeat window was set for slower songs.**
   `repeat_below_ms = 260` in `kit.toml` makes ride eighths at 120 BPM (250 ms
   apart) alternate L R L R. At 200 ms, or with `repeat = 0`, one hand keeps
@@ -1638,6 +1638,15 @@ the hi-hat's space. Two things learned:
   bar's first note out of the share, so a bar opening on a crash is up to
   17 px wider than one opening on the ride, and the first bar of a line wider
   by the clef it keeps room for although the clef is hidden.
+
+**Come As You Are, as the user hears it (2026-11-22).** Two changes away from
+the score, both the user's: the crash in "crash eighths" and "outro" is the
+second crash (key 57, 224 hits), and the nine chorus bars of snare sixteenths
+have the kick on the "&" of 1 (bars 23, 25, 27, 39, 41, 43, 75, 77, 79). Each
+added kick sits within 14 ms of a kick on the record; `drums reference` now
+matches 427/427 kicks and 331/331 snares, the record still +7.3 ms behind the
+chart. `tab.mid` was edited in place -- there is no Live set to write it from --
+and `song.toml` says what changed from the score.
 
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections

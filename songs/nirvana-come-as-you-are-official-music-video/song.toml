@@ -23,6 +23,11 @@ downbeat_rotation = -1
 # this song's bar 1, the three bars before it are the count-in. To edit it in
 # Ableton, drag tab.mid onto a drum rack at 1|1|1 over stems/straight-nodrums.wav
 # and add an [author] section pointing at the set.
+#
+# Two changes from the score, both the user's call (2026-11-22): the crash in
+# "crash eighths" and "outro" is the second crash (key 57), and the chorus bars
+# of snare sixteenths (23, 25, 27, 39, 41, 43, 75, 77, 79) have a kick on the
+# "&" of 1 that the score leaves out and the record plays.
 
 # MIDI key -> instrument: General MIDI drum keys.
 [midi_map]
@@ -31,6 +36,7 @@ downbeat_rotation = -1
 42 = "hihat_closed"
 46 = "hihat_open"
 49 = "crash"
+57 = "crash2"
 51 = "ride"
 50 = "tom_high"
 47 = "tom_mid"

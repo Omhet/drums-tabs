@@ -1,18 +1,18 @@
 {
  "version": 1,
- "chart": "sha256:3db766ccb37381f1",
- "mean_ms": 7.35,
- "median_ms": 7.1,
- "matched": 749,
- "written": 749,
+ "chart": "sha256:1f30df0b7d98e009",
+ "mean_ms": 7.3,
+ "median_ms": 7.07,
+ "matched": 758,
+ "written": 758,
  "instruments": [
   {
    "instrument": "kick",
-   "matched": 418,
-   "written": 418,
-   "mean_ms": 8.59,
-   "median_ms": 8.46,
-   "sd_ms": 9.68
+   "matched": 427,
+   "written": 427,
+   "mean_ms": 8.47,
+   "median_ms": 8.37,
+   "sd_ms": 9.7
   },
   {
    "instrument": "snare",

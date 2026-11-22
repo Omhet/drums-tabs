@@ -496,9 +496,9 @@ not in the repo yet). Claude reads the notation strip of a YouTube drum-score
 video into a grid per bar; the record's audio only checks the reading. Come As
 You Are went first: all 105 bars read, from 18 distinct bar patterns, and the
 song is in the library with every written kick and snare on a hit in the
-record (README "Where things stand"). Open: the kick on the "&" of 1 that the
-record has in the chorus and the score does not, and whether the experiment's
-scripts come into `pipeline/`. Two things the score shows that the reading does
+record (README "Where things stand"), plus the kick on the "&" of 1 that the
+record has in the chorus and the score does not. Open: whether the
+experiment's scripts come into `pipeline/`. Two things the score shows that the reading does
 not use yet:
 - **Dynamics.** Crescendo hairpins (Come As You Are bars 23-24 and 39-40) and
   accents (the chorus's snare sixteenths; the reading already marks them) could

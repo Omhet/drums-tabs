@@ -39,9 +39,13 @@ def _yt_dlp_base() -> list[str]:
     challenges; without one, formats resolve but the download 403s. Only Deno is
     enabled by default, so point yt-dlp at Node when that's what's installed --
     which it is, since the app needs it anyway.
+
+    IPv4 only: over this machine's IPv6 address every media URL answers 403
+    Forbidden while the metadata still resolves (found 2026-11-22, the same on
+    yt-dlp 2026.08.19 and 2026.10.26). Over IPv4 the same formats download.
     """
     require_on_path("yt-dlp")
-    cmd = ["yt-dlp", "--no-playlist"]
+    cmd = ["yt-dlp", "--no-playlist", "--force-ipv4"]
     if shutil.which("node"):
         cmd += ["--js-runtimes", "node"]
     return cmd

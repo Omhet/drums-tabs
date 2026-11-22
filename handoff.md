@@ -120,7 +120,7 @@ So the work is in three parts:
     - The **Settings page** (Lamp-10, `#settings`): the gear, Done, `Esc`.
       Covers the whole window and only covers it: a song playing goes on, and
       no player key works under it but Space. Notation (size in px between
-      staff lines, bars a line with − +, note spacing, the gap in on-screen
+      staff lines, bars a line with − +, the gap in on-screen
       px, sticking), Look (interface and paper as segmented pairs, the three
       pairings clickable), Loop (between passes Straight back / A bar of
       click; count-in before the first pass of a loop -- new, on by default --

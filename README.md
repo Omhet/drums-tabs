@@ -227,13 +227,13 @@ the two things worth keeping.
    sync points, bars engraved, the notation against the beat map -- go to the
    browser console as `[drums] ...` when the song is ready.
 
-   **The Layout group fits the notation to your screen.** Four faders in the
-   left rail, each remembered as a default: **Size** (a ladder from 60% to
-   200%, also on `+` and `-`), **Bars a line** (1 to 8), **Note spacing**
-   (alphaTab's `stretchForce` as a percentage: how hard the springs between
-   the notes inside a bar push) and **Line gap** (the air between one row of
-   notation and the next, split across the two paddings that make it). `0`
-   puts all four back. They are screen-fitting, not song-fitting -- you set
+   **The Layout group fits the notation to your screen.** Three knobs, each
+   remembered as a default: **Size** (a ladder from 60% to 200%, also on `+`
+   and `-`), **Bars a line** (1 to 8, every bar of a line the same width) and
+   **Line gap** (the air between one row of notation and the next, split
+   across the two paddings that make it). `0` puts all three back. (A fourth,
+   Note spacing -- alphaTab's `stretchForce` -- went on 2026-11-22: with every
+   bar the same width it moved nothing.) They are screen-fitting, not song-fitting -- you set
    them once against the monitor you practise in front of -- which is why they
    are faders you nudge and look at rather than keys, and why the reading
    waits for the mouse to be let go before re-engraving.
@@ -1616,6 +1616,29 @@ and named by what the drums play. Five things learned:
   apart) alternate L R L R. At 200 ms, or with `repeat = 0`, one hand keeps
   the ride. Not changed: it moves every song's sticking.
 
+**The paper, evened out (2026-11-22).** Five things the user saw on Come As
+You Are's paper. The lines stood against the top edge with all the spare room
+under the last one: the notation window is now cut to the ink of the lines it
+shows and stands in the middle of the paper. At the user's line gap (108 px on
+the screen) the window sometimes showed one line: it counted the gap after the
+last line as part of the lines, so a line that starts a section no longer fit
+under the one before; it counts only the gaps between them now. Bars are all
+the same width: alphaTab's parchment layout, every bar the same share of its
+line, where its page layout had sized each by what was in it (a groove bar
+came out anywhere from 360 to 600 px). The ride is a triangle, the way the
+drum-score videos write it, and the second crash an ornate x on the space over
+the first crash's ledger line, where alphaTab had drawn the first crash's x on
+the hi-hat's space. Two things learned:
+
+- **Note spacing did nothing once the widths were fixed.** alphaTab's
+  `stretchForce` only sets how wide a bar wants to be; with the width decided
+  by the line, every beat landed on the same pixel at 30% and at 200%. The
+  knob is gone, and Bars a line is how much room the notes get.
+- **Equal is equal to within a ledger line.** alphaTab keeps the room before a
+  bar's first note out of the share, so a bar opening on a crash is up to
+  17 px wider than one opening on the ride, and the first bar of a line wider
+  by the clef it keeps room for although the clef is hidden.
+
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections
 "Transport", "Sync points", "Notation window").
@@ -1644,8 +1667,8 @@ show, "play goes on from bar 5", the Back pill, " · paused", the dashed edge
 and map box, the picture at 0.6; Home and the pill bring it back and the
 cursor never moved); the count-in from a pause lighting 1 2 3 4 in turn at
 160 px; the layout knobs -- 2.25 and "20.25 px" by default with ~25 px
-sticking, `+` to 2.5, `-` back, remembered, the other three reaching alphaTab,
-`0` resetting all four; the library -- the Songs icon to `#/songs`, a 200 px
+sticking, `+` to 2.5, `-` back, remembered, the other two reaching alphaTab,
+`0` resetting all three; the lines in the middle of the paper; the library -- the Songs icon to `#/songs`, a 200 px
 row a song (no Windhorse), Song 2's names, facts and video frame, Kill Me's
 "no video", the song just played outlined with Resume, ↓ and Enter opening
 another on its route (a song with no video getting the compact header), Esc
@@ -1655,11 +1678,13 @@ picker without moving the paper, a click, shift-click, a click inside, a drag
 across the bar marks and both handles (mouse and arrow keys) picking what
 they should, Esc closing it and L turning the loop off; the paper's layers --
 every name in the lane and none engraved by alphaTab, the bracket with its two
-end ticks, our wash in place of alphaTab's bar cursor; and Kill Me's three
-section lines whole in the compact paper at 220, 870 tall. Screenshots
+end ticks, our wash in place of alphaTab's bar cursor; Kill Me's three
+section lines whole in the compact paper at 220, 870 tall; and Come As You
+Are's ride as triangles, its bars as wide on one line as the next, and two
+lines at a 108 px line gap where the second starts the chorus. Screenshots
 `<png>`, `-dark-paper.png`, `-light.png`, `-zen.png`, `-zoom.png`,
-`-dense.png`, `-loose.png`, `-picker.png`, `-browsing.png`, `-library.png`
-and `-three.png`),
+`-dense.png`, `-loose.png`, `-picker.png`, `-browsing.png`, `-library.png`,
+`-three.png` and `-caya.png`),
 `shots-lamp.mjs [dir]` (the Lamp frames' states at 2194x1100 -- Song 2 with
 its video, the same hidden, Kill Me and its three section lines, the picker
 with nothing picked and with the chorus picked, the chorus looping with the

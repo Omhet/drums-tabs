@@ -5,7 +5,7 @@ import { PaperLayers } from './layers';
 import { Library, type SongMemory } from './library';
 import { Loop, rampLadder, rampNext, rangeName, snapTempo, type LoopRange } from './loop';
 import { MixClock } from './media';
-import { midiToAlphaTex, type TabResult } from './midi-tab';
+import { engrave, midiToAlphaTex } from './midi-tab';
 import { FADERS, Mixer, type Fader } from './mixer';
 import { Practice, readPracticeSong } from './practice';
 import { chartHash } from './chart';
@@ -178,7 +178,7 @@ const referenceBySlug = new Map(Object.entries(references).map(([p, l]) => [slug
 const playable = songs.filter((s) => midiBySlug.has(s.slug));
 
 // --- the notation's layout ------------------------------------------------------
-// Four knobs that decide how the score is engraved, on the Settings page.
+// Three knobs that decide how the score is engraved, on the Settings page.
 // They are screen-fitting, not song-fitting: set once against the monitor you
 // practise in front of and remembered (Size is also + and - on the player).
 //
@@ -191,9 +191,9 @@ const SIZE_HOME = SIZES.indexOf(2.25);
 /** Pixels between two staff lines at alphaTab's scale 1. */
 const STAFF_SPACE_PX = 9;
 
-/** One of the four knobs: where it is, what it is remembered as, and how it reads. */
+/** One of the three knobs: where it is, what it is remembered as, and how it reads. */
 interface Knob {
-  /** The slider, for the three that are sliders; Bars a line is a stepper. */
+  /** The slider, for the two that are sliders; Bars a line is a stepper. */
   el?: HTMLInputElement;
   out: HTMLOutputElement;
   /** The localStorage key it is remembered under. */
@@ -221,7 +221,7 @@ function slider(id: string, k: Omit<Knob, 'el' | 'out' | 'min' | 'max' | 'value'
   return { ...k, el, out: byId(`${id}-out`), min: Number(el.min), max: Number(el.max), value: k.home };
 }
 
-const knobs: Record<'size' | 'bars' | 'spacing' | 'gap', Knob> = {
+const knobs: Record<'size' | 'bars' | 'gap', Knob> = {
   size: slider('zoom', {
     key: 'notationSize',
     home: SIZE_HOME,
@@ -229,8 +229,10 @@ const knobs: Record<'size' | 'bars' | 'spacing' | 'gap', Knob> = {
     save: (v) => String(SIZES[v]!),
     load: (raw) => SIZES.indexOf(raw),
   }),
+  // Every bar of a line is as wide as the next (`rowsOf`), so how many there
+  // are is also how much room the notes get: there was a Note spacing knob
+  // (alphaTab's stretchForce), and with the widths fixed it moved nothing.
   bars: { out: byId('bars-out'), key: 'bars', home: 4, min: 1, max: 8, value: 4, say: (v) => String(v) },
-  spacing: slider('spacing', { key: 'noteSpacing', home: 100, say: (v) => `${v}%` }),
   // 12 (27 px at 2.25) is exactly the sticking letters' lane under a line,
   // and no more: it is what lets three lines that each start a section fit
   // the compact paper's 870 px (Kill Me's tallest three: 866). Said in the
@@ -261,12 +263,11 @@ for (const k of Object.values(knobs)) {
   restoreKnob(k);
 }
 
-/** What the four knobs are asking for, in alphaTab's own terms. */
+/** What the three knobs are asking for, in alphaTab's own terms. */
 function asked() {
   return {
     scale: SIZES[knobs.size.value]!,
     barsPerRow: knobs.bars.value,
-    stretchForce: knobs.spacing.value / 100,
     // What you see between two rows is one row's bottom padding plus the next
     // one's top, so the knob's number is split across the pair.
     systemPadding: knobs.gap.value / 2,
@@ -295,21 +296,39 @@ function applyLayout() {
   // the extras lane read this to grow with the notes they belong to.
   scoreEl.style.setProperty('--tab-zoom', String(want.scale));
   const d = api.settings.display;
+  const score = api.score;
   if (
     d.scale === want.scale &&
-    d.barsPerRow === want.barsPerRow &&
-    d.stretchForce === want.stretchForce &&
+    (!score || score.defaultSystemsLayout === want.barsPerRow) &&
     d.systemPaddingTop === want.systemPadding
   ) {
     return;
   }
   d.scale = want.scale;
-  d.barsPerRow = want.barsPerRow;
-  d.stretchForce = want.stretchForce;
+  if (score) rowsOf(score, want.barsPerRow);
   d.systemPaddingTop = want.systemPadding;
   d.systemPaddingBottom = want.systemPadding;
   api.updateSettings();
-  if (api.score) api.render();
+  if (score) api.render();
+}
+
+/**
+ * `n` bars to every line, all the same width. The parchment layout reads both
+ * from the score rather than the settings: how many bars a line from
+ * `defaultSystemsLayout`, and each bar's share of it from its `displayScale`,
+ * which is 1 for every bar -- so a groove bar is as wide on one line as on
+ * the next, whatever is in the bars beside it (asked 2026-11-22). alphaTab's
+ * page layout sized each bar by what was in it, and the same bar came out
+ * anywhere from 360 to 600 px. The first bar of a line is still wider by the
+ * clef's room, which alphaTab keeps although the clef is hidden.
+ */
+function rowsOf(score: alphaTab.model.Score, n: number) {
+  score.defaultSystemsLayout = n;
+  score.systemsLayout = [];
+  for (const track of score.tracks) {
+    track.defaultSystemsLayout = n;
+    track.systemsLayout = [];
+  }
 }
 
 /** Engrave, and remember where this knob landed. */
@@ -325,7 +344,7 @@ function setSize(step: number) {
 }
 const sizeStep = () => knobs.size.value;
 
-/** All four back to the defaults: the one key the group keeps. */
+/** All three back to the defaults: the one key the group keeps. */
 function resetLayout() {
   for (const k of Object.values(knobs)) setKnob(k, k.home);
   applyLayout();
@@ -377,11 +396,10 @@ const api = new alphaTab.AlphaTabApi(scoreEl, {
     enableLazyLoading: false,
   },
   display: {
-    // The four layout knobs, read straight off them, so that remembered
-    // settings are engraved once.
+    // The layout knobs, read straight off them, so that remembered settings
+    // are engraved once. Bars a line goes on the score (`rowsOf`).
+    layoutMode: alphaTab.LayoutMode.Parchment,
     scale: start.scale,
-    barsPerRow: start.barsPerRow,
-    stretchForce: start.stretchForce,
     systemPaddingTop: start.systemPadding,
     systemPaddingBottom: start.systemPadding,
     resources: palette(),
@@ -414,10 +432,6 @@ const api = new alphaTab.AlphaTabApi(scoreEl, {
 // their numbers beside them and publishes the scale to the overlays.
 applyLayout();
 
-// --- the notation window ------------------------------------------------------
-// Two lines of the score under the video, three without it (`applyHead`).
-const scoreWindow = new ScoreWindow(api, byId<HTMLElement>('score-box'));
-
 // --- sticking -------------------------------------------------------------------
 // R and L under the notation, worked out by `drums sticking` and frozen in
 // songs/<slug>/sticking.lock.json. Off by default (2026-11-22): a letter under
@@ -439,7 +453,15 @@ stickingEl.addEventListener('change', () => {
   applySticking(stickingEl.checked);
   remember('sticking', stickingEl.checked ? 'on' : 'off');
   stickingEl.blur();
+  // The letters under the last line are in the window or not.
+  scoreWindow.show(scoreWindow.row);
 });
+
+// --- the notation window ------------------------------------------------------
+// Two lines of the score under the video, three without it (`applyHead`), in
+// the middle of the paper -- with the letters under the last line when they
+// are drawn.
+const scoreWindow = new ScoreWindow(api, byId<HTMLElement>('score-box'), () => sticking.lane);
 
 // --- the paper's layers -------------------------------------------------------
 // Section names in the label lane, the loop's bracket, the current bar's wash
@@ -1655,8 +1677,9 @@ async function load(slug: string) {
     beatsPerBar: grid?.meter.beats_per_bar ?? 4,
     barCount: grid?.bar_count ?? 0,
   });
-  const score = parseTex(tab.tex, tab.hiddenRests);
+  const score = engrave(tab, api.settings);
   const bars = score.masterBars.length;
+  rowsOf(score, knobs.bars.value);
 
   // The label lane: a line a section starts in is engraved taller by one lane,
   // and the page writes the section's name in it (layers.ts). alphaTab's own
@@ -1769,22 +1792,6 @@ async function load(slug: string) {
   pending = { slug, score, rendered: false, diagnostics };
   api.renderScore(score);
   paintWhere(0);
-}
-
-// alphaTex cannot mark a rest as hidden, so the converter says which rests are
-// noise and we flag them as empty beats on the parsed score: the time is kept,
-// nothing is drawn. (alphaTab would otherwise push every feet rest above the
-// staff, because a hands note sits on the same beat.)
-function parseTex(tex: string, hiddenRests: TabResult['hiddenRests']): alphaTab.model.Score {
-  const importer = new alphaTab.importer.AlphaTexImporter();
-  importer.initFromString(tex, api.settings);
-  const score = importer.readScore();
-  const bars = score.tracks[0]?.staves[0]?.bars ?? [];
-  for (const { bar, voice, beat } of hiddenRests) {
-    const target = bars[bar]?.voices[voice]?.beats[beat];
-    if (target?.isRest) target.isEmpty = true;
-  }
-  return score;
 }
 
 // The percussion clef (two bars at the start of every line) is the one glyph

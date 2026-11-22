@@ -8,7 +8,8 @@
 // (<out>-zen.png), browsing while paused (<out>-browsing.png), the library
 // (<out>-library.png), sized up (<out>-zoom.png), 8 and 2 bars a line
 // (<out>-dense.png, <out>-loose.png), the song map as a picker
-// (<out>-picker.png), and Kill Me's three section lines (<out>-three.png).
+// (<out>-picker.png), Kill Me's three section lines (<out>-three.png), and
+// Come As You Are at a wide line gap (<out>-caya.png).
 // Also: the song map (a click jumps, the Loop pill opens the picker over the
 // paper without moving it, and its picks), the paper's layers, the Mix
 // panel over the header (M) and the Settings page (the gear). And with no kit
@@ -91,16 +92,16 @@ const snapshot = () =>
         ['nodrums', 'drums', 'click', 'kit'].map((f) => [f, document.getElementById(`mute-${f}`).getAttribute('aria-pressed') === 'true'])
       ),
       sticking: document.querySelectorAll('.sticking span').length,
-      // The layout knobs, as alphaTab ended up engraving them, and what the
-      // four faders say they asked for.
+      // The layout knobs, as alphaTab ended up engraving them (bars a line is
+      // on the score, for the parchment layout), and what the three knobs say
+      // they asked for.
       layout: {
         scale: d.api.settings.display.scale,
-        bars: d.api.settings.display.barsPerRow,
-        stretch: d.api.settings.display.stretchForce,
+        bars: d.api.score?.defaultSystemsLayout,
         gap: d.api.settings.display.systemPaddingTop * 2,
       },
       knobs: Object.fromEntries(
-        ['zoom', 'bars', 'spacing', 'gap'].map((k) => [
+        ['zoom', 'bars', 'gap'].map((k) => [
           k,
           { out: document.getElementById(`${k}-out`).textContent },
         ])
@@ -151,6 +152,11 @@ check([120, 88, 64].includes(s.type.section) && s.type.bar === 64 && s.type.temp
 check(s.headRight <= W - 40 + 1, `something in the header runs to ${s.headRight}px, past the margin at ${W - 40}`);
 check(/Atkinson Hyperlegible Next/.test(s.font), `the page is set in ${s.font}`);
 check(s.lines === 2, `${s.lines} lines of notation under the video, not 2`);
+// The lines stand in the middle of the paper: as much room over the notes as
+// under them.
+const over = s.box.y - s.tabs.y;
+const under = s.tabs.y + s.tabs.h - (s.box.y + s.box.h);
+check(Math.abs(over - under) <= 2, `the paper has ${over}px over the notes and ${under}px under them`);
 
 // 2b. No kit, no kit layer (Lamp-12): nothing to read past mid-song.
 const kitLayer = () =>
@@ -557,7 +563,7 @@ await page.evaluate(() => window.drums.seekToBar(4));
 await page.waitForTimeout(400);
 const home = await snapshot();
 check(
-  home.layout.scale === 2.25 && home.layout.bars === 4 && home.layout.stretch === 1 && home.layout.gap === 12,
+  home.layout.scale === 2.25 && home.layout.bars === 4 && home.layout.gap === 12,
   `not at the layout defaults to start: ${JSON.stringify(home.layout)}`
 );
 check(home.knobs.zoom.out === '20.25 px', `the Size fader reads ${home.knobs.zoom.out}, not 20.25 px`);
@@ -585,7 +591,7 @@ check(s.layout.scale === 1.75, `two - left the notation at ${s.layout.scale}x`);
 const remembered = await page.evaluate(() => localStorage.getItem('notationSize'));
 check(remembered === String(s.layout.scale), `the size remembered ${remembered}, but is engraving at ${s.layout.scale}x`);
 
-// 14. The other three layout knobs, dragged the way a mouse drags one --
+// 14. The other two layout knobs, the gap dragged the way a mouse drags one --
 // `input` moves the number, `change` re-engraves.
 const drag = async (id, value) => {
   await page.evaluate(
@@ -624,22 +630,19 @@ await page.screenshot({ path: out.replace(/\.png$/, '-dense.png') });
 s = await bars(2);
 check(s.layout.bars === 2 && s.barsOnRow0 === 2, `asked for 2 bars a line and got ${s.layout.bars}/${s.barsOnRow0}`);
 await page.screenshot({ path: out.replace(/\.png$/, '-loose.png') });
-s = await drag('spacing', 60);
-check(s.layout.stretch === 0.6 && s.knobs.spacing.out === '60%', `the Spacing fader: ${s.layout.stretch} / ${s.knobs.spacing.out}`);
 s = await drag('gap', 48);
 check(s.layout.gap === 48 && s.knobs.gap.out === '108 px', `the Gap knob: ${s.layout.gap} / ${s.knobs.gap.out}, not 108 px on the screen`);
 check(s.cursorInside, 'cursor not inside the window after the line gap widened');
 const kept = await page.evaluate(() => ({
   bars: localStorage.getItem('bars'),
-  spacing: localStorage.getItem('noteSpacing'),
   gap: localStorage.getItem('lineGap'),
 }));
-check(kept.bars === '2' && kept.spacing === '60' && kept.gap === '48', `the layout knobs remembered ${JSON.stringify(kept)}`);
+check(kept.bars === '2' && kept.gap === '48', `the layout knobs remembered ${JSON.stringify(kept)}`);
 await page.keyboard.press('Digit0');
 await page.waitForTimeout(1500);
 s = await snapshot();
 check(
-  s.layout.scale === 2.25 && s.layout.bars === 4 && s.layout.stretch === 1 && s.layout.gap === 12,
+  s.layout.scale === 2.25 && s.layout.bars === 4 && s.layout.gap === 12,
   `0 did not put the layout back: ${JSON.stringify(s.layout)}`
 );
 check(Math.abs(s.box.h - home.box.h) <= 2, `0 left the window at ${s.box.h}px (was ${home.box.h}px)`);
@@ -917,8 +920,54 @@ if ((await picker()).slugs.includes(KILLME)) {
   await page.screenshot({ path: out.replace(/\.png$/, '-three.png') });
 }
 
+// 18. Come As You Are (2026-11-22): its ride is drawn as triangles; every bar
+// of a full line is as wide as the same bar on any other line, give or take
+// the room alphaTab keeps before a bar's first note (a crash's ledger line
+// takes more: up to 17 px); and with the letters off, at the 108 px line gap
+// the user plays at, the window still holds two lines where the second
+// starts the chorus (bars 17-20 and 21-24) -- in the middle of the paper.
+const CAYA = 'nirvana-come-as-you-are-official-music-video';
+if ((await picker()).slugs.includes(CAYA)) {
+  await page.evaluate(() => {
+    const el = document.getElementById('sticking');
+    el.checked = false;
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await drag('gap', 48);
+  await page.evaluate((slug) => (location.hash = encodeURIComponent(slug)), CAYA);
+  await waitForPlayer(page, CAYA);
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => window.drums.seekToBar(16));
+  await page.waitForTimeout(800);
+  const caya = await page.evaluate(() => {
+    const d = window.drums;
+    const systems = d.api.boundsLookup.staffSystems;
+    // Lines but the first (the time signature widens its first bar) and the
+    // last (a short line keeps its natural width).
+    const full = systems.slice(1, -1).filter((s) => s.bars.length === 4);
+    const spread = (ws) => Math.round(Math.max(...ws) - Math.min(...ws));
+    const box = document.getElementById('score-box').getBoundingClientRect();
+    const tabs = document.getElementById('tabs').getBoundingClientRect();
+    return {
+      triangles: [...document.querySelectorAll('#score text')].filter((t) => t.textContent === '').length,
+      firstBars: spread(full.map((s) => s.bars[0].realBounds.w)),
+      otherBars: spread(full.flatMap((s) => s.bars.slice(1).map((b) => b.realBounds.w))),
+      visible: d.scoreWindow.visible,
+      bars: d.scoreWindow.bars,
+      over: Math.round(box.top - tabs.top),
+      under: Math.round(tabs.bottom - box.bottom),
+    };
+  });
+  console.log('come as you are:', JSON.stringify(caya));
+  check(caya.triangles > 100, `the ride is drawn with ${caya.triangles} triangles`);
+  check(caya.firstBars <= 20 && caya.otherBars <= 20, `bar widths spread ${caya.firstBars}px (first of a line) and ${caya.otherBars}px (the rest)`);
+  check(caya.visible === 2 && caya.bars?.[0] === 16 && caya.bars?.[1] === 23, `at a 108 px line gap the window shows ${caya.visible} lines, bars ${JSON.stringify(caya.bars)}`);
+  check(Math.abs(caya.over - caya.under) <= 2, `the paper has ${caya.over}px over the notes and ${caya.under}px under them`);
+  await page.screenshot({ path: out.replace(/\.png$/, '-caya.png') });
+}
+
 await page.evaluate(() => {
-  for (const key of ['theme', 'tabTheme', 'sticking', 'notationSize', 'bars', 'noteSpacing', 'lineGap', 'video'])
+  for (const key of ['theme', 'tabTheme', 'sticking', 'notationSize', 'bars', 'lineGap', 'video'])
     localStorage.removeItem(key);
 });
 

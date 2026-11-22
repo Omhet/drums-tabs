@@ -19,7 +19,7 @@
 // ticksPerBeat }`; positions are CSS px from the top-left of #score.
 import * as alphaTab from '@coderline/alphatab';
 import songs from 'virtual:songs';
-import { midiToAlphaTex, type TabResult } from './midi-tab';
+import { engrave, midiToAlphaTex } from './midi-tab';
 import type { Grid } from './syncpoints';
 
 const midiUrls = import.meta.glob('../../songs/*/tab.mid', {
@@ -109,18 +109,6 @@ new MutationObserver((mutations) => {
     }
   }
 }).observe(scoreEl, { childList: true, subtree: true });
-
-function parseTex(tex: string, hiddenRests: TabResult['hiddenRests']): alphaTab.model.Score {
-  const importer = new alphaTab.importer.AlphaTexImporter();
-  importer.initFromString(tex, api.settings);
-  const score = importer.readScore();
-  const bars = score.tracks[0]?.staves[0]?.bars ?? [];
-  for (const { bar, voice, beat } of hiddenRests) {
-    const target = bars[bar]?.voices[voice]?.beats[beat];
-    if (target?.isRest) target.isEmpty = true;
-  }
-  return score;
-}
 
 const box = (b: alphaTab.rendering.Bounds) => ({ x: b.x, y: b.y, w: b.w, h: b.h });
 
@@ -216,7 +204,7 @@ async function main() {
     beatsPerBar: grid?.meter.beats_per_bar ?? 4,
     barCount: grid?.bar_count ?? 0,
   });
-  const score = parseTex(tab.tex, tab.hiddenRests);
+  const score = engrave(tab, api.settings);
   if (score.masterBars.length > 1 && score.masterBars[1]!.start !== score.masterBars[0]!.calculateDuration()) {
     say('Unexpected bar starts');
     return;

@@ -18,6 +18,8 @@ const TICKS_PER_SLOT = 240;
 const HANDS_VOICE = 0;
 /** How far under the bar's notation the letters sit, in px. */
 const GAP_PX = 1;
+/** How tall a letter is at scale 1, in px: `.sticking span`'s font size (index.html). */
+const LETTER_PX = 11;
 
 /** One entry per note in the chart. Bars are 1-based; slots are sixteenths. */
 export interface StickingStroke {
@@ -74,6 +76,15 @@ export class StickingLetters {
   set visible(on: boolean) {
     this._visible = on;
     this.draw();
+  }
+
+  /**
+   * The room the letters take under a line of notation, in px: what the
+   * notation window has to show under its last line. 0 while none are drawn.
+   */
+  get lane(): number {
+    if (!this._visible || this.byBeat.size === 0) return 0;
+    return (GAP_PX + LETTER_PX) * this.api.settings.display.scale;
   }
 
   /** Point it at a song's sticking, or at none. */

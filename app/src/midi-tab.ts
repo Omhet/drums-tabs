@@ -3,6 +3,7 @@
 //
 // Reading the MIDI is `chart.ts`'s job and shared with the scorer, so that the
 // notes you are marked against are the notes on the page.
+import * as alphaTab from '@coderline/alphatab';
 import { readChart, SLOTS_PER_BEAT, type ChartHit } from './chart';
 
 // alphaTab addresses percussion by articulation *name*; the number is where
@@ -27,6 +28,27 @@ export const ARTICULATION: Record<string, string> = {
   crash: 'crash high (hit)',
   crash2: 'crash medium (hit)',
   ride: 'ride (middle)',
+};
+
+const { MusicFontSymbol } = alphaTab.model;
+
+/**
+ * Where alphaTab's drum key is not ours. Its key is Guitar Pro's, and two of
+ * its cymbals look like something else from the throne (2026-11-22):
+ *
+ *  - the ride is a triangle, the way the drum-score videos write it. alphaTab
+ *    draws the hi-hat's x one step lower, the same shape a step away;
+ *  - the second crash has a shape of its own, and sits over the first, where
+ *    the other crash is. alphaTab draws the first crash's heavy x on the
+ *    hi-hat's space, so it read as either of them.
+ *
+ * Keyed by alphaTab's id for the articulation ARTICULATION names
+ * (`<element>.<number>`). `line` is alphaTab's staff line: 0 is the top line,
+ * each step up the staff is one less.
+ */
+const RESTYLED: Record<string, { head: alphaTab.model.MusicFontSymbol; line?: number }> = {
+  'Ride.51': { head: MusicFontSymbol.NoteheadTriangleUpBlack },
+  'Crash Medium.57': { head: MusicFontSymbol.NoteheadXOrnate, line: -3 },
 };
 
 // Voice 0 is hands (stems up), voice 1 is feet (stems down): the Guitar Pro
@@ -135,6 +157,45 @@ function renderVoice(
 export function midiToAlphaTex(bytes: Uint8Array, opts: TabOptions): TabResult {
   const { hits, unmapped } = readChart(bytes, opts.map);
   return hitsToAlphaTex(hits, opts, unmapped);
+}
+
+/**
+ * The tab as alphaTab's score, ready to render.
+ *
+ * alphaTex cannot mark a rest as hidden, so the converter says which rests are
+ * noise and they are flagged here as empty beats: the time is kept, nothing is
+ * drawn. (alphaTab would otherwise push every feet rest above the staff,
+ * because a hands note sits on the same beat.) And the noteheads that are not
+ * alphaTab's (RESTYLED) are put on.
+ */
+export function engrave(tab: TabResult, settings: alphaTab.Settings): alphaTab.model.Score {
+  const importer = new alphaTab.importer.AlphaTexImporter();
+  importer.initFromString(tab.tex, settings);
+  const score = importer.readScore();
+  const track = score.tracks[0];
+  const bars = track?.staves[0]?.bars ?? [];
+  for (const { bar, voice, beat } of tab.hiddenRests) {
+    const target = bars[bar]?.voices[voice]?.beats[beat];
+    if (target?.isRest) target.isEmpty = true;
+  }
+  // A track's articulations are alphaTab's shared defaults, so a restyled one
+  // is a copy: changing the default would change it for every score after.
+  track?.percussionArticulations.forEach((a, i) => {
+    const style = RESTYLED[a.uniqueId];
+    if (!style) return;
+    track.percussionArticulations[i] = new alphaTab.model.InstrumentArticulation(
+      a.elementType,
+      style.line ?? a.staffLine,
+      a.outputMidiNumber,
+      style.head,
+      style.head,
+      style.head,
+      a.techniqueSymbol,
+      a.techniqueSymbolPlacement,
+      a.id
+    );
+  });
+  return score;
 }
 
 /**

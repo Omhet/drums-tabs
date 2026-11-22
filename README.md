@@ -1673,6 +1673,29 @@ places where the record and the score disagree. One thing learned:
   winner near 100% rather than a ten-point lead, which the right answer did
   not have.
 
+**Sonne, the skill's second song (2026-11-22).** Rammstein's Sonne from the
+same channel: 75 bars, the score's bar 1 is the song's bar 1 (five bars of the
+spoken count, then drums), 424/424 kicks and 158/158 snares on the record. The
+reading took no new ideas; the record did. Three things learned:
+
+- **A beat grid can be right in tempo and half a beat out.** `beat_this` put
+  every beat on the "&" under a guitar that chugs eighths: 75 BPM, as marked,
+  and a backbeat margin of +0.07, so nothing flagged it. The score was the
+  tell -- every offset placed it at 84%, with a written kick "missing" in
+  every bar. Folding the drum stem over the bar showed the snare on the "&" of
+  1 and of 3. `grid.py` now offers `offbeat` (the detector's grid moved half a
+  beat), only when forced: `tempo_multiplier = "offbeat"` in `song.toml`, or
+  `drums grid --regrid --tempo-multiplier offbeat`. Then the right offset came
+  out at 100% against 96%.
+- **`to_midi.py`'s hit test is lenient on a dense stem.** A Rammstein drum
+  stem has an onset of some size on nearly every sixteenth (guitar bleed), so
+  "on a hit within 90 ms" passed notes the record does not play. The
+  disagreements came from comparing onset strength per sixteenth against the
+  written kicks around it instead.
+- **The grid holds sixteenths, and the score writes 32nds.** Four bars end in
+  a 32nd-note double kick; only the first kick of each pair is in the chart,
+  and `reading.txt` says so where it happens.
+
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections
 "Transport", "Sync points", "Notation window").

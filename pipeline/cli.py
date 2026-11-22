@@ -166,7 +166,8 @@ def grid(
     tempo_multiplier: str = typer.Option(
         None,
         "--tempo-multiplier",
-        help="Force the tempo octave: half_even, half_odd, unit, double",
+        help="Force the tempo octave: half_even, half_odd, unit, double; "
+        "or offbeat, the detector's grid moved half a beat",
     ),
     rotate: int = typer.Option(
         None, "--rotate", help="Force the downbeat phase (0-3)"

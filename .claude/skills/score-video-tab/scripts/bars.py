@@ -20,10 +20,13 @@ import numpy as np
 from PIL import Image
 
 DARK = 110
+#: Staff lines are thin, and one that falls between two pixel rows is only
+#: mid-grey in each (Sonne's first line). Looser than DARK for finding them.
+STAFF_DARK = 170
 
 
 def staff_lines(gray: np.ndarray) -> list[int]:
-    dark = (gray < DARK).mean(axis=1)
+    dark = (gray < STAFF_DARK).mean(axis=1)
     rows = np.where(dark > 0.6)[0]
     groups: list[list[int]] = []
     for r in rows:
@@ -32,7 +35,13 @@ def staff_lines(gray: np.ndarray) -> list[int]:
         else:
             groups.append([r])
     centres = [int(round(np.mean(g))) for g in groups]
-    return centres if len(centres) == 5 else []
+    # The five evenly spaced ones. A dark band of the drummer's video can show
+    # along the top edge of the strip (Sonne's did) and is not a staff line.
+    for i in range(len(centres) - 4):
+        gaps = np.diff(centres[i:i + 5])
+        if gaps.min() > 8 and gaps.max() - gaps.min() <= 3:
+            return centres[i:i + 5]
+    return []
 
 
 def barlines(gray: np.ndarray, top: int, bot: int, first: int) -> list[int]:

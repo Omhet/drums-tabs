@@ -1,0 +1,193 @@
+# Sonne - Rammstein
+# read from the drum-score video https://www.youtube.com/watch?v=1A00CVLGM7Q (channel 알려드럼)
+# 4/4, quarter = 75 (marked on the first line), 75 bars, no repeat signs
+#
+# Grid: sixteen columns a bar, 1 e & a 2 e & a 3 e & a 4 e & a.
+#   x  cymbal hit (CR, RD, closed HH)     o  drum hit, or open hi-hat on the HH row
+#   O  accented drum hit                  f  flam (grace note before the hit)
+#   .  nothing
+# A "<" after a pattern name in the bar list means a crescendo hairpin over that bar.
+#
+# Key for this channel (confirmed by the user 2026-11-22): triangle above the staff
+# = ride, circled x = crash, x above the staff = hi-hat with "o" over it = open,
+# top space = high tom, second line = mid tom, third space = snare,
+# second space = floor tom, bottom space = kick.
+#
+# This file is the source of tab.mid: edit it and run the score-video-tab
+# skill's to_midi.py with --first-bar N --write (score bar N = song bar 1).
+#
+# Almost every hi-hat note in this score has the "0" over it, so the groove is
+# an open hi-hat throughout; the few closed ones are read as printed.
+#
+# Where it departs from the score:
+#  - Double kicks. The score writes a 32nd-note pair of kicks on the "a" of a
+#    beat in G4, G5, F4 and F8 (bars 16, 34, 31, 59). The grid holds sixteenths,
+#    so only the first of the pair is here; the second, a 32nd later, is not.
+#  - The last crash (bar 75) has a choke mark (a fist) over it. The grid has no
+#    choke, so it is a plain crash.
+
+pattern G1      open-hat groove: kick 1, "a" of 1, "e" of 2, 3, "a" of 3, "e" of 4
+  HH  o . o . o . o . o . o . o . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . o . o . . o . . o . o . .
+
+pattern G2      open-hat groove, crash on 1
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . o . o . o . o . o . o . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . o . o . . o . . o . o . .
+
+pattern G3      open-hat groove, crash on 4
+  CR  . . . . . . . . . . . . x . . .
+  HH  o . o . o . o . o . o . . . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . o . o . . o . . o . o . .
+
+pattern G4      open-hat groove, double kick on the "a" of 4
+  HH  o . o . o . o . o . o . o . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . o . o . . o . . o . o . o   # the "a" of 4 is a 32nd pair in the score
+
+pattern G5      crash on 1, double kick on the "a" of 4
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . o . o . o . o . x . o . o .   # the "&" of 3 is printed without the "0"
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . o . o . . o . . o . o . o   # the "a" of 4 is a 32nd pair in the score
+
+pattern G6      open-hat groove, kick on the "&" of 1 and of 3
+  HH  o . o . o . o . o . o . o . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o o . o . . o . o o . o . .
+
+pattern G7      open-hat groove, no kick after the last snare
+  HH  o . o . o . o . o . o . o . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . o . o . . o . . o . . . .
+
+pattern F1      snare flam on 1, rests, flam into the toms on 4
+  HT  . . . . . . . . . . . . . o . .
+  MT  . . . . . . . . . . . . . . o o
+  SD  f . . . . . . . . . . . f . . .
+
+pattern F2      flam on 3 with kicks, flam into the toms on 4
+  HH  o . o . o . o . . . x . . . . .
+  HT  . . . . . . . . . . . . . o . .
+  MT  . . . . . . . . . . . . . . o o
+  SD  . . . . o . . . f . . . f . . .
+  BD  o . . o . o . o . o . o . . . .
+
+pattern F3      snare on the "e" of 3, snare sixteenths on 4
+  HH  o . o . o . o . o . o . o . . .
+  SD  . . . . o . . . . o . . . o o o
+  BD  o . . o . o . . o . . o . . . .
+
+pattern F4      double kick on the "a" of 3, snare flam on 4
+  HH  o . o . o . o . o . o . . . . .
+  SD  . . . . o . . . . . . . f . . .
+  BD  o . . o . o . . o . . o . . . .   # the "a" of 3 is a 32nd pair in the score
+
+pattern F5      groove, flam into the toms on 4
+  HH  o . o . o . o . o . o . . . . .
+  HT  . . . . . . . . . . . . . o . .
+  MT  . . . . . . . . . . . . . . o o
+  SD  . . . . o . . . . . . . f . . .
+  BD  o . . o . o . . o . . o . . . .
+
+pattern F6      closed hat, snare and kick sixteenths into the toms
+  HH  x . x . x . x . x . . . . . . .
+  HT  . . . . . . . . . . . . . o . .
+  MT  . . . . . . . . . . . . . . o o
+  SD  . . . . o . . . . o o o o . . .
+  BD  o . . o . o . . o . o . o . o .
+
+pattern F7      snare sixteenths from the "e" of 3 into the toms
+  HH  o . o . o . o . o . . . . . . .
+  HT  . . . . . . . . . . . . . o . .
+  MT  . . . . . . . . . . . . . . o o
+  SD  . . . . o . . . . o o o o . . .
+  BD  o . . o . o . . o . . . . . . .
+
+pattern F8      closed hat, tom flams on 3 and 4, double kick
+  HH  x . x . x . x . . . x . . . . .
+  HT  . . . . . . . . f . . . f o . .   # both flams' grace notes are on the snare
+  MT  . . . . . . . . . . . . . . o o
+  SD  . . . . o . . . . . . . . . . .
+  BD  o . . o . o . o . o . o . . . .   # the "a" of 3 is a 32nd pair in the score
+
+pattern F9      kick on the "&" of 3, flam into the toms on 4
+  HH  o . o . o . o . o . o . . . . .
+  HT  . . . . . . . . . . . . . o . .
+  MT  . . . . . . . . . . . . . . o o
+  SD  . . . . o . . . . . . . f . . .
+  BD  o . . o . o . . o . o o . . . .
+
+pattern F10     kick on the "&" of 1 and of 3, snare and toms with kicks on 4
+  HH  o . o . o . o . o . o . . . . .
+  HT  . . . . . . . . . . . . . o . .
+  MT  . . . . . . . . . . . . . . o o
+  SD  . . . . o . . . . . . o o . . .
+  BD  o . o o . o . . o . o . o . o .
+
+pattern E1      kick eighths, crash on 1, 2 and 3
+  CR  x . . . x . . . x . . . . . . .
+  HH  . . o . . . o . . . o . o . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o . o . o . o . o . o . o .
+
+pattern E2      kick eighths, crash on 3
+  CR  . . . . . . . . x . . . . . . .
+  HH  o . o . o . o . . . o . o . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o . o . o . o . o . o . o .
+
+pattern E3      kick eighths, crash on 1, snare on the "e" of 3
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . o . o . o . o . o . o . o .
+  SD  . . . . o . . . . o . . o . . .
+  BD  o . o . o . o . o . o . o . o .
+
+pattern E4      kick eighths, snare flam on 4 and the "e" of 4
+  HH  o . o . o . o . o . o . . . o .
+  SD  . . . . o . . . . . . . f o . .
+  BD  o . o . o . o . o . o . o . o .
+
+pattern E5      kick eighths, crash on 1 and 2
+  CR  x . . . x . . . . . . . . . . .
+  HH  . . o . . . o . o . o . o . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o . o . o . o . o . o . o .
+
+pattern E6      kick eighths, snare on the "a" of 2 and the "e" of 3, crash on 4
+  CR  . . . . . . . . . . . . x . . .
+  HH  o . o . o . o . o . o . . . o .
+  SD  . . . . o . . o . o . . o . . .
+  BD  o . o . o . o . o . o . o . o .
+
+pattern E7      last bar: snare and toms over kick eighths, crash on the "&" of 4
+  CR  . . . . . . . . . . . . . . x .   # choked in the score
+  HH  o . o . o . o . o . . . . . . .
+  HT  . . . . . . . . . . . o . . . .
+  MT  . . . . . . . . . . . . o o . .
+  SD  . o . . o . . o . o o . . . . .
+  BD  o . o . o . o . o . o . o . o .
+
+bars
+  1    rest rest rest rest rest     # the spoken count, no drums
+  6    G2 G1 G1 G3
+  10   G2 G1 G1 G2
+  14   G1 G1 G4 F1
+  18   G2 G1 G2 G1
+  22   G2 G1 G1 F2
+  26   G2 F3                        # a two-bar line
+  28   G2 G1 G2 F4
+  32   G2 G3 G5 F1
+  36   G2 G1 G2 F5
+  40   G2 G1 G2 F6
+  44   G2 G1 G2 F5
+  48   G2 G1 G2 F7
+  52   G2 G1 G1 G7
+  56   G2 G1 G1 F8
+  60   G2 G2 G2 F9
+  64   G2 G2 G6 F10
+  68   E1 E2 E3 E4
+  72   E5 E6 E3 E7

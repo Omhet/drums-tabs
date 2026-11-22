@@ -446,21 +446,33 @@ def _contrast(on: float, off: float) -> float:
     return float(on - off) / total if total > 1e-9 else 0.0
 
 
+#: Candidates only ever taken when song.toml or the CLI forces them.
+FORCED_ONLY = ("offbeat",)
+
+
 def _octave_candidates(beats: np.ndarray) -> dict[str, np.ndarray]:
-    """The grid at half, unit and double rate.
+    """The grid at half, unit and double rate, and at unit rate half a beat out.
 
     Halving has two phases -- keep the even beats or the odd ones -- and they are
     genuinely different grids, so both are offered.
+
+    ``offbeat`` is the detector's grid moved half a beat: for a detector that
+    locked onto the "&"s at the right tempo (Sonne's did, under a guitar that
+    chugs eighths). Nothing here can see that -- the tempo is plausible and a
+    backbeat half a beat out still leaves a margin -- so it is never chosen,
+    only forced. One beat is added in front so it keeps the detector's count.
     """
     midpoints = (beats[:-1] + beats[1:]) / 2.0
     doubled = np.empty(beats.size + midpoints.size, dtype=float)
     doubled[0::2] = beats
     doubled[1::2] = midpoints
+    offbeat = np.concatenate([[beats[0] - (beats[1] - beats[0]) / 2.0], midpoints])
     return {
         "half_even": beats[0::2],
         "half_odd": beats[1::2],
         "unit": beats,
         "double": doubled,
+        "offbeat": offbeat[offbeat >= 0.0],
     }
 
 
@@ -499,7 +511,7 @@ def choose_octave(
     # Something is off. Among the alternatives, take the best-supported grid
     # whose tempo is at least plausible; fall back to the detector if none is.
     ranked = sorted(
-        (name for name in candidates if scores[name].plausible_tempo),
+        (name for name in candidates if name not in FORCED_ONLY and scores[name].plausible_tempo),
         key=lambda name: (
             scores[name].backbeat_margin + 0.5 * scores[name].snare_alignment
         ),

@@ -69,7 +69,8 @@ Pick the artist's own upload (Official Music Video, or Official Audio when
 there's no video). Its length should be close to the score video's. The slug
 is the official video's title, slugged, and `songs/<slug>/` appears as soon as
 the fetch starts. When prep finishes, its BPM should be near the score's tempo
-mark. If it's double or half, look at the grid before going on.
+mark. If it's double or half, look at the grid before going on. A right tempo
+can still be half a beat out (Sonne's was); step 6 shows that.
 
 ## 3. Clean lines
 
@@ -90,8 +91,11 @@ lines against the bar numbers printed on them.
 
 ```
 .venv/Scripts/python -I $K/bars.py "$W/out/lines" "$W/out/bars" --clef-end <x>
-.venv/Scripts/python -I $K/group.py "$W/out/bars" --labels "<the channel's labels>"
+.venv/Scripts/python -I $K/group.py "$W/out/bars" --labels=<the channel's labels>
 ```
+
+The labels need the `=`: they start with `-1`, which argparse otherwise reads
+as an option.
 
 `bars.py` warns about any line that doesn't cut into the usual number of bars.
 Look at those lines (a five-bar last line is normal). `group.py` groups bars
@@ -119,8 +123,18 @@ read through `review.md`, where each line's picture sits above its grids.
 
 It tries each score bar as the song's bar 1 and keeps the one that puts the
 most kicks and snares on a hit in the drum stem. The right one lands near
-100%, and anything below about 95% means something is wrong. Then it lists
-the bars to look at again:
+100%, and anything below about 95% means something is wrong.
+
+**When every offset scores about the same, and low** (Sonne: 83-85% at all
+eight), suspect the grid before the reading. `fold.py <slug> <from> <to>`
+averages the drum stem over a run of groove bars: the snare should peak on 2
+and 4. If it peaks on the "&" of 1 and of 3, the detector put every beat on
+the "&". Set `tempo_multiplier = "offbeat"` under `[grid]` in `song.toml`
+(with a comment saying why), run `drums grid <slug> --regrid`, then `drums
+align` and `drums straighten` again (the regrid drops the alignment), and run
+this step again.
+
+Then it lists the bars to look at again:
 
 - **A written kick or snare with no hit:** look at that bar's image again. It
   is almost always a misread. Fix the reading and run this step again.
@@ -129,6 +143,14 @@ the bars to look at again:
   is it as strong as a written kick, and is it in `stems/drums.wav` and not
   bleed from the bass in `nodrums.wav`? If it holds up, it goes in the report.
   It is the user's call, not yours.
+- **A dense drum stem** (heavy guitars bleed into it) has an onset of some size
+  on nearly every sixteenth, so this list fills up with noise and the 90 ms
+  test passes notes the record does not play. Then go by
+  `strength.py songs/<slug>/reading.txt <slug> <N> kick <from> <to>` (and
+  `snare`): each sixteenth's strength next to the written notes and to
+  `nodrums.wav`. A written note at 0-1 is not on the record; an unwritten one
+  as strong as the written ones around it is the score leaving something out.
+  Both go in the report.
 - The song's final hit is usually flagged (the ending stretches off the beat
   map). Ignore it.
 

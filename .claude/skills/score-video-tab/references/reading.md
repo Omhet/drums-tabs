@@ -53,7 +53,9 @@ staff positions are labelled with the channel's instruments down the left.
 1. **Count the rhythm from the beams and flags, not the spacing.** One beam is
    an eighth (two cells), two beams a sixteenth (one cell), a dot adds half
    again. Walk the bar beat by beat and check that each beat adds up to four
-   cells.
+   cells. Three beams are a 32nd, half a cell: the grid cannot hold it, so
+   keep the first of the pair on its cell and say so in a comment (Sonne's
+   double kicks).
 2. **Then the pitch of every notehead on each stem:** which line or space,
    and what shape. Use the channel's key, which belongs to that channel only.
 3. **Then the marks:** accents, flams (a small grace note before the hit),

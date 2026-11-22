@@ -1,0 +1,98 @@
+[song]
+artist = "Rammstein"
+title = "Sonne"
+
+[source]
+url = "https://www.youtube.com/watch?v=StZcUAPRRac"
+video_id = "StZcUAPRRac"
+title = "Rammstein - Sonne (Official Video)"
+uploader = "Rammstein Official"
+duration = 252.0
+
+[models]
+separation = ""
+
+# The beat detector put every beat on the "&" -- right tempo, half a beat out,
+# with the snare landing on the "&" of 1 and of 3. "offbeat" moves the grid
+# half a beat back; with it the record's snare sits on 2 and 4.
+[grid]
+meter = ""
+tempo_multiplier = "offbeat"
+downbeat_rotation = -1
+
+# No [author]: this tab.mid was not written in Ableton. It is generated from
+# reading.txt, which Claude read off the drum score in
+# https://www.youtube.com/watch?v=1A00CVLGM7Q (2026-11-22), and the record's own
+# drum hits placed it: the score's bar 1 is this song's bar 1. The first five
+# bars are the spoken count, with no drums. To change a note, edit reading.txt
+# and run the score-video-tab skill's to_midi.py with --first-bar 1 --write.
+#
+# Two things the grid cannot hold, both marked in reading.txt: the score's
+# 32nd-note double kicks (bars 16, 31, 34, 59) keep only their first kick, and
+# the choke on the last crash is a plain crash.
+
+# MIDI key -> instrument: General MIDI drum keys.
+[midi_map]
+36 = "kick"
+38 = "snare"
+42 = "hihat_closed"
+46 = "hihat_open"
+47 = "tom_mid"
+49 = "crash"
+50 = "tom_high"
+
+# The song's sections, cut from the score rather than by `drums sections`:
+# the score starts every part on a new line, and the parts are named after the
+# song (the groove hardly changes between verse and chorus), except the last,
+# named by what the drums play. Rename them freely. Bars are 1-based and
+# inclusive, and together they cover the song in order. Song bar = score bar.
+
+[[section]]
+name = "count"
+start_bar = 1
+end_bar = 5
+
+[[section]]
+name = "intro"
+start_bar = 6
+end_bar = 9
+
+[[section]]
+name = "verse"
+start_bar = 10
+end_bar = 17
+
+[[section]]
+name = "chorus"
+start_bar = 18
+end_bar = 25
+
+[[section]]
+name = "break"
+start_bar = 26
+end_bar = 27
+
+[[section]]
+name = "verse"
+start_bar = 28
+end_bar = 35
+
+[[section]]
+name = "chorus"
+start_bar = 36
+end_bar = 51
+
+[[section]]
+name = "bridge"
+start_bar = 52
+end_bar = 59
+
+[[section]]
+name = "chorus"
+start_bar = 60
+end_bar = 67
+
+[[section]]
+name = "kick eighths"
+start_bar = 68
+end_bar = 75

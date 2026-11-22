@@ -235,6 +235,20 @@ def test_forced_multiplier_overrides_the_decision():
     assert chosen.size == beats.size * 2 - 1
 
 
+def test_offbeat_moves_a_grid_on_the_ands_back_onto_the_beat():
+    """beat_this on the "&"s at the right tempo: only forcing "offbeat" fixes it."""
+    real = steady_beats(bpm=75.0, count=64) + 1.0  # room for the beat added in front
+    support = synthetic_support(real, kick_on=(0, 2), snare_on=(1, 3))
+    detected = (real[:-1] + real[1:]) / 2  # every beat half a beat late
+    name, _, _, _ = grid_mod.choose_octave(detected, support, 4)
+    assert name != "offbeat"
+    name, chosen, _, log = grid_mod.choose_octave(detected, support, 4, forced="offbeat")
+    assert name == "offbeat" and log["decision"] == "forced"
+    # The beat added in front keeps the count; the rest are the real beats.
+    assert chosen.size == detected.size
+    np.testing.assert_allclose(chosen, real[:-1], atol=1e-9)
+
+
 def test_unknown_forced_multiplier_is_rejected():
     beats = steady_beats(count=64)
     support = synthetic_support(beats, kick_on=(0,), snare_on=(1, 3))

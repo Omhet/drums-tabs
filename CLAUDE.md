@@ -71,3 +71,9 @@ and are not.
 
 Write the commit message out in the message to the user. Do not stage and do not
 commit — that is the user's to do.
+
+One lowercase imperative subject line per change, no body and no trailer; a step
+that earns two joins them with `and`. Also write it to `.git/MERGE_MSG` (a
+worktree's: `git rev-parse --git-path MERGE_MSG`), which prefills the VS Code
+commit box. Git deletes the file when the commit lands, so write it fresh for
+every change, covering everything uncommitted.

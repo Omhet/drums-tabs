@@ -1581,6 +1581,41 @@ Four things learned:
   Record is gated on, so the chip and the pill can never disagree, and the
   checks see the same layer a drummer does.
 
+**A chart read off a drum-score video (2026-11-22).** An experiment beside the
+app; its scripts are not in the repo yet (`handoff.md` §4). Come As You Are has
+no Live set: Claude read its `tab.mid` off the score strip of a YouTube
+drum-score video (`qxlvvZV229Q`), and the record's own drum hits placed it.
+The strip became one clean image per line of four bars (the median of every
+frame showing a line takes the playback cursor out), the lines were cut into
+bars at the barlines, and look-alike bars were grouped, so 105 bars were 33
+pictures to read and came to 18 patterns. `drums prep` on the official video
+made the song as usual. The reading then went onto the beat map at every
+candidate offset, and one offset put every written kick and snare on a hit in
+the drum stem: the score's bar 4 (the tom pickup) is the song's bar 1, and its
+three bars before that are the count-in the grid had already found.
+`drums reference` matched 418/418 kicks and 331/331 snares, with the record
+7 ms behind the chart. The sections are cut where the score starts a new part
+and named by what the drums play. Five things learned:
+
+- **YouTube refuses this machine over IPv6.** Every media URL answered 403
+  while the metadata still resolved, with yt-dlp 2026.08.19 and 2026.10.26;
+  over IPv4 the same formats download, so `fetch.py` forces IPv4.
+- **Two lines of a score can differ only in the bar number.** Comparing frames
+  merged them; the cursor jumping from the right end back to the left is what
+  starts a new line.
+- **Look-alike bars need a shape test, not only an ink test.** Comparing
+  thickened ink called a ride triangle and a crash circle at the same spot the
+  same bar; a local ink-density difference tells them apart.
+- **The record finds what the transcriber left out.** In every chorus bar of
+  accented snare sixteenths the drum stem has a low hit on the "&" of 1, as
+  strong as a written kick, with nothing in the no-drums stem there, and the
+  score has nothing there. It is flagged, not added: that is the drummer's
+  call.
+- **The sticking solver's repeat window was set for slower songs.**
+  `repeat_below_ms = 260` in `kit.toml` makes ride eighths at 120 BPM (250 ms
+  apart) alternate L R L R. At 200 ms, or with `repeat = 0`, one hand keeps
+  the ride. Not changed: it moves every song's sticking.
+
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections
 "Transport", "Sync points", "Notation window").

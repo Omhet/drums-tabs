@@ -59,10 +59,11 @@ and are not.
 - Python: `.venv/Scripts/python -m pytest -q tests`.
 - App: `npm run typecheck` and `npm test` in `app/`.
 - The browser: the `npm run check-*` scripts in `app/` drive a real Chrome
-  (Playwright's bundled Chromium has no H.264/AAC decoders). Start
-  `npx vite --port 5173 --strictPort` from `app/` first, warm it with one
-  request — vite pre-bundles on the first load and reloads mid-test — and kill
-  the server when done.
+  (Playwright's bundled Chromium has no H.264/AAC decoders). They need
+  `npx vite --port 5173 --strictPort` running from `app/`: use the one already
+  on 5173 if there is one, or start it in the background and warm it with one
+  request — vite pre-bundles on the first load and reloads mid-test. **Leave it
+  running when done**: the user plays from it (asked 2026-11-22).
 - Starting the dev server makes the Ableton plugin rewrite
   `songs/<slug>/tab.mid` from the `.als`, which shows up as a modified file in
   `git status`. That is expected, not a change you made.

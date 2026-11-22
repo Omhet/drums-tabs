@@ -279,19 +279,24 @@ await page.waitForTimeout(600);
 s = await snapshot();
 check(s.head === 'full' && s.lines === 2 && s.renders === withVideo.renders, `V again left the ${s.head} header with ${s.lines} lines`);
 
-// 9. Sticking: R and L under the notation, and the switch (on the Settings
-// page) turns them off. A song with no sticking.lock.json has none.
+// 9. Sticking: R and L under the notation, off until the switch (on the
+// Settings page) turns them on. Left on for the size and three-line checks
+// below, which measure the letters; the remembered "on" is wiped at the end.
+// A song with no sticking.lock.json has none.
 const hasSticking = await page.evaluate(() => window.drums.sticking.count > 0);
 s = await snapshot();
+check(s.sticking === 0, `${s.sticking} sticking letters are up before the switch is on`);
 if (hasSticking) {
-  check(s.sticking > 0, 'sticking.lock.json is loaded but no letters are drawn');
   await page.locator('#settings-btn').click();
+  await page.check('#sticking');
+  await page.waitForTimeout(200);
+  s = await snapshot();
+  check(s.sticking > 0, 'sticking.lock.json is loaded but checking Sticking drew no letters');
   await page.uncheck('#sticking');
   await page.waitForTimeout(200);
   check((await snapshot()).sticking === 0, 'unchecking Sticking left the letters up');
   await page.check('#sticking');
   await page.waitForTimeout(200);
-  check((await snapshot()).sticking > 0, 'checking Sticking back did not bring them back');
   await page.keyboard.press('Escape');
 }
 console.log('sticking:', hasSticking ? `${s.sticking} letters` : 'none for this song');

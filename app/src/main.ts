@@ -420,8 +420,10 @@ const scoreWindow = new ScoreWindow(api, byId<HTMLElement>('score-box'));
 
 // --- sticking -------------------------------------------------------------------
 // R and L under the notation, worked out by `drums sticking` and frozen in
-// songs/<slug>/sticking.lock.json. On by default -- they are what the file is
-// for -- and remembered like the theme.
+// songs/<slug>/sticking.lock.json. Off by default (2026-11-22): a letter under
+// every note is noise when most of them are obvious, and the user wants them
+// only where they are not, the way a printed score marks just its fills --
+// which is later work. Turned on in Settings, and remembered like the theme.
 
 const sticking = new StickingLetters(api, scoreEl);
 function applySticking(on: boolean) {
@@ -429,9 +431,9 @@ function applySticking(on: boolean) {
   sticking.visible = on;
 }
 try {
-  applySticking(localStorage.getItem('sticking') !== 'off');
+  applySticking(localStorage.getItem('sticking') === 'on');
 } catch {
-  applySticking(true);
+  applySticking(false);
 }
 stickingEl.addEventListener('change', () => {
   applySticking(stickingEl.checked);

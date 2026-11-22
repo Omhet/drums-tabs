@@ -1,0 +1,88 @@
+[song]
+artist = "Nirvana"
+title = "Come As You Are"
+
+[source]
+url = "https://www.youtube.com/watch?v=vabnZ9-ex7o"
+video_id = "vabnZ9-ex7o"
+title = "Nirvana - Come As You Are (Official Music Video)"
+uploader = "Nirvana"
+duration = 224.0
+
+[models]
+separation = ""
+
+[grid]
+meter = ""
+tempo_multiplier = ""
+downbeat_rotation = -1
+
+# No [author]: this tab.mid was not written in Ableton. Claude read it off the
+# drum score in https://www.youtube.com/watch?v=qxlvvZV229Q (2026-11-22), and
+# the record's own drum hits placed it: the score's bar 4 (the tom pickup) is
+# this song's bar 1, the three bars before it are the count-in. To edit it in
+# Ableton, drag tab.mid onto a drum rack at 1|1|1 over stems/straight-nodrums.wav
+# and add an [author] section pointing at the set.
+
+# MIDI key -> instrument: General MIDI drum keys.
+[midi_map]
+36 = "kick"
+38 = "snare"
+42 = "hihat_closed"
+46 = "hihat_open"
+49 = "crash"
+51 = "ride"
+50 = "tom_high"
+47 = "tom_mid"
+43 = "tom_floor"
+
+# The song's sections. `drums sections` proposed 4-bar blocks one bar off
+# (the pickup is bar 1), so these are cut from the score instead, where each
+# part starts on a new line, and named by what the drums play rather than by
+# the lyrics: rename them freely. Bars are 1-based and inclusive, and together
+# they cover the song in order. Score bar = song bar + 3.
+
+[[section]]
+name = "verse"
+start_bar = 1
+end_bar = 21
+
+[[section]]
+name = "chorus"
+start_bar = 22
+end_bar = 29
+
+[[section]]
+name = "verse"
+start_bar = 30
+end_bar = 37
+
+[[section]]
+name = "chorus"
+start_bar = 38
+end_bar = 45
+
+[[section]]
+name = "open hat"
+start_bar = 46
+end_bar = 53
+
+[[section]]
+name = "crash eighths"
+start_bar = 54
+end_bar = 73
+
+[[section]]
+name = "chorus"
+start_bar = 74
+end_bar = 81
+
+[[section]]
+name = "open hat"
+start_bar = 82
+end_bar = 93
+
+[[section]]
+name = "outro"
+start_bar = 94
+end_bar = 102

@@ -494,9 +494,12 @@ playing along with the notation at different tempos above everything else.
 **Tabs from drum-score videos** (an experiment, started 2026-11-22, its code
 not in the repo yet). Claude reads the notation strip of a YouTube drum-score
 video into a grid per bar; the record's audio only checks the reading. Come As
-You Are went first: all 105 bars read, from 18 distinct bar patterns. Next comes
-checkpoint 3: turn the reading into `tab.mid` and check it against the record's
-drum hits. Two things the score shows that the reading does not use yet:
+You Are went first: all 105 bars read, from 18 distinct bar patterns, and the
+song is in the library with every written kick and snare on a hit in the
+record (README "Where things stand"). Open: the kick on the "&" of 1 that the
+record has in the chorus and the score does not, and whether the experiment's
+scripts come into `pipeline/`. Two things the score shows that the reading does
+not use yet:
 - **Dynamics.** Crescendo hairpins (Come As You Are bars 23-24 and 39-40) and
   accents (the chorus's snare sixteenths; the reading already marks them) could
   become note velocities in `tab.mid`, which the kit plays through its velocity
@@ -504,6 +507,12 @@ drum hits. Two things the score shows that the reading does not use yet:
 - **The printed sticking.** Some channels print R/L/K under the fills. That is
   the transcriber's own sticking: it could check what `drums sticking` works
   out in `sticking.lock.json`, or decide those notes outright.
+- **Sticking only where it is not obvious.** The letters under every note are
+  off by default since 2026-11-22 (the Settings switch still turns them all
+  on): the user wants them the way a printed score has them, only on the spots
+  a drummer would not guess -- the fills, a hand crossing over. Learning which
+  spots those are is the work; the scores that print R/L/K are examples of
+  where a transcriber thought it was needed.
 
 **The avatar's input already exists.** `Kit.onNote` (`app/src/kit.ts`) fires per
 note as it is booked, carrying instrument, limb, velocity and the AudioContext

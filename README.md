@@ -1751,6 +1751,32 @@ The record check did not work first time, and three things came of it:
   half a beat as Sonne's was. When every offset scores low and `fold.py`'s
   peaks sit on the wrong beats, look at the beat map's own intervals too.
 
+**Zombie, and doubled beats that hid from the repair (2026-11-23).** The
+Cranberries' Zombie from the same channel, read by eight Sonnet readers (61
+sheets, 107 score bars, 48 patterns; the score's first three bars are rests, so
+its bar 4 is the song's bar 1). Every kick but one and every snare sits on a
+hit, 559/560 and 294/294 within 90 ms. The first record check was at 91%, and
+the cause was in the pipeline, not the reading:
+
+- **`repair_intervals` now sets the local beat from real beats only.** Zombie
+  speeds up from 82 to 87 BPM, so `constant_tempo` was no use (its line missed
+  the beats by 2.3 s). The raw beat map had clusters of double detections
+  around 185-200 s; the median of nine intervals taken over a cluster was
+  itself a fraction of a beat, so the doubles looked like beats and five
+  stayed, putting every later bar a beat or two out. `_local_median_interval`
+  now leaves out intervals under 0.6 of the song's median and looks 21 beats
+  wide (one new test). Zombie's map came out at 426 beats with no odd interval.
+  Only `drums grid --regrid` is affected; existing `grid.lock.json` files are
+  not touched.
+- **The backbeat was drawn a half-space high.** In the sixteenth-hat parts the
+  snare heads on 2 and 4 sit on the second staff line, where the key has the
+  mid tom. `strength.py` shows a snare as strong as the written ones on those
+  beats, so they are read as the snare (comments in `reading.txt`). Ten
+  patterns. The user has not confirmed this (2026-11-23).
+- **One plain x above the staff, no circle** (bar 16, on the "a" of 4, and bar
+  48): the key has no symbol for it. It is probably the splash the description
+  mentions (`스플래쉬`); the chart has no splash, so it is a crash.
+
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections
 "Transport", "Sync points", "Notation window").

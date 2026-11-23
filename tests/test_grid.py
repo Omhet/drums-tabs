@@ -107,6 +107,17 @@ def test_spurious_beat_is_dropped():
     np.testing.assert_allclose(repaired, beats, atol=1e-9)
 
 
+def test_a_cluster_of_doubled_beats_is_dropped():
+    """Eight doubles in a row must not drag the local beat down to the doubles' own size."""
+    beats = steady_beats()
+    doubled = beats.copy()
+    for k in range(27, 19, -1):
+        doubled = np.insert(doubled, k + 1, beats[k] + 0.12)
+    repaired, log = grid_mod.repair_intervals(doubled)
+    assert log["dropped"] == 8
+    np.testing.assert_allclose(repaired, beats, atol=1e-9)
+
+
 def test_gradual_tempo_change_is_not_repaired():
     """A song that speeds up is a performance, not a detector error."""
     intervals = np.linspace(0.5, 0.42, 63)  # 120 -> 143 BPM over 64 beats

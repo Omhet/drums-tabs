@@ -1,0 +1,99 @@
+[song]
+artist = "The Cranberries"
+title = "Zombie"
+
+[source]
+url = "https://www.youtube.com/watch?v=6Ejga4kJUts"
+video_id = "6Ejga4kJUts"
+title = "The Cranberries - Zombie (Official Music Video)"
+uploader = "TheCranberriesTV"
+duration = 307.0
+
+[models]
+separation = ""
+
+[grid]
+meter = ""
+tempo_multiplier = ""
+downbeat_rotation = -1
+
+# No [author]: this tab.mid was not written in Ableton. It is generated from
+# reading.txt, which Claude read off the drum score in
+# https://www.youtube.com/watch?v=RGI-Qd88KR4 (2026-11-23), and the record's own
+# drum hits placed it: the score's bar 4 is this song's bar 1 (the score opens
+# with three bars of rests). To change a note, edit reading.txt and run the
+# score-video-tab skill's to_midi.py with --first-bar 4 --write.
+
+# MIDI key -> instrument: General MIDI drum keys.
+[midi_map]
+36 = "kick"
+38 = "snare"
+42 = "hihat_closed"
+46 = "hihat_open"
+49 = "crash"
+50 = "tom_high"
+
+# The song's sections, cut from the score rather than by `drums sections`: a
+# new part where the groove changes (this channel starts each part on a new
+# line), named by what the drums play. Rename them freely. Bars are 1-based and
+# inclusive, and together they cover the song in order. Song bar = score bar - 3.
+
+[[section]]
+name = "open hat eighths"
+start_bar = 1
+end_bar = 9
+
+[[section]]
+name = "sixteenth hats"
+start_bar = 10
+end_bar = 27
+
+[[section]]
+name = "open 16ths"
+start_bar = 28
+end_bar = 29
+
+[[section]]
+name = "crash and open hat"
+start_bar = 30
+end_bar = 41
+
+[[section]]
+name = "sixteenth hats"
+start_bar = 42
+end_bar = 59
+
+[[section]]
+name = "open 16ths"
+start_bar = 60
+end_bar = 61
+
+[[section]]
+name = "crash and open hat"
+start_bar = 62
+end_bar = 69
+
+[[section]]
+name = "crash eighths"
+start_bar = 70
+end_bar = 77
+
+[[section]]
+name = "accented 16ths"
+start_bar = 78
+end_bar = 85
+
+[[section]]
+name = "open hat eighths"
+start_bar = 86
+end_bar = 93
+
+[[section]]
+name = "crash and snare on every beat"
+start_bar = 94
+end_bar = 97
+
+[[section]]
+name = "sixteenth hats ending"
+start_bar = 98
+end_bar = 104

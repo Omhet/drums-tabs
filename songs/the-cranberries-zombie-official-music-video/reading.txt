@@ -1,0 +1,349 @@
+# Zombie - The Cranberries
+# read from the drum-score video https://www.youtube.com/watch?v=RGI-Qd88KR4 (channel 알려드럼)
+# 4/4, quarter = 76 (marked on the first line), 107 bars, no repeat signs
+#
+# Grid: sixteen columns a bar, 1 e & a 2 e & a 3 e & a 4 e & a.
+#   x  cymbal hit (CR, RD, closed HH)     o  drum hit, or open hi-hat on the HH row
+#   O  accented drum hit                  f  flam (grace note before the hit)
+#   d  double: the hit and another a 32nd after it
+#   .  nothing
+# A "<" after a pattern name in the bar list means a crescendo hairpin over that bar.
+# A "!" after one means that bar was read apart from the bars that look like it,
+# on purpose (see below).
+#
+# Key for this channel (confirmed by the user 2026-11-22): triangle above the staff
+# = ride, circled x = crash, x above the staff = hi-hat with "o" over it = open,
+# top space = high tom, second line = mid tom, third space = snare,
+# second space = floor tom, bottom space = kick.
+#
+# This file is the source of tab.mid: edit it and run the score-video-tab
+# skill's to_midi.py with --first-bar N --write (score bar N = song bar 1).
+
+pattern g02     closed hat on 1 and 2, open hat on 3, snare on the & of 3, four sixteenth snares on 4
+  HH  x . . . x . . . o . . . . . . .
+  SD  . . . . . . . . . . o . o o o o
+
+pattern g03     open-hat eighths, crash on 1, kick pairs, snare on 2 and 4
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . o . o . o . o . o . o . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o . . . o . o . o . . . o .
+
+pattern g04     open-hat eighths (closed on 1), crash on the & of 4
+  CR  . . . . . . . . . . . . . . x .
+  HH  x . o . o . o . o . o . o . . .
+  SD  . . . . o . . . . . . . o . o .
+  BD  o . . . . . o . o . o . . . . .
+
+pattern g05     open-hat eighths throughout, kick pairs, snare on 2 and 4
+  HH  o . o . o . o . o . o . o . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o . . . o . o . o . . . o .
+
+pattern g06     open-hat eighths, crash on the & of 3, four sixteenth snares on 4
+  CR  . . . . . . . . . . x . . . . .
+  HH  x . o . o . o . o . . . . . . .
+  SD  . . . . o . . . . . o . o o o o
+  BD  o . . . . . o . o . . . . . . .
+
+pattern g08     open-hat eighths, snare on 2 and 4 and 4&, crash on the 4&
+  CR  . . . . . . . . . . . . . . x .
+  HH  o . o . o . o . o . o . o . . .
+  SD  . . . . o . . . . . . . o . o .
+  BD  o . o . . . o . o . o . . . . .
+
+pattern g09     open-hat eighths, crashes on the 2& and 3&, snare-snare-tom-tom sixteenths on 4
+  CR  . . . . . . x . . . x . . . . .
+  HH  o . o . o . . . o . . . . . . .
+  HT  . . . . . . . . . . . . . . o o
+  SD  . . . . o . o . . . o . o o . .
+  BD  o . o . . . . . o . . . . . . .
+
+pattern g10     sixteenth hats, crash on 1, snare backbeat on 2 and 4
+  # the backbeat heads sit on the second staff line (mid-tom height), a half-space above the snare space;
+  # the record's snare is on them (strength.py), so they are read as the snare, SD
+  CR  x . . . . . . . . . . . . . . .
+  HH  . x x x . x x x x x x x . x x x
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o . . . o . o . o . . . o .
+
+pattern g11     sixteenth hats, snare backbeat on 2 and 4, open hat on the 4& and 4a
+  # the backbeat heads sit on the second staff line (mid-tom height), a half-space above the snare space;
+  # the record's snare is on them (strength.py), so they are read as the snare, SD
+  HH  x x x x . x x x x x x x . x o o
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . . . o . o . o . . . . .
+
+pattern g12     sixteenth hats, snare backbeat on 2 and 4
+  # the backbeat heads sit on the second staff line (mid-tom height), a half-space above the snare space;
+  # the record's snare is on them (strength.py), so they are read as the snare, SD
+  HH  x x x x . x x x x x x x . x x x
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o . . . o . o . o . . . o .
+
+pattern g13     sixteenth hats, snare backbeat, fill on 4: snare, hat, HT, high cymbal
+  # the backbeat heads sit on the second staff line (mid-tom height), a half-space above the snare space;
+  # the record's snare is on them (strength.py), so they are read as the snare, SD
+  CR  . . . . . . . . . . . . . . . x
+  HH  x x x x . x x x x x x x . x . .
+  HT  . . . . . . . . . . . . . . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . . . o . o . o . . . . .
+
+pattern g14     sixteenth hats, snare backbeat, fill on 4: snare, hat, HT, open hat
+  # the backbeat heads sit on the second staff line (mid-tom height), a half-space above the snare space;
+  # the record's snare is on them (strength.py), so they are read as the snare, SD
+  HH  x x x x . x x x x x x x . x . o
+  HT  . . . . . . . . . . . . . . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . . . o . o . o . . . . .
+
+pattern g15     sixteenth hats, snare backbeat, fill on 4: snare eighth then two HT sixteenths
+  # the backbeat heads sit on the second staff line (mid-tom height), a half-space above the snare space;
+  # the record's snare is on them (strength.py), so they are read as the snare, SD
+  HH  x x x x . x x x x x x x . . . .
+  HT  . . . . . . . . . . . . . . o o
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . . . o . o . o . . . . .
+
+pattern g16     16th hats (closed on 1-2, open on 3-4), snare on 2 and 4 in place of a hat, kicks on 1 1& 2& 3 3& 4&
+  # the backbeat heads sit on the second staff line (mid-tom height), a half-space above the snare space;
+  # the record's snare is on them (strength.py), so they are read as the snare, SD
+  HH  x x x x . x x x o o o o . o o o
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o . . . o . o . o . . . o .
+
+pattern g17     16th open hats, snare on 2, snare 3&, snare eighth and two 16ths on beat 4
+  # the backbeat heads sit on the second staff line (mid-tom height), a half-space above the snare space;
+  # the record's snare is on them (strength.py), so they are read as the snare, SD
+  HH  o o o o . o o o o o . o . . . .
+  SD  . . . . o . . . . . o . o . o o
+  BD  o . . . . . o . o . . . . . . .
+
+pattern g18     eighth-note open-hat groove, crash on 1 and 4
+  CR  x . . . . . . . . . . . x . . .
+  HH  . . o . o . o . o . o . . . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o . . . o . o . o . . . o .
+
+pattern g19     eighth-note open-hat groove, crashes with snare on 4 and 4&
+  CR  . . . . . . . . . . . . x . x .
+  HH  o . o . o . o . o . o . . . . .
+  SD  . . . . o . . . . . . . o . o .
+  BD  o . . . . . o . o . o . . . . .
+
+pattern g20     eighth-note open-hat groove, snare on 2, crash with snare on 4
+  CR  . . . . . . . . . . . . x . . .
+  HH  o . o . o . o . o . o . . . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o . . . o . o . o . . . o .
+
+pattern g21     eighth-note open-hat groove, crash with snare on 3&, four snare 16ths on beat 4
+  CR  . . . . . . . . . . x . . . . .
+  HH  o . o . o . o . o . . . . . . .
+  SD  . . . . o . . . . . o . o o o o
+  BD  o . . . . . o . o . . . . . . .
+
+pattern g22     eighth-note open-hat groove, crash with snare on 2& and on 4 and 4&
+  CR  . . . . . . x . . . . . x . x .
+  HH  o . o . o . . . o . o . . . . .
+  SD  . . . . o . o . . . . . o . o .
+  BD  o . o . . . . . o . o . . . . .
+
+pattern g23     eighth-note open-hat groove, crash with snare on 2& and 3&, four snare 16ths on beat 4
+  CR  . . . . . . x . . . x . . . . .
+  HH  o . o . o . . . o . . . . . . .
+  SD  . . . . o . o . . . o . o o o o
+  BD  o . o . . . . . o . . . . . . .
+
+pattern g24     open-hat eighths, kicks on 1 1& 2& 3 3&, snare on 2, crash eighths with snare on 4
+  CR  . . . . . . . . . . . . x . x .
+  HH  o . o . o . o . o . o . . . . .
+  SD  . . . . o . . . . . . . o . o .
+  BD  o . o . . . o . o . o . . . . .
+
+pattern g26     sixteenth hats (closed in beat 1, open after), snare on 2 and 4
+  # the backbeat heads sit on the second staff line (mid-tom height), a half-space above the snare space;
+  # the record's snare is on them (strength.py), so they are read as the snare, SD
+  HH  x x x x . o o o o o o o . o o o
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o . . . o . o . o . . . o .
+
+pattern g27     open sixteenth hats, snare on 2 and 3&, snare sixteenths in beat 4
+  # the backbeat heads sit on the second staff line (mid-tom height), a half-space above the snare space;
+  # the record's snare is on them (strength.py), so they are read as the snare, SD
+  HH  o o o o . o o o o o . o . . . .
+  SD  . . . . o . . . . . o . o o o o
+  BD  o . o . . . o . o . . . . . . .
+
+pattern g30     open-hat eighths, snare sixteenths in beats 2 and 4, snare sixteenth pair after beat 3
+  HH  o . o . . . . . o . . . . . . .
+  SD  . . . . o o o o . . o o o o o o
+  BD  o . o . . . . . o . . . . . . .
+
+pattern g31     crash eighths with kicks, then open hat, kicks on every hat, snare fill pattern
+  CR  x . x . x . . . . . . . x . . .
+  HH  . . . . . . o . o . o . . . o .
+  SD  . . . . o . . o . o . . o . . .   # beat 2 is eighth + two sixteenths (4, 3&=7th cell), beat 3 is two sixteenths + eighth
+  BD  o . o . o . o . o . o . o . o .
+
+pattern g32     crash eighths on 1, &, 4, 4&; open hat on 2, 2&, 3, 3&; kick on every eighth
+  CR  x . x . . . . . . . . . x . x .
+  HH  . . . . o . o . o . o . . . . .
+  SD  . . . . o . . o . o . . o . . .
+  BD  o . o . o . o . o . o . o . o .
+
+pattern g33     crash eighths on 1, &, 4; open hat on 2, 2&, 3, 3&, 4&; snare on 4a
+  CR  x . x . . . . . . . . . x . . .
+  HH  . . . . o . o . o . o . . . o .
+  SD  . . . . o . . o . o . . o . . o
+  BD  o . o . o . o . o . o . o . o .
+
+pattern g34     open hat, snare 1e, crash on 2, then snare sixteenths with kick on every eighth
+  CR  . . . . x . . . . . . . . . . .
+  HH  o . o . . . . . . . . . . . . .
+  SD  . o . . o . o o o o o o o o o o
+  BD  o . o . o . o . o . o . o . o .
+
+pattern g38     open hat, snare 1e, crash on 2, snare 3 and 3e, then snare 4 and 4e and toms 4& 4a
+  CR  . . . . x . . . . . . . . . . .
+  HH  o . o . . . o . . . o . . . . .
+  HT  . . . . . . . . . . . . . . o o
+  SD  . o . . o . . o o o . . o o . .
+  BD  o . o . o . o . o . o . o . o .
+
+pattern g39     sixteenth hi-hat, crash on 1, accents on 2 and 4
+  CR  x . . . . . . . . . . . . . . .
+  HH  . x x x X x x x x x x x X x x x   # > over the hat on 2 and on 4
+  BD  o . o . . . o . o . o . . . o .
+
+pattern g40     sixteenth hats, open on beat 4, accent on 2
+  HH  x x x x X x x x x x x x o o o o
+  BD  o . . . . . o . o . o . . . . .
+
+pattern g41     closed sixteenth hats, accents on 2 and 4
+  HH  x x x x X x x x x x x x X x x x
+  BD  o . o . . . o . o . o . . . o .
+
+pattern g42     sixteenth hats, accent on 2, open hat on 4 then two crashes
+  CR  . . . . . . . . . . . . . . x x
+  HH  x x x x X x x x x x x x o o . .
+  BD  o . . . . . o . o . o . . . . .
+
+pattern g43     sixteenth hats, accent on 2, open hats on 3 and 4
+  HH  x x x x X x x x o o o o o o o o
+  BD  o . o . . . o . o . o . . . o .
+
+pattern g44     open sixteenth hats, then snare sixteenths in the second half
+  HH  o o o o o o o o o o . . . . . .
+  SD  . . . . . . . . . . o o o o o o
+  BD  o . o . o . o . o . o . o . o .
+
+pattern g45     eighth-note open hats, crash on 1 and 4, snare on 2 and 4, kick on every eighth
+  CR  x . . . . . . . . . . . x . . .
+  HH  . . o . o . o . o . o . . . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o . o . o . o . o . o . o .
+
+pattern g46     eighth-note open hats, snare on 2 and on both eighths of 4 with crashes, kick on every eighth
+  CR  . . . . . . . . . . . . x . x .
+  HH  o . o . o . o . o . o . . . . .
+  SD  . . . . o . . . . . . . o . o .
+  BD  o . o . o . o . o . o . o . o .
+
+pattern g47     eighth-note open hats, crash on 4, snare on 2 and 4, kick on every eighth
+  CR  . . . . . . . . . . . . x . . .
+  HH  o . o . o . o . o . o . . . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . o . o . o . o . o . o . o .
+
+pattern g48     open-hat 8ths with 16th snare and kick fill-in on 2 and 3, crash on 4
+  CR  . . . . . . . . . . . . x . . .
+  HH  o . o . o . o . o . o . . . o .
+  SD  . . . . o . . o . o . . o . . .
+  BD  o . o . o . o . o . o . o . o .
+
+pattern g49     open-hat 8ths with 16th snare fill-in on 2 and 3, crash on 4 and 4&
+  CR  . . . . . . . . . . . . x . x .
+  HH  o . o . o . o . o . o . . . . .
+  SD  . . . . o . . o . o . . o . o .
+  BD  o . o . o . o . o . o . o . o .
+
+pattern g51     open-hat 8ths, snare 16th on 3e, crash on 4 and a tom on 4&
+  CR  . . . . . . . . . . . . x . . .
+  HH  o . o . o . o . o . o . . . . .
+  HT  . . . . . . . . . . . . . . o .
+  SD  . . . . o . . . . o . . o . . .
+  BD  o . o . o . o . o . o . o . o .
+
+pattern g52     crash and snare on every beat, open hat on every &
+  CR  x . . . x . . . x . . . x . . .
+  HH  . . o . . . o . . . o . . . o .
+  SD  o . . . o . . . o . . . o . . .
+  BD  o . o . o . o . o . o . o . o .
+
+pattern g54     open-hat 8ths with snare and kick, crash on 3&, 16th fill 4 (snare, snare, tom, tom)
+  CR  . . . . . . . . . . x . . . . .
+  HH  o . o . o . o . o . . . . . . .
+  HT  . . . . . . . . . . . . . . o o
+  SD  o . o . o . o . o . o . o o . .
+  BD  o . o . o . o . o . o . o . o .
+
+pattern g56     sixteenth hats, accent on 2, open hats on 4, kicks on 1, the & of 2, 3 and the & of 3
+  HH  x x x x O x x x x x x x o o o o   # accent over the hat on 2; the four hats of beat 4 each carry a "0"
+  BD  o . . . . . o . o . o . . . . .
+
+pattern g57     sixteenth hats, accents on 2 and 4, kicks on 1, the & of 1, the & of 2, 3, the & of 3, the & of 4
+  HH  x x x x O x x x x x x x O x x x   # accents over the hats on 2 and 4
+  BD  o . o . . . o . o . o . . . o .
+
+pattern g59     sixteenth hats with a snare on the & of 3 and four snare sixteenths on 4
+  HH  x x x x O x x x x x . x . . . .   # accent over the hat on 2
+  SD  . . . . . . . . . . o . o o o o
+  BD  o . . . . . o . o . . . . . . .
+
+pattern g60     open hat and kick on 1, then a quarter rest and a half rest
+  HH  o . . . . . . . . . . . . . . .   # x with a "0" over it, a quarter note (no flag); beats 2-4 are rests
+  BD  o . . . . . . . . . . . . . . .
+
+bars
+  1    rest rest rest g02
+  5    g03 g04 g05 g06
+  9    g03 g04 g08 g09
+  13   g10 g11
+  15   g12 g13
+  17   g12 g11
+  19   g12 g14
+  21   g12 g11
+  23   g12 g15
+  25   g12 g11
+  27   g12 g14
+  29   g12 g11
+  31   g16 g17
+  33   g18 g19 g20 g21
+  37   g18 g19 g22 g23
+  41   g18 g19 g24 g09
+  45   g10 g11
+  47   g12 g13
+  49   g12 g11
+  51   g12 g14
+  53   g12 g11
+  55   g12 g15
+  57   g12 g11
+  59   g12 g14
+  61   g12 g11
+  63   g26 g27
+  65   g18 g19 g20 g21
+  69   g18 g19 g22 g30
+  73   g31 g32 g33 g34
+  77   g31 g32 g33 g38
+  81   g39 g40
+  83   g41 g42
+  85   g41 g40
+  87   g43 g44
+  89   g45 g46 g47 g46
+  93   g48 g49 g48 g51
+  97   g52 g52 g52 g54
+  101  g39 g56
+  103  g57 g42
+  105  g57 g59 g60

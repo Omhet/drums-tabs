@@ -102,6 +102,14 @@ leaving something out, and it is the user's to decide (SKILL.md).
 - A groove that repeats every two bars makes the alignment two bars off score
   well too (94.9% against 100% for Come As You Are). Trust the clear winner
   only when it is near 100%.
+- **A snare head can be drawn on the mid-tom line.** Zombie's backbeat sat a
+  half-space above the snare space for whole parts, with a clean snare on the
+  same beats in the record. A reader reads what is drawn (MT), so when a tom
+  turns up on every 2 and 4, run `strength.py ... snare` over those bars: a
+  snare as strong as the written ones means the head is the snare, drawn high.
+- **Many bars flagged from some point on, in a song whose tempo drifts,** is
+  the beat map, not the reading (`constant_tempo` does not fit when the tempo
+  really moves). Look for runs of 0.3-0.4 s intervals in `grid.lock.json`.
 - **A "0" at the start of a hairpin is not an open hat.** Engel's crescendo
   begins with a "0" just left of the first hat, level with the hairpin line
   (a niente mark: from nothing). An open-hat "0" sits above the note's own

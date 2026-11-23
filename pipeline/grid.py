@@ -62,6 +62,7 @@ BACKBEAT_CONFIDENT = 0.15
 # own downbeat phase. Deliberately not zero: near-ties should stay put.
 ROTATION_MARGIN = 0.10
 
+INTERVAL_FLOOR_RATIO = 0.6  # intervals under this fraction of the song's median don't set the local beat
 MAX_INSERT_RUN = 8  # a gap wider than this many beats is a break, not a dropped beat
 
 # Edge trimming: how many beats may be dropped from each end, and how much wider
@@ -166,15 +167,23 @@ class Grid:
 # --------------------------------------------------------------------------
 
 
-def _local_median_interval(times: np.ndarray, index: int, window: int = 9) -> float:
+def _local_median_interval(
+    times: np.ndarray, index: int, window: int = 21, floor: float = 0.0
+) -> float:
     """Median beat interval near ``index``.
 
     Local rather than global so a song that accelerates through a section isn't
     read as a run of dropped and inserted beats.
+
+    Intervals under ``floor`` are left out of the median. The raw beat map has
+    clusters of double detections (Zombie's, around 185-200 s, runs of 0.12-0.4 s
+    gaps), and a median taken over a window full of them is itself a fraction of
+    a beat, so the doubles looked like ordinary beats and none were dropped.
     """
     lo = max(0, index - window // 2)
     hi = min(len(times), index + window // 2 + 1)
     diffs = np.diff(times[lo:hi])
+    diffs = diffs[diffs >= floor]
     if diffs.size == 0:
         diffs = np.diff(times)
     return float(np.median(diffs))
@@ -383,9 +392,10 @@ def repair_intervals(times: np.ndarray) -> tuple[np.ndarray, dict]:
     out: list[float] = [float(times[0])]
     inserted = dropped = 0
     gaps: list[dict] = []
+    floor = INTERVAL_FLOOR_RATIO * float(np.median(np.diff(times)))
 
     for i in range(1, len(times)):
-        local = _local_median_interval(times, i)
+        local = _local_median_interval(times, i, floor=floor)
         gap = float(times[i]) - out[-1]
         ratio = gap / local if local > 0 else 1.0
 

@@ -1,7 +1,9 @@
 # Reading the bars
 
-You read the score yourself, one distinct bar at a time, into `reading.txt`.
-Everything after the reading (the MIDI, the alignment, the checks) is scripted.
+The score is read one distinct bar at a time into `reading.txt`, by reader
+agents (`reader.md` is their brief) or by you, when you check a bar they
+doubted or one the record flags. Everything after the reading (the MIDI, the
+alignment, the checks) is scripted.
 So the reading is the step where care pays: a wrong cell turns into a wrong
 note that the user practises.
 
@@ -38,11 +40,15 @@ bars
   96, 120, 110, 40 and 96 (both of a double's notes).
 - **The bar list** has one row per line of the score: the score bar number the
   line starts on, then one pattern name per bar, in order. A `<` after a name
-  marks a crescendo over that bar; for now it is only a note. `rest` is a bar
-  with nothing in it.
-- **Name a pattern after what the drums play** (V for a verse groove, C for a
-  chorus, F for a fill, M, S, E...). A name appears once and is used wherever
-  that bar comes back. The image grouping tells you where the repeats are.
+  marks a crescendo over that bar; for now it is only a note. A `!` marks a
+  bar read apart from the bars that look like it, on purpose (the user's call
+  from the record), so `review.py` doesn't flag it. `rest` is a bar with
+  nothing in it.
+- **A pattern's name** appears once and is used wherever that bar comes
+  back. `assemble.py` names each one after its first sheet (`g07`), and the
+  description says what the drums play. Come As You Are and Sonne were read
+  by hand, before reader agents, and use names like V1 and G2 (V for verse,
+  G for groove, F for fill). Either kind is fine.
 - A `#` starts a comment anywhere. Use one wherever the chart departs from the
   score, with the reason.
 

@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pipeline import grid as grid_mod, onsets, paths  # noqa: E402
 from pipeline.chart import SLOTS_PER_BEAT  # noqa: E402
 from pipeline.reference import BANDS, slot_to_seconds  # noqa: E402
-from review import parse  # noqa: E402
+from review import base, parse  # noqa: E402
 
 #: Reading row -> (General MIDI drum key, the app's instrument name).
 KEYS = {
@@ -52,7 +52,7 @@ def score_bars(reading: Path) -> tuple[dict, list[str]]:
     for first, names in lines:
         if first != len(seq) + 1:
             raise SystemExit(f"the line at bar {first} follows bar {len(seq)}")
-        seq += [n.rstrip("<") for n in names]
+        seq += [base(n) for n in names]
     return patterns, seq
 
 

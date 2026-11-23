@@ -3,7 +3,9 @@
 Parses reading.txt (patterns, then one row of pattern names per score line)
 and checks that it covers every bar image, that each line has as many bars as
 its picture, and that every group of bars the images call identical was read
-as one pattern. Then writes review.md: each score line's picture with its bars'
+as one pattern -- except a bar marked `!` (after its pattern name), which was
+read apart from its look-alikes on purpose, the user's call from the record.
+Then writes review.md: each score line's picture with its bars'
 grids under it, in order, to look at side by side.
 
 usage: python -I review.py <reading.txt> <bars_dir> <lines_dir> <review.md>
@@ -15,6 +17,11 @@ import sys
 from pathlib import Path
 
 ORDER = ["CR", "CR2", "RD", "HH", "HT", "MT", "SD", "XS", "FT", "BD", "HP"]
+
+
+def base(name: str) -> str:
+    """A bar-list name without its marks: `<` a crescendo, `!` read apart on purpose."""
+    return name.rstrip("<!")
 
 
 def parse(path: Path) -> tuple[dict, list[tuple[int, list[str]]]]:
@@ -56,13 +63,13 @@ def title(path: Path) -> str:
 
 
 def grid_block(names: list[str], patterns: dict) -> str:
-    insts = [i for i in ORDER if any(i in patterns[n.rstrip("<")]["rows"] for n in names)]
+    insts = [i for i in ORDER if any(i in patterns[base(n)]["rows"] for n in names)]
     out = ["     " + " | ".join(f"{n:<19}" for n in names),
            "     " + " | ".join("1   2   3   4      " for _ in names)]
     for i in insts:
         cells = []
         for n in names:
-            row = patterns[n.rstrip("<")]["rows"].get(i, "." * 16)
+            row = patterns[base(n)]["rows"].get(i, "." * 16)
             cells.append(" ".join(row[k:k + 4] for k in range(0, 16, 4)))
         out.append(f"{i:<4} " + " | ".join(cells))
     return "\n".join(out)
@@ -72,18 +79,21 @@ def main() -> None:
     reading, bars_dir, lines_dir, out = map(Path, sys.argv[1:5])
     patterns, lines = parse(reading)
     seq: dict[int, str] = {}
+    apart: set[int] = set()
     for first, names in lines:
         for k, n in enumerate(names):
-            if n.rstrip("<") not in patterns:
+            if base(n) not in patterns:
                 raise SystemExit(f"bar {first + k}: unknown pattern {n}")
-            seq[first + k] = n.rstrip("<")
+            seq[first + k] = base(n)
+            if "!" in n:
+                apart.add(first + k)
     meta = json.loads((bars_dir / "bars.json").read_text())
     n_img = len(meta["bars"])
     problems = []
     if sorted(seq) != list(range(1, n_img + 1)):
         problems.append(f"reading has bars {min(seq)}-{max(seq)} ({len(seq)}), images have {n_img}")
     for g in meta["groups"]:
-        got = {seq.get(b) for b in g}
+        got = {seq.get(b) for b in g if b not in apart}
         if len(got) > 1:
             problems.append(f"bars {g} look identical but were read as {sorted(map(str, got))}")
     for first, names in lines:
@@ -97,7 +107,7 @@ def main() -> None:
     md = [f"# {title(reading)}: the reading, line by line", "",
           "Each picture is one line of the score; the grids under it are the same bars, in order.",
           "`x` cymbal, `o` drum or open hi-hat, `O` accent, `f` flam, `g` ghost, `d` double (and a 32nd after), `.` nothing; "
-          "a `<` after a name is a crescendo.", ""]
+          "a `<` after a name is a crescendo, a `!` a bar read apart from its look-alikes on purpose.", ""]
     for first, names in lines:
         img_line = meta["bars"][first - 1]["line"]
         last = first + len(names) - 1

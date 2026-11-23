@@ -8,6 +8,8 @@
 #   d  double: the hit and another a 32nd after it
 #   .  nothing
 # A "<" after a pattern name in the bar list means a crescendo hairpin over that bar.
+# A "!" after one means that bar was read apart from the bars that look like it,
+# on purpose (see below).
 #
 # Key for this channel (confirmed by the user 2026-11-22): triangle above the staff
 # = ride, circled x = crash, x above the staff = hi-hat with "o" over it = open,
@@ -27,8 +29,8 @@
 #    - F6 and F7 (bars 43 and 51) have the kick on the "&" of 2. The score
 #      writes it on the "e" of 2; the record plays the "&".
 #    - Bar 9 is G8, not G3: no kick on the "e" of 4, where the record has
-#      none. Bar 33 keeps it (the record plays it there), so review.py reports
-#      bars 9 and 33 as alike in the score and read apart. That is this.
+#      none. Bar 33 keeps it (the record plays it there). The "!" after G8 in
+#      the bar list tells review.py the two were read apart on purpose.
 
 pattern G1      open-hat groove: kick 1, "a" of 1, "e" of 2, 3, "a" of 3, "e" of 4
   HH  o . o . o . o . o . o . o . o .
@@ -183,7 +185,7 @@ pattern E7      last bar: snare and toms over kick eighths, crash on the "&" of 
 
 bars
   1    rest rest rest rest rest     # the spoken count, no drums
-  6    G2 G1 G1 G8
+  6    G2 G1 G1 G8!
   10   G2 G1 G1 G2
   14   G1 G1 G4 F1
   18   G2 G1 G2 G1

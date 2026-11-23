@@ -1705,6 +1705,27 @@ no kick on the "e" of 4. Three things learned:
   any letter changed by hand. The reading writes a double as a `d` cell (the
   hit and another a 32nd after), so its rows stay sixteen cells.
 
+**Reader agents for the reading (2026-11-23).** Sonne's run was expensive,
+and the reading was most of it. I read every sheet in the main conversation,
+so each image stayed in context for every step after it. The reading now goes
+to reader agents: batches of about eight sheets, run in parallel on Sonnet,
+from a fixed brief (`references/reader.md`). Each writes one text file per
+sheet, and `assemble.py` builds `reading.txt` from them. The main session
+opens an image only when something points at it: a reader's doubt, or a bar
+the record check flags. Two things learned:
+
+- **Sonnet reads these scores as well as the checked reading.** Four Sonnet
+  readers, given Sonne's 32 sheets and the brief, matched the checked reading
+  (with the user's two changes undone, so it is what the score prints) on all
+  506 written notes. That includes the four 32nd pairs, the flams with their
+  grace note on the snare, and the closed hats among the open ones. They read
+  the score's kick on the "e" of 2 in bars 43 and 51, so they read the images
+  and did not copy the reading. The channel file did name some of Sonne's
+  features, so a new song is a slightly harder test.
+- **A change to only some of a pattern's bars is now marked.** A `!` after a
+  bar's pattern name says it was read apart from its look-alikes on purpose.
+  Before this, `review.py` flagged Sonne's bar 9 on every run.
+
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections
 "Transport", "Sync points", "Notation window").

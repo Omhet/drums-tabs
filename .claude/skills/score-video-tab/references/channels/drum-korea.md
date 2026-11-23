@@ -84,6 +84,10 @@ first or the second crash is the drummer's choice (see SKILL.md).
 - **Open hi-hat** can be the whole groove: Sonne's has the "0" over almost
   every hat note. Read each one; the few without it are closed.
 
+- **An x on the snare space** (Numb's verse, on the "a" of 1 and on 4) is read
+  as a cross-stick: row `XS`, MIDI 37. The key above has no symbol for it, and
+  the user has not confirmed it (2026-11-23).
+
 ## Songs read from this channel
 
 | song | video | score bar = song bar 1 | notes |
@@ -91,3 +95,4 @@ first or the second crash is the drummer's choice (see SKILL.md).
 | Nirvana, Come As You Are | `qxlvvZV229Q` | 4 | 105 score bars, 18 patterns; the score leaves out the kick on the "&" of 1 in the chorus's snare-sixteenth bars |
 | Rammstein, Sonne | `1A00CVLGM7Q` | 1 | 75 score bars, 27 patterns, open hat throughout; the beat grid had to be moved half a beat (`tempo_multiplier = "offbeat"`); 32nd-note double kicks as `d`; the record moves the fill kick to the "&" of 2 in bars 43 and 51 and has none on the "e" of 4 in bar 9 (both taken) |
 | Rammstein, Engel | `BrhjyBHtkio` | 8 | 105 score bars (first seven rests, a five-bar line at bars 37-41, the last line shown for half a second), 31 patterns; the record is dense with guitars so the "nothing written" list is noise (strength 0-1 against written 5); no disagreements; a "0" left of a hairpin is a niente mark, not an open hat |
+| Linkin Park, Numb | `TtJm8EwepzA` | -1 (the score starts at song bar 3) | 78 score bars (a two-bar first line and a two-bar fifth line), 26 patterns; x on the snare space is the cross-stick (`XS`, MIDI 37); circled x on every eighth in the crash choruses and the last bars; the beat map lost 29-57 s, so `constant_tempo = true`; the record has no kick at the "&" of 2 in score bar 61 and none on the "&" of 3 in bar 77 (kept as written) |

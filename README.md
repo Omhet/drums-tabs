@@ -1726,6 +1726,31 @@ the record check flags. Two things learned:
   bar's pattern name says it was read apart from its look-alikes on purpose.
   Before this, `review.py` flagged Sonne's bar 9 on every run.
 
+**Numb, and a beat map that lost its way (2026-11-23).** Linkin Park's Numb
+from the same channel, read by six Sonnet readers (41 sheets, 78 score bars,
+26 patterns); the chart sits at 99.2% of the kicks and every snare on a hit.
+The record check did not work first time, and three things came of it:
+
+- **`constant_tempo = true` under `[grid]` in `song.toml`.** The detector's
+  beat map for Numb turned to half-beats from 29 s to 57 s and back, which
+  `repair_local_octave` and `repair_intervals` cannot undo (the beats there are
+  wrong, not missing), so bars after that were up to a bar out and the best
+  score bar 1 got 84%. For a song played to one tempo, `fit_constant_tempo`
+  (in `pipeline/grid.py`, one test) keeps the beats whose neighbours are at the
+  median interval, numbers them by counting whole intervals, and writes one
+  straight line through them: 110.0 BPM, drift 0%, and the detector's downbeat
+  then agreed with the snare. Off by default; a song that really changes tempo
+  must not use it.
+- **`to_midi.py` tries negative first bars.** The score video can start after
+  the record does: Numb's score begins at the song's bar 3, and the record's
+  first two bars (a synth intro the score leaves out) come before it. So the
+  right answer was `--first-bar=-1` (needs the `=`), 99.5%, where bars 1-8 gave
+  at best 93%. The candidates are now -7 to 8.
+- **How the beat map was found wrong:** `fold.py` showed the kick on the "&" of
+  1 and the "&" of 2 where the score has 1 and the "&" of 2: a beat out, not
+  half a beat as Sonne's was. When every offset scores low and `fold.py`'s
+  peaks sit on the wrong beats, look at the beat map's own intervals too.
+
 The archived research on drift correction between media elements and the sweep
 is in the old plan: `git show transcriber:player-plan.md` (sections
 "Transport", "Sync points", "Notation window").

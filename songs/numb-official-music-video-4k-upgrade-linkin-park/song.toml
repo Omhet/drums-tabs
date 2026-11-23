@@ -1,0 +1,98 @@
+[song]
+artist = "Linkin Park"
+title = "Numb"
+
+[source]
+url = "https://www.youtube.com/watch?v=kXYiU_JCYtU"
+video_id = "kXYiU_JCYtU"
+title = "Numb (Official Music Video) [4K UPGRADE] – Linkin Park"
+uploader = "Linkin Park"
+duration = 187.0
+
+[models]
+separation = ""
+
+[grid]
+meter = ""
+tempo_multiplier = ""
+# The detector's beat map turned to half-beats from 29 s to 57 s, which no repair
+# undoes, and put the downbeat a beat out (fold.py showed kicks on 1&, 2&, 4 where
+# the score has 1, 2&, 3&). The record is at one tempo, so constant_tempo draws
+# one line through the steady beats; the rotation was then settled by to_midi.py.
+constant_tempo = true
+downbeat_rotation = -1
+
+# No [author]: this tab.mid was not written in Ableton. It is generated from
+# reading.txt, which Claude read off the drum score in
+# https://www.youtube.com/watch?v=TtJm8EwepzA (2026-11-23), and the record's own
+# drum hits placed it: the score starts two bars into this song, so the score's
+# bar 1 is this song's bar 3 (to_midi.py --first-bar -1). Song bars 1-2 are the
+# record's intro, which the score video does not show. To change a note, edit
+# reading.txt and run the score-video-tab skill's to_midi.py with --first-bar=-1
+# --write.
+
+# MIDI key -> instrument: General MIDI drum keys.
+[midi_map]
+36 = "kick"
+37 = "sidestick"
+38 = "snare"
+42 = "hihat_closed"
+43 = "tom_floor"
+46 = "hihat_open"
+49 = "crash"
+50 = "tom_high"
+
+# The song's sections, cut from the score rather than by `drums sections`: a
+# new part where the groove changes (this channel starts each part on a new
+# line), named by what the drums play. Rename them freely. Bars are 1-based and
+# inclusive, and together they cover the song in order. Song bar = score bar + 2.
+
+[[section]]
+name = "intro"
+start_bar = 1
+end_bar = 4
+
+[[section]]
+name = "open hat"
+start_bar = 5
+end_bar = 8
+
+[[section]]
+name = "side stick"
+start_bar = 9
+end_bar = 22
+
+[[section]]
+name = "open hat build"
+start_bar = 23
+end_bar = 30
+
+[[section]]
+name = "closed hat"
+start_bar = 31
+end_bar = 46
+
+[[section]]
+name = "open hat build 2"
+start_bar = 47
+end_bar = 54
+
+[[section]]
+name = "crash eighths"
+start_bar = 55
+end_bar = 63
+
+[[section]]
+name = "open hat 2"
+start_bar = 64
+end_bar = 71
+
+[[section]]
+name = "crash eighths 2"
+start_bar = 72
+end_bar = 79
+
+[[section]]
+name = "outro"
+start_bar = 80
+end_bar = 83

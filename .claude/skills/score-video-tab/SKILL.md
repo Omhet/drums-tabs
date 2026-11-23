@@ -197,6 +197,14 @@ the "&". Set `tempo_multiplier = "offbeat"` under `[grid]` in `song.toml`
 align` and `drums straighten` again (the regrid drops the alignment), and run
 this step again.
 
+**When the best offsets are low and bars flagged go wrong from some point on**,
+look at the beat map's own intervals (`grid.lock.json`): Numb's had half-beats
+for 28 seconds. If the song is at one tempo, set `constant_tempo = true` under
+`[grid]` (with a comment), `drums grid <slug> --regrid`, then `align` and
+`straighten` again. **When the score starts after the record does**, the right
+bar 1 is negative (Numb: -1, the score's bar 1 is song bar 3); `to_midi.py`
+tries -7 to 8, and `--first-bar=-1` needs the `=`.
+
 Then it lists the bars to look at again:
 
 - **A written kick or snare with no hit:** look at that bar's image again. It

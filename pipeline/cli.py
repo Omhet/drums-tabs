@@ -202,6 +202,7 @@ def grid(
             beat_unit=parsed_meter[1] if parsed_meter else 4,
             tempo_multiplier=multiplier,
             rotation=rotation,
+            constant_tempo=bool(overrides.get("constant_tempo", False)),
         )
         grid_mod.save(target, built)
     except StageError as exc:
@@ -246,6 +247,7 @@ def _prepare(
             song,
             tempo_multiplier=overrides.get("tempo_multiplier") or None,
             rotation=None if rotation < 0 else rotation,
+            constant_tempo=bool(overrides.get("constant_tempo", False)),
         )
         grid_mod.save(song, built)
 

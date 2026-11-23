@@ -77,6 +77,9 @@ LOCAL_OCTAVE_RATIO = 0.62
 LOCAL_OCTAVE_MIN_RUN = 16
 LOCAL_MEDIAN_WINDOW = 17
 
+# Constant tempo: an interval within this fraction of the median counts as steady.
+CONSTANT_TEMPO_STEADY = 0.08
+
 
 @dataclass
 class DrumSupport:
@@ -329,6 +332,47 @@ def trim_isolated_edges(times: np.ndarray) -> tuple[np.ndarray, dict]:
     ):
         hi -= 1
     return times[lo:hi], {"head": lo, "tail": len(times) - hi}
+
+
+def fit_constant_tempo(times: np.ndarray) -> tuple[np.ndarray, dict]:
+    """Replace the beat map with one straight line, for a song at one tempo.
+
+    For a song the band played to a click, or a programmed one, with a stretch
+    the detector lost (Numb's chorus: the beat map turned to half-beats and back
+    for half a minute, which no local repair can undo, because the beats are
+    wrong rather than missing). The beats whose neighbours are both at the
+    median interval are kept as evidence; each is given its beat number by
+    counting whole intervals from the one before, which bridges the lost stretch
+    as long as the median interval is accurate to about a quarter of a beat over
+    it. A line through those beats then writes every beat, the lost stretch
+    included.
+    """
+    if len(times) < 8:
+        raise StageError(f"only {len(times)} beats -- too few to fit a tempo")
+    diffs = np.diff(times)
+    period = float(np.median(diffs))
+    steady = np.abs(diffs - period) < CONSTANT_TEMPO_STEADY * period
+    keep = np.zeros(times.size, dtype=bool)
+    keep[:-1] |= steady
+    keep[1:] |= steady
+    evidence = times[keep]
+    if evidence.size < 8:
+        raise StageError("no steady stretch to fit a constant tempo to")
+    for _ in range(3):
+        counts = np.concatenate(([0], np.round(np.diff(evidence) / period)))
+        numbers = np.cumsum(counts)
+        slope, intercept = np.polyfit(numbers, evidence, 1)
+        period = float(slope)
+    residual = evidence - (intercept + slope * numbers)
+    first, last = int(numbers[0]), int(numbers[-1])
+    fitted = intercept + slope * np.arange(first, last + 1)
+    return fitted, {
+        "bpm": round(60.0 / period, 2),
+        "evidence_beats": int(evidence.size),
+        "max_residual_ms": round(float(np.abs(residual).max()) * 1000, 1),
+        "beats_before": int(times.size),
+        "beats_after": int(fitted.size),
+    }
 
 
 def repair_intervals(times: np.ndarray) -> tuple[np.ndarray, dict]:
@@ -679,6 +723,7 @@ def build(
     beat_unit: int = 4,
     tempo_multiplier: str | None = None,
     rotation: int | None = None,
+    constant_tempo: bool = False,
 ) -> Grid:
     """Run the whole repair and return a :class:`Grid`. Does not write anything."""
     if not song.drums.exists():
@@ -697,6 +742,9 @@ def build(
     if octave_log_local["runs"]:
         repaired, late_seams = realign_seams(repaired)
         octave_log_local["seams_closed"] += late_seams
+    constant_log = None
+    if constant_tempo:
+        repaired, constant_log = fit_constant_tempo(repaired)
     octave_name, chosen_beats, score, octave_log = choose_octave(
         repaired, support, beats_per_bar, forced=tempo_multiplier
     )
@@ -736,6 +784,7 @@ def build(
             "edges_trimmed": trim_log,
             "local_octave": octave_log_local,
             "intervals": interval_log,
+            "constant_tempo": constant_log,
             "octave": {"chosen": octave_name, **octave_log},
             "rotation": rotation_log,
             "bar_one": bar_one_log,

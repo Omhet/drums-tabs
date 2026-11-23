@@ -72,6 +72,17 @@ def test_clean_grid_is_left_alone():
     np.testing.assert_allclose(repaired, beats)
 
 
+def test_constant_tempo_replaces_a_lost_stretch_with_a_straight_line():
+    beats = steady_beats(count=128)
+    # Between beats 40 and 70 the detector put a beat on every half-beat.
+    lost = np.arange(beats[40] + 0.25, beats[70], 0.25)
+    garbled = np.concatenate([beats[:41], lost, beats[70:]])
+    fitted, log = grid_mod.fit_constant_tempo(garbled)
+    np.testing.assert_allclose(fitted, beats, atol=1e-6)
+    assert log["beats_before"] == garbled.size and log["beats_after"] == 128
+    assert abs(log["bpm"] - 120.0) < 0.01
+
+
 def test_dropped_beat_is_reinserted():
     beats = steady_beats()
     missing = np.delete(beats, 20)

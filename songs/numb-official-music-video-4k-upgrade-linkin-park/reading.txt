@@ -1,0 +1,181 @@
+# Numb - Linkin Park
+# read from the drum-score video https://www.youtube.com/watch?v=TtJm8EwepzA (channel 알려드럼)
+# 4/4, quarter = 110 (marked on the first line), 78 bars, no repeat signs
+#
+# Grid: sixteen columns a bar, 1 e & a 2 e & a 3 e & a 4 e & a.
+#   x  cymbal hit (CR, RD, closed HH)     o  drum hit, or open hi-hat on the HH row
+#   O  accented drum hit                  f  flam (grace note before the hit)
+#   d  double: the hit and another a 32nd after it
+#   .  nothing
+# A "<" after a pattern name in the bar list means a crescendo hairpin over that bar.
+# A "!" after one means that bar was read apart from the bars that look like it,
+# on purpose (see below).
+#
+# Key for this channel (confirmed by the user 2026-11-22): triangle above the staff
+# = ride, circled x = crash, x above the staff = hi-hat with "o" over it = open,
+# top space = high tom, second line = mid tom, third space = snare,
+# second space = floor tom, bottom space = kick.
+#
+# This file is the source of tab.mid: edit it and run the score-video-tab
+# skill's to_midi.py with --first-bar N --write (score bar N = song bar 1).
+
+pattern g01     four open hi-hat quarters
+  HH  o . . . o . . . o . . . o . . .
+
+pattern g02     open-hat eighths, crash and kick on 1, snare sixteenth on the "a" of 1, snare on 4
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . o . o . o . o . o . o . o .
+  SD  . . . o . . . . . . . . o . . .
+  BD  o . . . . . o . . . o . . . . .
+
+pattern g03     open-hat eighths, hat and kick on 1, snare sixteenth on the "a" of 1, snare + kick sixteenth on 4
+  HH  o . o . o . o . o . o . o . o .
+  SD  . . . o . . . . . . . . o . . .
+  BD  o . . . . . o . . . o . . o . .
+
+pattern g04     open-hat eighths, crash and kick on 1, snare sixteenth on the "a" of 1, snare + kick sixteenth on 4
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . o . o . o . o . o . o . o .
+  SD  . . . o . . . . . . . . o . . .
+  BD  o . . . . . o . . . o . . o . .
+
+pattern g05     open-hat eighths, snare sixteenth on the "a" of 1, crash and snare on 4
+  CR  . . . . . . . . . . . . x . . .
+  HH  o . o . o . o . o . o . . . . .
+  SD  . . . o . . . . . . . . o . . .
+  BD  o . . . . . o . . . o . . . . .
+
+pattern g06     closed-hat eighths, crash and kick on 1, cross-stick on the "a" of 1 and on 4
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . x . x . x . x . x . x . x .   # no "0" over any hat here: all closed
+  XS  . . . x . . . . . . . . x . . .   # x notehead on the snare space, read as cross-stick; not in the channel key
+  BD  o . . . . . o . . . o . . . . .
+
+pattern g07     closed-hat eighths, cross-stick on the a of 1 and on 4, kick on 1, 2&, 3e, 3&
+  HH  x . x . x . x . x . x . x . x .
+  XS  . . . x . . . . . . . . x . . .   # x notehead on the SD line/space, read as cross-stick; the key has no row for it
+  BD  o . . . . . o . . o o . . . . .
+
+pattern g08     closed-hat eighths, cross-stick on the a of 1 and on 4, kick on 1, 2&, 3&
+  HH  x . x . x . x . x . x . x . x .
+  XS  . . . x . . . . . . . . x . . .   # x notehead on the SD line/space, read as cross-stick; the key has no row for it
+  BD  o . . . . . o . . . o . . . . .
+
+pattern g18     open-hat eighths, then four snare sixteenths on beat 4
+  HH  o . o . o . o . o . o . . . . .
+  SD  . . . o . . . . . . . . o o o o
+  BD  o . . . . . o . . . o . . . . .
+
+pattern g19     closed-hat eighths, crash on 1, snare on the a of 1 and on 4
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . x . x . x . x . x . x . x .
+  SD  . . . o . . . . . . . . o . . .
+  BD  o . . . . . o . . . o . . . . .
+
+pattern g20     closed-hat eighths, snare on the a of 1 and on 4, kicks on the e and & of 3
+  HH  x . x . x . x . x . x . x . x .
+  SD  . . . o . . . . . . . . o . . .
+  BD  o . . . . . o . . o o . . . . .
+
+pattern g21     closed-hat eighths, kick on 1, 2& and 3&, snare on 1a and 4
+  HH  x . x . x . x . x . x . x . x .
+  SD  . . . o . . . . . . . . o . . .
+  BD  o . . . . . o . . . o . . . . .
+
+pattern g22     closed-hat groove with kick and snare sixteenths, snare on 4, 4& and 4a
+  HH  x . x . x . x . x . x . x . . .
+  SD  . . . o . . . . . . . . o . o o
+  BD  o . . . . . o . . o o . . . . .
+
+pattern g23     closed-hat groove with kick and snare sixteenths, open hat on 4, snare on 4, 4& and 4a
+  HH  x . x . x . x . x . x . o . . .
+  SD  . . . o . . . . . . . . o . o o
+  BD  o . . . . . o . . o o . . . . .
+
+pattern g24     crash on 1, hat groove, snare-snare-tom fill on beat 4
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . x . x . x . x . . . . . . .
+  HT  . . . . . . . . . . o . . . o .   # 3& and 4&: on the top space (tom), not the snare space
+  SD  . . . o . . . . . . . . o o . .
+  BD  o . . . . . o . . . . . . . . .
+
+pattern g25     crash eighths with a dotted-eighth kick on 1, snare on 1a, 2 and 4
+  CR  x . . . x . x . x . x . x . x .   # circled x on every eighth; 1 is a dotted eighth
+  SD  . . . o o . . . . . . . o . . .
+  BD  o . . . . . o . . . o . . . . .   # 1 is a dotted eighth
+
+pattern g26     crash eighths, snare on 1a, 2 and 4, kick on 1, 2&, 3&, 4e
+  CR  x . x . x . x . x . x . x . x .
+  SD  . . . o o . . . . . . . o . . .
+  BD  o . . . . . o . . . o . . o . .
+
+pattern g27     crash eighths, snare on 1a, 2 and 4, kick on 1, 2& and 3&
+  CR  x . x . x . x . x . x . x . x .
+  SD  . . . o o . . . . . . . o . . .
+  BD  o . . . . . o . . . o . . . . .
+
+pattern g30     crash eighths, snare 16th on beat 3 and its e, snare-HT-FT-FT fill on beat 4
+  CR  x . x . x . x . x . x . . . . .
+  HT  . . . . . . . . . . . . . o . .
+  SD  . . . o o . . . o o . . o . . .
+  FT  . . . . . . . . . . . . . . o o
+  BD  o . . . . . o . . . . . . . . .
+
+pattern g31     dotted-eighth crash and kick on 1, snare on the a, open hat eighths
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . . . o . o . o . o . o . o .
+  SD  . . . o . . . . . . . . o . . .
+  BD  o . . . . . o . . . o . . . . .   # dotted eighth: the dot sits on both the crash and the kick, then the SD 16th on the "a"
+
+pattern g32     open hat eighths, snare on the a of 1, SD-SD-HT-HT fill on beat 4
+  HH  o . o . o . o . o . o . . . . .
+  HT  . . . . . . . . . . . . . . o o
+  SD  . . . o . . . . . . . . o o . .
+  BD  o . . . . . o . . . o . . . . .
+
+pattern g33     dotted-eighth crash and kick on 1, snare on the a, crash eighths
+  CR  x . . . x . x . x . x . x . x .   # beat 1 is a dotted eighth: the dot sits on both the crash and the kick
+  SD  . . . o . . . . . . . . o . . .
+  BD  o . . . . . o . . . o . . . . .
+
+pattern g34     crash eighths, snare on the a of 1 and on 4, kick on the e of 4 (no snare on 2)
+  CR  x . x . x . x . x . x . x . x .
+  SD  . . . o . . . . . . . . o . . .
+  BD  o . . . . . o . . . o . . o . .
+
+pattern g35     circled-x eighths, kick on 1, 2& and 3&, snare on the a of 1 and on 4
+  CR  x . x . x . x . x . x . x . x .   # circled x on every eighth, read as CR per the key
+  SD  . . . o . . . . . . . . o . . .
+  BD  o . . . . . o . . . o . . . . .
+
+pattern g36     circled-x eighths, last eighth missing: beat 4 is a lone quarter
+  CR  x . x . x . x . x . x . x . . .   # circled x on every eighth, read as CR per the key
+  SD  . . . o . . . . . . . . o . . .
+  BD  o . . . . . o . . . o . . . . .
+
+pattern g39     circled-x eighths, snare on the a of 1, on 4 and on 4&
+  CR  x . x . x . x . x . x . x . x .   # circled x on every eighth, read as CR per the key
+  SD  . . . o . . . . . . . . o . o .
+  BD  o . . . . . o . . . o . . . . .
+
+bars
+  1    rest g01
+  3    g02 g03 g04 g05
+  7    g06 g07 g08 g07
+  11   g08 g07 g08 g07
+  15   g06 g07 g08 g07
+  19   g08 g07
+  21   g02 g03 g02 g03
+  25   g02 g03 g04 g18
+  29   g19 g20 g08 g20
+  33   g21 g20 g20 g22
+  37   g19 g20 g08 g20
+  41   g21 g20 g21 g23
+  45   g02 g03 g02 g03
+  49   g02 g03 g03 g24
+  53   g25 g26 g27 g26
+  57   g27 g26 g26 g26 g30
+  62   g31 g03 g02 g03
+  66   g02 g03 g04 g32
+  70   g33 g34 g35 g36
+  74   g35 g34 g34 g39 rest

@@ -128,7 +128,9 @@ def main() -> None:
         first = a.first_bar
     else:
         rates = []
-        for cand in range(1, 9):
+        # Negative: the score video can start after the record does (Numb's
+        # score begins at the song's bar 3, so its bar 1 is song bar 3 = -1).
+        for cand in [*range(-7, 0), *range(1, 9)]:
             r = check(grid, notes_for(patterns, seq, cand), found, 90)
             hit = sum(v[0] for v in r.values())
             total = sum(v[1] for v in r.values())

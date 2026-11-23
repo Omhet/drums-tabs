@@ -1,0 +1,93 @@
+[song]
+artist = "Rammstein"
+title = "Engel"
+
+[source]
+url = "https://www.youtube.com/watch?v=x2rQzv8OWEY"
+video_id = "x2rQzv8OWEY"
+title = "Rammstein - Engel (Official 4K Video)"
+uploader = "Rammstein Official"
+duration = 266.0
+
+[models]
+separation = ""
+
+[grid]
+meter = ""
+tempo_multiplier = ""
+downbeat_rotation = -1
+
+# No [author]: this tab.mid was not written in Ableton. It is generated from
+# reading.txt, which Claude read off the drum score in
+# https://www.youtube.com/watch?v=BrhjyBHtkio (2026-11-23), and the record's own
+# drum hits placed it: the score's bar 8 is this song's bar 1. The score's first
+# seven bars are rests. To change a note, edit reading.txt and run the
+# score-video-tab skill's to_midi.py with --first-bar 8 --write.
+
+# MIDI key -> instrument: General MIDI drum keys.
+[midi_map]
+36 = "kick"
+38 = "snare"
+42 = "hihat_closed"
+46 = "hihat_open"
+49 = "crash"
+
+# The song's sections, cut from the score rather than by `drums sections`: a
+# new part where the crash lands after a fill (or the groove changes), named by
+# what the drums play. Rename them freely. Bars are 1-based and inclusive, and
+# together they cover the song in order. Song bar = score bar - 7.
+
+[[section]]
+name = "pickup"
+start_bar = 1
+end_bar = 1
+
+[[section]]
+name = "groove 1"
+start_bar = 2
+end_bar = 25
+
+[[section]]
+name = "groove 2"
+start_bar = 26
+end_bar = 34
+
+[[section]]
+name = "groove 3"
+start_bar = 35
+end_bar = 50
+
+[[section]]
+name = "groove 4"
+start_bar = 51
+end_bar = 58
+
+[[section]]
+name = "kick and snare"
+start_bar = 59
+end_bar = 66
+
+[[section]]
+name = "break"
+start_bar = 67
+end_bar = 70
+
+[[section]]
+name = "quiet hats"
+start_bar = 71
+end_bar = 74
+
+[[section]]
+name = "crescendo"
+start_bar = 75
+end_bar = 78
+
+[[section]]
+name = "open hat"
+start_bar = 79
+end_bar = 94
+
+[[section]]
+name = "end"
+start_bar = 95
+end_bar = 97

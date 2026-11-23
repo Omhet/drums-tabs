@@ -1,0 +1,202 @@
+# Engel - Rammstein
+# read from the drum-score video https://www.youtube.com/watch?v=BrhjyBHtkio (channel 알려드럼)
+# 4/4, quarter = 96 (marked on the first line), 105 bars, no repeat signs
+#
+# Grid: sixteen columns a bar, 1 e & a 2 e & a 3 e & a 4 e & a.
+#   x  cymbal hit (CR, RD, closed HH)     o  drum hit, or open hi-hat on the HH row
+#   O  accented drum hit                  f  flam (grace note before the hit)
+#   d  double: the hit and another a 32nd after it
+#   .  nothing
+# A "<" after a pattern name in the bar list means a crescendo hairpin over that bar.
+# A "!" after one means that bar was read apart from the bars that look like it,
+# on purpose (see below).
+#
+# Key for this channel (confirmed by the user 2026-11-22): triangle above the staff
+# = ride, circled x = crash, x above the staff = hi-hat with "o" over it = open,
+# top space = high tom, second line = mid tom, third space = snare,
+# second space = floor tom, bottom space = kick.
+#
+# This file is the source of tab.mid: edit it and run the score-video-tab
+# skill's to_midi.py with --first-bar N --write (score bar N = song bar 1).
+
+pattern g04     hat quarters on 1 and 2, kick-snare-open hat on 3, snare sixteenths on 4
+  HH  x . . . x . . . . . o . . . . .
+  SD  . . . . . . . . . o . . o o o o
+  BD  . . . . . . . . o . . . . . . .
+
+pattern g05     eighth-note hat groove, crash on 1, kicks on every beat and the & of 4
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . x . x . x . x . x . x . x .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . o . . . o . . . o . o .
+
+pattern g06     eighth-note hat groove with a snare sixteenth on the e of 3 and an open hat on the & of 3
+  HH  x . x . x . x . x . o . x . x .
+  SD  . . . . o . . . . o . . o . . .
+  BD  o . . . o . . . o . . . o . . .
+
+pattern g07     eighth-note hat groove, kicks on every beat and the & of 4
+  HH  x . x . x . x . x . x . x . x .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . o . . . o . . . o . o .
+
+pattern g09     hat eighths, snare sixteenth on the e of 3, open hat on the & of 3 and 4
+  HH  x . x . x . x . x . o . x . o .
+  SD  . . . . o . . . . o . . o . . .
+  BD  o . . . o . . . o . . . o . . .
+
+pattern g10     closed hat eighths, snare on 2 and 4, kick on every beat
+  HH  x . x . x . x . x . x . x . x .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . o . . . o . . . o . . .
+
+pattern g11     hat eighths, open hat on the & of 3 and 4, snare on 2 and 4, kick on every beat
+  HH  x . x . x . x . x . o . x . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . o . . . o . . . o . . .
+
+pattern g13     hat eighths, open hat on the & of 4, snare on 2 and 4, kick on every beat
+  HH  x . x . x . x . x . x . x . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . o . . . o . . . o . . .
+
+pattern g14     hat eighths, open hat on the & of 3, snare on 2 and 4, kick on every beat
+  HH  x . x . x . x . x . o . x . x .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . o . . . o . . . o . . .
+
+pattern g15     hat eighths, then 3 and 4 as kick-snare-hat sixteenth figures (R L R), open hat on the & of 3 and 4
+  HH  x . x . x . x . x . o . . . o .
+  SD  . . . . o . . . . o . . o o . .
+  BD  o . . . o . . . o . . . o . . .
+
+pattern g16     eighth-note hat, crash on 1, kick on every beat, snare on 2 and 4
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . x . x . x . x . x . x . x .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . o . . . o . . . o . . .
+
+pattern g17     eighth-note hat, 16th snare on 3e with open hat on 3&, snare 16ths on 4& and 4a
+  HH  x . x . x . x . x . o . . . . .
+  SD  . . . . o . . . . o . . o . o o
+  BD  o . . . o . . . o . . . o . . .
+
+pattern g18     snare and kick on 1, rests, kick on the & of 3, four snare 16ths on 4
+  SD  o . . . . . . . . . . . o o o o
+  BD  o . . . . . . . . . o . . . . .
+
+pattern g22     crash and kick on 1, rest for beats 2 and 3, three snare 16ths on 4e 4& 4a
+  CR  x . . . . . . . . . . . . . . .
+  SD  . . . . . . . . . . . . . o o o
+  BD  o . . . . . . . . . . . . . . .
+
+pattern g24     closed-hat eighths, backbeat, 16th pair on the "e" of 3
+  HH  x . x . x . x . x . x . x . x .
+  SD  . . . . o . . . . o . . o . . .
+  BD  o . . . o . . . o . . . o . . .
+
+pattern g25     crash on 1, closed-hat eighths, snare on the "e" of 3, kick on the & of 3 and 4
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . x . x . x . x . x . x . x .
+  SD  . . . . o . . . . o . . o . . .
+  BD  o . . . . . . . . . o . . . o .
+
+pattern g26     closed-hat eighths, snare on the "e" of 3, kick on 1 and the & of 3
+  HH  x . x . x . x . x . x . x . x .
+  SD  . . . . o . . . . o . . o . . .
+  BD  o . . . . . . . . . o . . . . .
+
+pattern g27     closed-hat eighths, backbeat, kick on 1, the & of 3 and the & of 4
+  HH  x . x . x . x . x . x . x . x .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . . . . . . . o . . . o .
+
+pattern g28     crash on 1, closed-hat eighths, backbeat, kick on 1, the & of 3 and the & of 4
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . x . x . x . x . x . x . x .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . . . . . . . o . . . o .
+
+pattern g29     crash and kick on 1, then three quarter rests
+  CR  x . . . . . . . . . . . . . . .
+  BD  o . . . . . . . . . . . . . . .
+
+pattern g31     sixteenth hi-hat, open on 1, crescendo
+  HH  x x x x x x x x x x x x x x x x   # the "0" left of the first hat, where the hairpin starts, is a niente (from nothing) dynamic mark, not an open hat
+
+pattern g32     crash and kick on 1, closed hat on 2 and 4, rest on 3
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . . . x . . . . . . . x . . .
+  BD  o . . . . . . . . . . . . . . .
+
+pattern g33     closed hat on 2 and 4, rests on 1 and 3
+  HH  . . . . x . . . . . . . x . . .
+
+pattern g35     sixteenth closed hats, crescendo continues
+  HH  x x x x x x x x x x x x x x x x
+
+pattern g37     crash and kick on 1, hat on 2, hat-snare-open hat on 3, snare sixteenths on 4
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . . . x . . . x . o . . . . .   # beat 3: closed 16th, then an eighth with the 0 on the "&"
+  SD  . . . . . . . . . o . . o o o o   # 3e snare 16th; beat 4 four snare 16ths (RLRL)
+  BD  o . . . . . . . . . . . . . . .
+
+pattern g38     crash on 1, open hat eighths, snare on 2 and 4, kick on every beat
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . o . o . o . o . o . o . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . o . . . o . . . o . . .
+
+pattern g39     open hat eighths, snare on 2 and 4, kick on every beat
+  HH  o . o . o . o . o . o . o . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . o . . . o . . . o . . .
+
+pattern g40     open-hat eighths, backbeat, kick on 1 2 3 4 and the & of 4
+  HH  o . o . o . o . o . o . o . o .
+  SD  . . . . o . . . . . . . o . . .
+  BD  o . . . o . . . o . . . o . o .
+
+pattern g41     open-hat eighths, backbeat, snare 16th on the e of 3
+  HH  o . o . o . o . o . o . o . o .
+  SD  . . . . o . . . . o . . o . . .
+  BD  o . . . o . . . o . . . o . . .
+
+pattern g42     crash on 1, open-hat eighths, backbeat, snare 16th on the e of 3
+  CR  x . . . . . . . . . . . . . . .
+  HH  . . o . o . o . o . o . o . o .
+  SD  . . . . o . . . . o . . o . . .
+  BD  o . . . o . . . o . . . o . . .
+
+pattern g46     open-hat groove with snare 16ths on the e of 1 and 3, snare sixteenths on beat 4 (RLRL)
+  HH  o . o . o . o . o . o . . . . .
+  SD  . o . . o . o . . o . . o o o o
+  BD  o . . . o . . . o . . . o . . .
+
+bars
+  1    rest rest rest rest
+  5    rest rest rest g04
+  9    g05 g06 g07 g06
+  13   g07 g06 g07 g09
+  17   g10 g11 g10 g13
+  21   g10 g14 g10 g15
+  25   g16 g06 g07 g06
+  29   g07 g06 g17 g18
+  33   g16 g10 g07 g06
+  37   g05 g10 g10 g09 g22
+  42   g16 g13 g10 g06
+  46   g10 g13 g10 g15
+  50   g05 g06 g07 g09
+  54   g07 g06 g17 g18
+  58   g16 g10 g07 g06
+  62   g16 g10 g10 g24
+  66   g25 g26 g27 g26
+  70   g28 g26 g27 g27
+  74   g29 rest rest g31<
+  78   g32 g33 g33 g33
+  82   g31< g35< g35< g37
+  86   g38 g39 g40 g41
+  90   g38 g39 g40 g42
+  94   g38 g39 g40 g41
+  98   g38 g39 g41 g46
+  102  g29 rest rest rest

@@ -102,3 +102,8 @@ leaving something out, and it is the user's to decide (SKILL.md).
 - A groove that repeats every two bars makes the alignment two bars off score
   well too (94.9% against 100% for Come As You Are). Trust the clear winner
   only when it is near 100%.
+- **A "0" at the start of a hairpin is not an open hat.** Engel's crescendo
+  begins with a "0" just left of the first hat, level with the hairpin line
+  (a niente mark: from nothing). An open-hat "0" sits above the note's own
+  stem. Two readers took the first for an open hat; zoom in when a "0" comes
+  right before a hairpin.

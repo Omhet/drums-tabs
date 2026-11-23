@@ -90,3 +90,4 @@ first or the second crash is the drummer's choice (see SKILL.md).
 |------|-------|------------------------|-------|
 | Nirvana, Come As You Are | `qxlvvZV229Q` | 4 | 105 score bars, 18 patterns; the score leaves out the kick on the "&" of 1 in the chorus's snare-sixteenth bars |
 | Rammstein, Sonne | `1A00CVLGM7Q` | 1 | 75 score bars, 27 patterns, open hat throughout; the beat grid had to be moved half a beat (`tempo_multiplier = "offbeat"`); 32nd-note double kicks as `d`; the record moves the fill kick to the "&" of 2 in bars 43 and 51 and has none on the "e" of 4 in bar 9 (both taken) |
+| Rammstein, Engel | `BrhjyBHtkio` | 8 | 105 score bars (first seven rests, a five-bar line at bars 37-41, the last line shown for half a second), 31 patterns; the record is dense with guitars so the "nothing written" list is noise (strength 0-1 against written 5); no disagreements; a "0" left of a hairpin is a niente mark, not an open hat |
